@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+.Python
+.venv/
+venv/
+env/
+
+build/
+dist/
+*.spec.bak
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+*.log
+*.tmp
+
+# Local capture/debug artifacts
+dxcam_test.png
+wgc_hdr_capture_test*.png

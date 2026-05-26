@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import QApplication
 APP_NAME = "QuickShot"
 REG_NAME = "QuickShot"
 REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
-APP_VERSION = "5.2.0"
+APP_VERSION = "5.3.0"
 CUSTOM_FOR_NAME = "张嘉文"
 
 

@@ -244,13 +244,7 @@ class PinManagerWindow(QWidget):
                 item = QListWidgetItem()
                 item.setSizeHint(QSize(0, PinItemDelegate.ITEM_H))
                 item.setData(Qt.ItemDataRole.UserRole, row)
-                thumb = pin.pixmap.scaled(
-                    PinItemDelegate.THUMB_W,
-                    PinItemDelegate.THUMB_H,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                item.setData(Qt.ItemDataRole.UserRole + 1, thumb)
+                # 缩略图延迟加载，不在主线程同步缩放
                 item.setData(Qt.ItemDataRole.UserRole + 2, pin.name)
                 size_text = f"{pin.pixmap.width()} × {pin.pixmap.height()}    缩放 {pin.scale:.0%}    透明 {pin.opacity_percent}%"
                 item.setData(Qt.ItemDataRole.UserRole + 3, size_text)
@@ -264,9 +258,36 @@ class PinManagerWindow(QWidget):
         finally:
             self.list_widget.blockSignals(False)
             self.list_widget.setUpdatesEnabled(True)
+        self._thumb_load_pins = pins
+        self._thumb_load_index = 0
+        QTimer.singleShot(0, self._load_pin_thumbnail_batch)
         self.update_status_label(pins)
         if pins:
             self.list_widget.setCurrentRow(min(select_row, len(pins) - 1))
+
+    def _load_pin_thumbnail_batch(self) -> None:
+        """分批加载贴图缩略图，避免一次性缩放所有贴图阻塞 UI。"""
+        pins = getattr(self, "_thumb_load_pins", [])
+        start = self._thumb_load_index
+        batch = 10
+        end = min(start + batch, len(pins))
+        for row in range(start, end):
+            if row >= self.list_widget.count():
+                break
+            list_item = self.list_widget.item(row)
+            if list_item is None or list_item.data(Qt.ItemDataRole.UserRole + 1) is not None:
+                continue
+            pin = pins[row]
+            thumb = pin.pixmap.scaled(
+                PinItemDelegate.THUMB_W,
+                PinItemDelegate.THUMB_H,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            list_item.setData(Qt.ItemDataRole.UserRole + 1, thumb)
+        self._thumb_load_index = end
+        if end < len(pins):
+            QTimer.singleShot(0, self._load_pin_thumbnail_batch)
 
     def current_pin(self) -> Optional[PinWindow]:
         row = self.list_widget.currentRow()

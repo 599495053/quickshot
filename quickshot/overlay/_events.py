@@ -73,6 +73,8 @@ _TOOL_KEY_MAP = {
 class EventMixin:
     """事件处理：鼠标按下/移动/释放、键盘、双击、工具栏命令。"""
 
+    _last_cursor_shape: int = -1
+
     # ── 命令执行 ──
 
     def _execute_command(self, command: str) -> None:
@@ -247,24 +249,27 @@ class EventMixin:
                 return
 
             if hover:
-                self.setCursor(Qt.CursorShape.PointingHandCursor)
+                cursor = Qt.CursorShape.PointingHandCursor
             elif hover_style:
-                self.setCursor(Qt.CursorShape.PointingHandCursor)
+                cursor = Qt.CursorShape.PointingHandCursor
             elif hover_text >= 0:
-                self.setCursor(Qt.CursorShape.SizeAllCursor)
+                cursor = Qt.CursorShape.SizeAllCursor
             elif self.active_tool == "none":
                 handle = self.selection_handle_at(pos)
-                self.setCursor(self.cursor_for_handle(handle))
+                cursor = self.cursor_for_handle(handle)
             elif self.selection_rect.contains(pos) and self.active_tool in DRAW_TOOLS:
-                self.setCursor(Qt.CursorShape.CrossCursor)
+                cursor = Qt.CursorShape.CrossCursor
             elif self.selection_rect.contains(pos) and self.active_tool == "number":
-                self.setCursor(Qt.CursorShape.CrossCursor)
+                cursor = Qt.CursorShape.CrossCursor
             elif self.selection_rect.contains(pos) and getattr(self, "ocr_region_mode", False):
-                self.setCursor(Qt.CursorShape.CrossCursor)
+                cursor = Qt.CursorShape.CrossCursor
             elif self.selection_rect.contains(pos) and self.active_tool == "text":
-                self.setCursor(Qt.CursorShape.IBeamCursor)
+                cursor = Qt.CursorShape.IBeamCursor
             else:
-                self.setCursor(Qt.CursorShape.ArrowCursor)
+                cursor = Qt.CursorShape.ArrowCursor
+            if cursor != self._last_cursor_shape:
+                self._last_cursor_shape = cursor
+                self.setCursor(cursor)
 
     def _handle_mouse_release(self, event) -> None:
         pos = self.clamp_point(event.position().toPoint())

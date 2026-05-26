@@ -18,10 +18,3 @@ def set_button_role(button: QPushButton, role: str = "secondary", compact: bool 
     button.setCursor(Qt.CursorShape.PointingHandCursor)
     button.setMinimumHeight(30 if compact else 34)
     return button
-
-
-def refresh_style(widget: QWidget) -> None:
-    style = widget.style()
-    style.unpolish(widget)
-    style.polish(widget)
-    widget.update()

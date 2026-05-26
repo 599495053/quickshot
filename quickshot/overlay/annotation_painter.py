@@ -125,6 +125,34 @@ def draw_dashed_rect_annotation(
     painter.restore()
 
 
+# ── QFont / QFontMetrics 缓存 ──
+_NUMBER_FONT: QFont | None = None
+_NUMBER_METRICS: QFontMetrics | None = None
+_TEXT_FONT_CACHE: dict[int, tuple[QFont, QFontMetrics]] = {}
+
+
+def _get_number_font() -> tuple[QFont, QFontMetrics]:
+    global _NUMBER_FONT, _NUMBER_METRICS
+    if _NUMBER_FONT is None:
+        _NUMBER_FONT = QFont("Microsoft YaHei")
+        _NUMBER_FONT.setWeight(QFont.Weight.Bold)
+        _NUMBER_FONT.setPixelSize(14)
+        _NUMBER_METRICS = QFontMetrics(_NUMBER_FONT)
+    return _NUMBER_FONT, _NUMBER_METRICS
+
+
+def _get_text_font(pixel_size: int) -> tuple[QFont, QFontMetrics]:
+    cached = _TEXT_FONT_CACHE.get(pixel_size)
+    if cached is not None:
+        return cached
+    font = QFont("Microsoft YaHei")
+    font.setWeight(QFont.Weight.Bold)
+    font.setPixelSize(pixel_size)
+    metrics = QFontMetrics(font)
+    _TEXT_FONT_CACHE[pixel_size] = (font, metrics)
+    return font, metrics
+
+
 def draw_number_badge(
     painter: QPainter,
     center: QPointF,
@@ -136,9 +164,7 @@ def draw_number_badge(
     painter.setPen(Qt.PenStyle.NoPen)
     painter.setBrush(color)
     painter.drawEllipse(center, radius, radius)
-    font = QFont("Microsoft YaHei")
-    font.setWeight(QFont.Weight.Bold)
-    font.setPixelSize(14)
+    font, _ = _get_number_font()
     painter.setFont(font)
     painter.setPen(QColor(255, 255, 255))
     painter.drawText(
@@ -162,14 +188,18 @@ def draw_polyline(
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
     painter.setPen(pen)
-    for index in range(1, len(points)):
-        painter.drawLine(points[index - 1], points[index])
+    path = QPainterPath()
+    path.moveTo(points[0])
+    for pt in points[1:]:
+        path.lineTo(pt)
+    painter.drawPath(path)
     painter.restore()
 
 
-def text_annotation_path(top_left: QPointF, text: str, font: QFont) -> QPainterPath:
+def text_annotation_path(top_left: QPointF, text: str, font: QFont, metrics: QFontMetrics | None = None) -> QPainterPath:
     path = QPainterPath()
-    metrics = QFontMetrics(font)
+    if metrics is None:
+        metrics = QFontMetrics(font)
     y = top_left.y() + metrics.ascent()
     for line in text.splitlines():
         if line:
@@ -185,10 +215,9 @@ def draw_text_annotation(
     pixel_size: int,
     color: QColor,
 ) -> None:
-    font = QFont("Microsoft YaHei")
-    font.setWeight(QFont.Weight.Bold)
-    font.setPixelSize(max(8, int(round(pixel_size))))
-    path = text_annotation_path(top_left, text, font)
+    ps = max(8, int(round(pixel_size)))
+    font, metrics = _get_text_font(ps)
+    path = text_annotation_path(top_left, text, font, metrics)
     if path.isEmpty():
         return
     outline_width = max(2, int(round(pixel_size * 0.18)))

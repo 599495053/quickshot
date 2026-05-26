@@ -72,14 +72,22 @@ def safe_print(*args) -> None:
         pass
 
 
+_DEBUG_LOG_ENABLED: bool | None = None
+_DEBUG_LOG_PATH: Path | None = None
+
+
 def debug_log(message: str) -> None:
-    if os.environ.get("QUICKSHOT_DEBUG_LOG") != "1":
+    global _DEBUG_LOG_ENABLED, _DEBUG_LOG_PATH
+    if _DEBUG_LOG_ENABLED is None:
+        _DEBUG_LOG_ENABLED = os.environ.get("QUICKSHOT_DEBUG_LOG") == "1"
+        if _DEBUG_LOG_ENABLED:
+            _DEBUG_LOG_PATH = Path(os.environ.get("APPDATA") or tempfile.gettempdir()) / APP_NAME / "debug.log"
+    if not _DEBUG_LOG_ENABLED:
         return
     try:
-        base = Path(os.environ.get("APPDATA") or tempfile.gettempdir()) / APP_NAME
-        base.mkdir(parents=True, exist_ok=True)
+        _DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with (base / "debug.log").open("a", encoding="utf-8") as fh:
+        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
             fh.write(f"[{stamp}] {message}\n")
     except OSError:
         # debug_log 自身 IO 失败时绝不可递归调用 debug_log

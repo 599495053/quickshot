@@ -165,7 +165,31 @@ class ToolbarMixin:
     def style_panel_rects(self):
         return self.style_option_rects.items()
 
+    def _style_cache_key(self):
+        """样式面板布局缓存 key，仅在相关状态变化时重算。"""
+        if self.style_panel_kind not in ("color", "width", "style"):
+            return None
+        anchor_key = self.style_panel_kind
+        if self.style_panel_kind == "style":
+            anchor_key = "style"
+        anchor = self.toolbar_buttons.get(anchor_key if anchor_key != "style" else "color")
+        if anchor is None:
+            return None
+        presets = getattr(self.config, "annotation_presets", []) if self.style_panel_kind == "style" else []
+        return (
+            self.style_panel_kind,
+            len(self.stroke_colors), tuple(self.stroke_colors),
+            len(self.stroke_widths), tuple(self.stroke_widths),
+            len(presets),
+            anchor.center().x(), anchor.top(),
+            self.width(), self.height(),
+        )
+
     def update_style_panel_layout(self) -> None:
+        key = self._style_cache_key()
+        if key is not None and key == getattr(self, "_style_layout_cache_key", None):
+            return
+        self._style_layout_cache_key = key
         self.style_panel_rect = QRect()
         self.style_option_rects.clear()
         if self.style_panel_kind not in ("color", "width", "style"):

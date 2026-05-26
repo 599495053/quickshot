@@ -131,7 +131,7 @@ def prepare_ocr_image(source_image: Union[QPixmap, QImage]) -> QImage:
             Qt.AspectRatioMode.IgnoreAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
-    return image.convertToFormat(QImage.Format.Format_RGB32)
+    return image.convertToFormat(QImage.Format.Format_RGB888)
 
 
 _RAPID_OCR_ENGINE = None
@@ -405,9 +405,41 @@ def extract_chinese(text: str) -> str:
     return ''.join(re.findall(r'[\u4e00-\u9fff]+', text))
 
 
+# ── 共享文本清洗工具 ──
+# HistoryWindow 和 OcrResultDialog 共用，消除重复实现。
+
+def clean_lines_text(text: str) -> str:
+    """整理空行和首尾空格。"""
+    lines = [line.strip() for line in text.splitlines()]
+    return "\n".join(line for line in lines if line)
+
+
+def clean_soft_text(text: str) -> str:
+    """轻清洗：整理空行 + 合并行内多余空格。"""
+    lines = [line.strip() for line in text.splitlines()]
+    normalized = []
+    for line in lines:
+        if not line:
+            continue
+        normalized.append(" ".join(line.split()))
+    return "\n".join(normalized)
+
+
+def clean_hard_text(text: str) -> str:
+    """强清洗：制表符替换 + 合并行内空格 + 所有行合并为一行。"""
+    text = text.replace("\t", " ")
+    lines = []
+    for line in text.splitlines():
+        compact = " ".join(line.split())
+        if compact:
+            lines.append(compact)
+    return " ".join(lines)
+
+
 def _qimage_to_numpy(image: QImage):
     import numpy as np
-    image = image.convertToFormat(QImage.Format.Format_RGB888)
+    if image.format() != QImage.Format.Format_RGB888:
+        image = image.convertToFormat(QImage.Format.Format_RGB888)
     width = image.width()
     height = image.height()
     bpl = image.bytesPerLine()
@@ -428,19 +460,25 @@ def recognize_text_with_rapidocr(source_image: Union[QPixmap, QImage]) -> str:
     return clean_ocr_text(format_rapidocr_result(result))
 
 
-# 隐私信息匹配模式
-import re
+# 隐私信息匹配模式（延迟编译，仅在首次 detect_privacy_info 时加载）
+_PRIVACY_PATTERNS = None
 
-PRIVACY_PATTERNS = [
-    # 手机号（中国大陆，支持空格/横线分隔）
-    re.compile(r'1[3-9]\d[\s\-]?\d{4}[\s\-]?\d{4}'),
-    # 身份证号（18位）
-    re.compile(r'[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]'),
-    # 邮箱
-    re.compile(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'),
-    # 银行卡号（16-19位数字，支持空格/横线分隔）
-    re.compile(r'\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}(?:[\s\-]?\d{1,3})?'),
-]
+
+def _get_privacy_patterns():
+    global _PRIVACY_PATTERNS
+    if _PRIVACY_PATTERNS is None:
+        import re
+        _PRIVACY_PATTERNS = [
+            # 手机号（中国大陆，支持空格/横线分隔）
+            re.compile(r'1[3-9]\d[\s\-]?\d{4}[\s\-]?\d{4}'),
+            # 身份证号（18位）
+            re.compile(r'[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]'),
+            # 邮箱
+            re.compile(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'),
+            # 银行卡号（16-19位数字，支持空格/横线分隔）
+            re.compile(r'\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}(?:[\s\-]?\d{1,3})?'),
+        ]
+    return _PRIVACY_PATTERNS
 
 
 def detect_privacy_info(image: Union[QPixmap, QImage]) -> list:
@@ -494,7 +532,7 @@ def _match_privacy_rects(ocr_result) -> list:
             continue
 
         is_private = False
-        for pattern in PRIVACY_PATTERNS:
+        for pattern in _get_privacy_patterns():
             if pattern.search(text):
                 is_private = True
                 debug_log(f"  MATCH [{pattern.pattern}]: {text}")

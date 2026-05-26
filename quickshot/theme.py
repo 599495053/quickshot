@@ -87,57 +87,77 @@ _COLOR_TOKENS = {
 }
 
 
+# ── QColor 缓存 ──
+# paintEvent 中每帧数百次调用 qc() / floating_*() 等，缓存避免重复构造。
+_QC_CACHE: dict[tuple[str, int], QColor] = {}
+
+
 def qc(token: str, alpha: int = 255) -> QColor:
-    """按 token 名取 QColor。``alpha`` 范围 0-255。"""
+    """按 token 名取 QColor。``alpha`` 范围 0-255。带缓存。"""
+    key = (token, alpha)
+    cached = _QC_CACHE.get(key)
+    if cached is not None:
+        return cached
     hex_color = _COLOR_TOKENS.get(token)
     if hex_color is None:
         raise KeyError(f"unknown color token: {token!r}")
     color = QColor(hex_color)
     if alpha < 255:
         color.setAlpha(alpha)
+    _QC_CACHE[key] = color
     return color
 
 
 # ── 半透明 / 绘制专用 QColor 工厂 ──
 # 这些颜色带 alpha 通道，无法用十六进制表达，直接以函数形式提供，
-# 让调用方含义清晰。
+# 让调用方含义清晰。使用模块级缓存单例。
+
+_OVERLAY_DIM = QColor(0, 0, 0, 100)
+_OVERLAY_SOLID = QColor(0, 0, 0, 255)
+_FLOATING_BG = QColor(18, 24, 33, 232)
+_FLOATING_BORDER = QColor(255, 255, 255, 28)
+_FLOATING_TEXT = QColor(244, 247, 251)
+_PANEL_BG = QColor(255, 255, 255, 248)
+_PANEL_BORDER = QColor(219, 226, 236, 248)
+_HANDLE_FILL = QColor(255, 255, 255, 240)
+
 
 def overlay_dim() -> QColor:
     """框选阶段的灰色遮罩。"""
-    return QColor(0, 0, 0, 100)
+    return _OVERLAY_DIM
 
 
 def overlay_solid() -> QColor:
     """调整选区时的纯黑外圈。"""
-    return QColor(0, 0, 0, 255)
+    return _OVERLAY_SOLID
 
 
 def floating_bg() -> QColor:
     """工具栏 / 消息条等悬浮 panel 的深色背景。"""
-    return QColor(18, 24, 33, 232)
+    return _FLOATING_BG
 
 
 def floating_border() -> QColor:
     """floating panel 的高光描边。"""
-    return QColor(255, 255, 255, 28)
+    return _FLOATING_BORDER
 
 
 def floating_text() -> QColor:
-    return QColor(244, 247, 251)
+    return _FLOATING_TEXT
 
 
 def panel_bg() -> QColor:
     """白底悬浮 panel（颜色/线宽样式面板）的背景。"""
-    return QColor(255, 255, 255, 248)
+    return _PANEL_BG
 
 
 def panel_border() -> QColor:
-    return QColor(219, 226, 236, 248)
+    return _PANEL_BORDER
 
 
 def handle_fill() -> QColor:
     """选区把手填色。"""
-    return QColor(255, 255, 255, 240)
+    return _HANDLE_FILL
 
 
 # ── 几何 token ──

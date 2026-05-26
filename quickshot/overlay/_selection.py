@@ -95,6 +95,7 @@ class SelectionMixin:
 
         # 编辑模式下使用 edit_pixmap（含标注、阴影、水印、历史图片等修改）
         if self.mode == "edit" and not self.edit_pixmap.isNull():
+            # QPixmap.copy() 利用隐式共享（COW），仅增加引用计数，不复制像素
             pm = self.edit_pixmap.copy()
             dpr_x = pm.width() / max(1, rect.width())
             dpr_y = pm.height() / max(1, rect.height())

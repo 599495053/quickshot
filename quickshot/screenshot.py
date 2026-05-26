@@ -11,6 +11,68 @@ from .utils import debug_log, pixmap_from_mss, pixmap_from_rgb_array, pixmap_fro
 
 _CAPTURE_PREWARMED = False
 
+# ── ctypes 结构体定义（模块级，避免每次调用重复定义）──
+if sys.platform.startswith("win"):
+    from ctypes import wintypes as _wintypes
+
+    class _LUID(ctypes.Structure):
+        _fields_ = [("LowPart", _wintypes.DWORD), ("HighPart", _wintypes.LONG)]
+
+    class _DISPLAYCONFIG_RATIONAL(ctypes.Structure):
+        _fields_ = [("Numerator", _wintypes.UINT), ("Denominator", _wintypes.UINT)]
+
+    class _DISPLAYCONFIG_PATH_SOURCE_INFO(ctypes.Structure):
+        _fields_ = [
+            ("adapterId", _LUID),
+            ("id", _wintypes.UINT),
+            ("modeInfoIdx", _wintypes.UINT),
+            ("statusFlags", _wintypes.UINT),
+        ]
+
+    class _DISPLAYCONFIG_PATH_TARGET_INFO(ctypes.Structure):
+        _fields_ = [
+            ("adapterId", _LUID),
+            ("id", _wintypes.UINT),
+            ("modeInfoIdx", _wintypes.UINT),
+            ("outputTechnology", _wintypes.UINT),
+            ("rotation", _wintypes.UINT),
+            ("scaling", _wintypes.UINT),
+            ("refreshRate", _DISPLAYCONFIG_RATIONAL),
+            ("scanLineOrdering", _wintypes.UINT),
+            ("targetAvailable", _wintypes.BOOL),
+            ("statusFlags", _wintypes.UINT),
+        ]
+
+    class _DISPLAYCONFIG_PATH_INFO(ctypes.Structure):
+        _fields_ = [
+            ("sourceInfo", _DISPLAYCONFIG_PATH_SOURCE_INFO),
+            ("targetInfo", _DISPLAYCONFIG_PATH_TARGET_INFO),
+            ("flags", _wintypes.UINT),
+        ]
+
+    class _DISPLAYCONFIG_MODE_INFO(ctypes.Structure):
+        _fields_ = [("data", ctypes.c_byte * 64)]
+
+    class _DISPLAYCONFIG_DEVICE_INFO_HEADER(ctypes.Structure):
+        _fields_ = [
+            ("type", _wintypes.UINT),
+            ("size", _wintypes.UINT),
+            ("adapterId", _LUID),
+            ("id", _wintypes.UINT),
+        ]
+
+    class _DISPLAYCONFIG_SDR_WHITE_LEVEL(ctypes.Structure):
+        _fields_ = [
+            ("header", _DISPLAYCONFIG_DEVICE_INFO_HEADER),
+            ("SDRWhiteLevel", _wintypes.ULONG),
+        ]
+
+# ── SDR white scale 缓存（显示器配置不频繁变化）──
+_SDR_WHITE_SCALE_CACHE: float = -1.0
+
+# ── qt_virtual_geometry 缓存 ──
+_VIRTUAL_GEOMETRY_CACHE: Optional[QRect] = None
+
 
 def schedule_capture_prewarm() -> None:
     """主线程同步预热截图后端 import，消除首次截图 ~600ms 冷启动延迟。
@@ -39,7 +101,15 @@ def schedule_capture_prewarm() -> None:
         debug_log(f"capture prewarm failed: {exc}")
 
 
+def _invalidate_virtual_geometry_cache() -> None:
+    global _VIRTUAL_GEOMETRY_CACHE
+    _VIRTUAL_GEOMETRY_CACHE = None
+
+
 def qt_virtual_geometry() -> QRect:
+    global _VIRTUAL_GEOMETRY_CACHE
+    if _VIRTUAL_GEOMETRY_CACHE is not None:
+        return _VIRTUAL_GEOMETRY_CACHE
     app = QApplication.instance()
     screens = app.screens() if app else []
     if not screens:
@@ -50,77 +120,40 @@ def qt_virtual_geometry() -> QRect:
         geometry = geometry.united(screen.geometry())
     if geometry.width() <= 0 or geometry.height() <= 0:
         return QRect(0, 0, 1, 1)
+    _VIRTUAL_GEOMETRY_CACHE = geometry
     return geometry
 
 
+def _setup_geometry_cache_invalidation() -> None:
+    """监听屏幕变化信号，自动失效虚拟几何缓存。"""
+    app = QApplication.instance()
+    if app is not None:
+        try:
+            app.screenAdded.connect(lambda: _invalidate_virtual_geometry_cache())
+            app.screenRemoved.connect(lambda: _invalidate_virtual_geometry_cache())
+        except Exception:
+            pass
+
+
 def _get_primary_sdr_white_scale() -> float:
+    global _SDR_WHITE_SCALE_CACHE
+    if _SDR_WHITE_SCALE_CACHE >= 0.0:
+        return _SDR_WHITE_SCALE_CACHE
     if not sys.platform.startswith("win"):
+        _SDR_WHITE_SCALE_CACHE = 0.0
         return 0.0
 
     try:
-        from ctypes import wintypes
-
-        class LUID(ctypes.Structure):
-            _fields_ = [("LowPart", wintypes.DWORD), ("HighPart", wintypes.LONG)]
-
-        class DISPLAYCONFIG_RATIONAL(ctypes.Structure):
-            _fields_ = [("Numerator", wintypes.UINT), ("Denominator", wintypes.UINT)]
-
-        class DISPLAYCONFIG_PATH_SOURCE_INFO(ctypes.Structure):
-            _fields_ = [
-                ("adapterId", LUID),
-                ("id", wintypes.UINT),
-                ("modeInfoIdx", wintypes.UINT),
-                ("statusFlags", wintypes.UINT),
-            ]
-
-        class DISPLAYCONFIG_PATH_TARGET_INFO(ctypes.Structure):
-            _fields_ = [
-                ("adapterId", LUID),
-                ("id", wintypes.UINT),
-                ("modeInfoIdx", wintypes.UINT),
-                ("outputTechnology", wintypes.UINT),
-                ("rotation", wintypes.UINT),
-                ("scaling", wintypes.UINT),
-                ("refreshRate", DISPLAYCONFIG_RATIONAL),
-                ("scanLineOrdering", wintypes.UINT),
-                ("targetAvailable", wintypes.BOOL),
-                ("statusFlags", wintypes.UINT),
-            ]
-
-        class DISPLAYCONFIG_PATH_INFO(ctypes.Structure):
-            _fields_ = [
-                ("sourceInfo", DISPLAYCONFIG_PATH_SOURCE_INFO),
-                ("targetInfo", DISPLAYCONFIG_PATH_TARGET_INFO),
-                ("flags", wintypes.UINT),
-            ]
-
-        class DISPLAYCONFIG_MODE_INFO(ctypes.Structure):
-            _fields_ = [("data", ctypes.c_byte * 64)]
-
-        class DISPLAYCONFIG_DEVICE_INFO_HEADER(ctypes.Structure):
-            _fields_ = [
-                ("type", wintypes.UINT),
-                ("size", wintypes.UINT),
-                ("adapterId", LUID),
-                ("id", wintypes.UINT),
-            ]
-
-        class DISPLAYCONFIG_SDR_WHITE_LEVEL(ctypes.Structure):
-            _fields_ = [
-                ("header", DISPLAYCONFIG_DEVICE_INFO_HEADER),
-                ("SDRWhiteLevel", wintypes.ULONG),
-            ]
-
         qdc_only_active_paths = 0x00000002
         get_sdr_white_level = 11
         user32 = ctypes.windll.user32
-        path_count = wintypes.UINT()
-        mode_count = wintypes.UINT()
+        path_count = _wintypes.UINT()
+        mode_count = _wintypes.UINT()
         if user32.GetDisplayConfigBufferSizes(qdc_only_active_paths, ctypes.byref(path_count), ctypes.byref(mode_count)) != 0:
+            _SDR_WHITE_SCALE_CACHE = 0.0
             return 0.0
-        paths = (DISPLAYCONFIG_PATH_INFO * max(1, path_count.value))()
-        modes = (DISPLAYCONFIG_MODE_INFO * max(1, mode_count.value))()
+        paths = (_DISPLAYCONFIG_PATH_INFO * max(1, path_count.value))()
+        modes = (_DISPLAYCONFIG_MODE_INFO * max(1, mode_count.value))()
         if user32.QueryDisplayConfig(
             qdc_only_active_paths,
             ctypes.byref(path_count),
@@ -129,23 +162,29 @@ def _get_primary_sdr_white_scale() -> float:
             modes,
             None,
         ) != 0:
+            _SDR_WHITE_SCALE_CACHE = 0.0
             return 0.0
         if path_count.value <= 0:
+            _SDR_WHITE_SCALE_CACHE = 0.0
             return 0.0
 
-        white = DISPLAYCONFIG_SDR_WHITE_LEVEL()
+        white = _DISPLAYCONFIG_SDR_WHITE_LEVEL()
         white.header.type = get_sdr_white_level
         white.header.size = ctypes.sizeof(white)
         white.header.adapterId = paths[0].targetInfo.adapterId
         white.header.id = paths[0].targetInfo.id
         if user32.DisplayConfigGetDeviceInfo(ctypes.byref(white.header)) != 0:
+            _SDR_WHITE_SCALE_CACHE = 0.0
             return 0.0
         scale = float(white.SDRWhiteLevel) / 1000.0
         if scale <= 0.0:
+            _SDR_WHITE_SCALE_CACHE = 0.0
             return 0.0
+        _SDR_WHITE_SCALE_CACHE = scale
         return scale
     except Exception as exc:
         debug_log(f"SDR white level unavailable: {exc}")
+        _SDR_WHITE_SCALE_CACHE = 0.0
         return 0.0
 
 
@@ -297,7 +336,12 @@ def _grab_virtual_screen_with_wgc_hdr() -> Optional[Tuple[QPixmap, int, int]]:
                 debug_log(f"WGC HDR frame pool close failed: {exc}")
 
 
+_DXCAM_CAMERA = None
+_DXCAM_BACKEND = None
+
+
 def _grab_virtual_screen_with_dxcam(prefer_dxgi: bool = False, hdr_desktop: bool = False, sdr_white_scale: float = 0.0) -> Optional[Tuple[QPixmap, int, int]]:
+    global _DXCAM_CAMERA, _DXCAM_BACKEND
     try:
         import dxcam
     except Exception as exc:
@@ -310,7 +354,20 @@ def _grab_virtual_screen_with_dxcam(prefer_dxgi: bool = False, hdr_desktop: bool
     for backend in backends:
         camera = None
         try:
-            camera = dxcam.create(output_color="RGB", backend=backend)
+            # 复用已缓存的 camera 对象（避免每次 50-200ms 的 D3D11 初始化）
+            if _DXCAM_CAMERA is not None and _DXCAM_BACKEND == backend:
+                camera = _DXCAM_CAMERA
+            else:
+                # 释放旧 camera
+                if _DXCAM_CAMERA is not None:
+                    try:
+                        _DXCAM_CAMERA.release()
+                    except Exception:
+                        pass
+                    _DXCAM_CAMERA = None
+                camera = dxcam.create(output_color="RGB", backend=backend)
+                _DXCAM_CAMERA = camera
+                _DXCAM_BACKEND = backend
             frame = camera.grab()
             if frame is None:
                 debug_log(f"dxcam {backend} returned no frame")
@@ -322,13 +379,19 @@ def _grab_virtual_screen_with_dxcam(prefer_dxgi: bool = False, hdr_desktop: bool
             return pixmap, 0, 0
         except Exception as exc:
             debug_log(f"dxcam {backend} capture failed: {exc}")
-        finally:
+            # 出错时释放 camera，下次重建
+            if camera is _DXCAM_CAMERA:
+                _DXCAM_CAMERA = None
             if camera is not None:
                 try:
                     camera.release()
-                except Exception as exc:
-                    debug_log(f"dxcam release failed: {exc}")
+                except Exception:
+                    pass
     return None
+
+
+_GEOMETRY_INVALIDATION_SETUP = False
+_MSS_INSTANCE = None
 
 
 def grab_virtual_screen(hdr_color_accurate: bool = False) -> Tuple[QPixmap, QPixmap, QRect, float, float, int, int]:
@@ -336,6 +399,10 @@ def grab_virtual_screen(hdr_color_accurate: bool = False) -> Tuple[QPixmap, QPix
 
     hdr_color_accurate=True 时优先 WGC HDR（色彩物理正确，但 Windows 会画金色录制边框）；
     False（默认）时走 mss（GDI 抓屏，不受 HDR 色调映射影响）。"""
+    global _GEOMETRY_INVALIDATION_SETUP
+    if not _GEOMETRY_INVALIDATION_SETUP:
+        _GEOMETRY_INVALIDATION_SETUP = True
+        _setup_geometry_cache_invalidation()
     dx_capture = None
     if hdr_color_accurate:
         dx_capture = _grab_virtual_screen_with_wgc_hdr() or _grab_virtual_screen_with_dxcam()
@@ -343,13 +410,20 @@ def grab_virtual_screen(hdr_color_accurate: bool = False) -> Tuple[QPixmap, QPix
     if dx_capture is not None:
         raw_pixmap, physical_left, physical_top = dx_capture
     else:
+        global _MSS_INSTANCE
         import mss
-        with mss.mss() as sct:
-            monitor = sct.monitors[0]
-            shot = sct.grab(monitor)
-            raw_pixmap = pixmap_from_mss(shot)
-            physical_left = int(monitor.get("left", 0))
-            physical_top = int(monitor.get("top", 0))
+        if _MSS_INSTANCE is None:
+            try:
+                _MSS_INSTANCE = mss.mss()
+            except Exception as exc:
+                debug_log(f"mss init failed: {exc}")
+                _MSS_INSTANCE = mss.mss()
+        sct = _MSS_INSTANCE
+        monitor = sct.monitors[0]
+        shot = sct.grab(monitor)
+        raw_pixmap = pixmap_from_mss(shot)
+        physical_left = int(monitor.get("left", 0))
+        physical_top = int(monitor.get("top", 0))
 
     logical_geometry = qt_virtual_geometry()
     if logical_geometry.width() <= 0 or logical_geometry.height() <= 0:

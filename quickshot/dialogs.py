@@ -16,32 +16,17 @@ from PyQt6.QtWidgets import (
 )
 
 from .theme import (
-    BORDER_REGULAR,
+    ACCENT_BASE,
+    BORDER_BTN,
     RADIUS_MD,
-    SURFACE_INPUT,
     TEXT_MUTED,
-    TEXT_SECONDARY,
     dialog_extras_stylesheet,
 )
 from .ui import APP_STYLE, make_card, set_button_role
 from .utils import load_app_icon
 
 
-def build_dialog_header(title: str, subtitle: str) -> QFrame:
-    card = make_card("heroCard")
-    title_label = QLabel(title)
-    title_label.setObjectName("heroTitle")
-    subtitle_label = QLabel(subtitle)
-    subtitle_label.setObjectName("heroSubtitle")
-    subtitle_label.setWordWrap(True)
-
-    layout = QVBoxLayout()
-    layout.setContentsMargins(18, 16, 18, 16)
-    layout.setSpacing(4)
-    layout.addWidget(title_label)
-    layout.addWidget(subtitle_label)
-    card.setLayout(layout)
-    return card
+from ._manager_delegates import build_header_card as build_dialog_header
 
 
 class OcrResultDialog(QDialog):
@@ -217,28 +202,18 @@ class OcrResultDialog(QDialog):
         self.title_label.setText("已合并成一行")
 
     def clean_lines(self) -> None:
-        lines = [line.strip() for line in self.current_text().splitlines()]
-        self.text_edit.setPlainText("\n".join(line for line in lines if line))
+        from .ocr import clean_lines_text
+        self.text_edit.setPlainText(clean_lines_text(self.current_text()))
         self.title_label.setText("已整理空行和首尾空格")
 
     def clean_soft(self) -> None:
-        lines = [line.strip() for line in self.current_text().splitlines()]
-        normalized = []
-        for line in lines:
-            if not line:
-                continue
-            normalized.append(" ".join(line.split()))
-        self.text_edit.setPlainText("\n".join(normalized))
+        from .ocr import clean_soft_text
+        self.text_edit.setPlainText(clean_soft_text(self.current_text()))
         self.title_label.setText("已完成轻清洗")
 
     def clean_hard(self) -> None:
-        text = self.current_text().replace("\t", " ")
-        lines = []
-        for line in text.splitlines():
-            compact = " ".join(line.split())
-            if compact:
-                lines.append(compact)
-        self.text_edit.setPlainText(" ".join(lines))
+        from .ocr import clean_hard_text
+        self.text_edit.setPlainText(clean_hard_text(self.current_text()))
         self.title_label.setText("已完成强清洗并合并")
 
     def clean_deep(self) -> None:
@@ -491,35 +466,20 @@ class TextAnnotationDialog(QDialog):
     def select_color(self, color: str) -> None:
         self.selected_color = color
         for button_color, button in self.color_buttons.items():
-            border = "#2563eb" if button_color == color else "#d0d7e2"
+            border = ACCENT_BASE if button_color == color else BORDER_BTN
             width = 2 if button_color == color else 1
             button.setStyleSheet(
                 f"""
                 QPushButton {{
                     background: {button_color};
                     border: {width}px solid {border};
-                    border-radius: 8px;
+                    border-radius: {RADIUS_MD}px;
                 }}
                 QPushButton:hover {{
-                    border-color: #2563eb;
+                    border-color: {ACCENT_BASE};
                 }}
                 """
             )
 
     def apply_style(self) -> None:
-        self.setStyleSheet(APP_STYLE + f"""
-            QLabel#heroSubtitle {{
-                color: {TEXT_MUTED};
-                line-height: 1.45;
-            }}
-            QLabel#fieldLabel {{
-                color: {TEXT_SECONDARY};
-                font-weight: 700;
-            }}
-            QTextEdit, QSpinBox {{
-                border: 1px solid {BORDER_REGULAR};
-                border-radius: {RADIUS_MD}px;
-                padding: 8px 10px;
-                background: {SURFACE_INPUT};
-            }}
-        """)
+        self.setStyleSheet(APP_STYLE + dialog_extras_stylesheet())

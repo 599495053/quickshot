@@ -58,6 +58,46 @@ class PaintMixin:
         self._font_tip = QFont("Microsoft YaHei", 9, QFont.Weight.Medium)
         self._fm_tip = QFontMetrics(self._font_tip)
 
+        # ── 工具栏按钮状态颜色缓存 ──
+        # 每种状态预建 (fill, border) QColor 对，避免 draw_toolbar 每帧 new
+        self._tb_primary_fill = QColor(34, 197, 94, 160)
+        self._tb_primary_fill_hover = QColor(34, 197, 94, 220)
+        self._tb_primary_border = QColor(34, 197, 94, 200)
+        self._tb_danger_fill = QColor(239, 68, 68, 140)
+        self._tb_danger_fill_hover = QColor(239, 68, 68, 220)
+        self._tb_danger_border = QColor(239, 68, 68, 200)
+        self._tb_toggled_fill = QColor(59, 130, 246, 180)
+        self._tb_toggled_border = QColor(59, 130, 246, 220)
+        self._tb_active_fill = QColor(59, 130, 246, 120)
+        self._tb_active_border = QColor(59, 130, 246, 180)
+        self._tb_hover_fill = QColor(255, 255, 255, 35)
+        self._tb_hover_border = QColor(255, 255, 255, 50)
+        self._tb_normal_fill = QColor(255, 255, 255, 0)
+        self._tb_normal_border = QColor(0, 0, 0, 0)
+        self._tb_accent_bar = QColor(96, 165, 250)
+        # 图标颜色缓存
+        self._tb_icon_white = QColor(255, 255, 255)
+        self._tb_icon_active = QColor(147, 197, 253)
+        self._tb_icon_normal = QColor(209, 213, 219)
+        # 网格 pen 缓存
+        self._pen_grid = QPen(QColor(getattr(self.config, "grid_color", "#ffffff80")), 1, Qt.PenStyle.DashLine)
+        # separator pen 缓存
+        self._pen_sep = QPen(QColor(255, 255, 255, 40), 1)
+        # 样式面板状态颜色缓存
+        self._sp_selected_bg = QColor(59, 130, 246, 60)
+        self._sp_hover_bg = QColor(255, 255, 255, 25)
+        self._sp_normal_bg = QColor(255, 255, 255, 0)
+        self._sp_selected_border = QColor(96, 165, 250)
+        self._sp_hover_border = QColor(255, 255, 255, 60)
+        self._sp_normal_border = QColor(0, 0, 0, 0)
+        # 样式面板绘制用 pen 缓存
+        self._pen_color_sel = QPen(accent, 1.5)
+        self._pen_color_hover = QPen(QColor(255, 255, 255, 80), 1.5)
+        self._pen_color_dot = QPen(qc("text.primary", 90), 1)
+        self._pen_check_white = QPen(QColor(255, 255, 255), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        self._pen_check_dark = QPen(qc("text.primary"), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        self._pen_width_sample = QPen(QColor(255, 255, 255), 1, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+
         self._paint_cache_ready = True
 
     def invalidate_paint_cache(self) -> None:
@@ -134,10 +174,8 @@ class PaintMixin:
         rect = self.selection_rect
         painter.save()
         painter.setClipRect(rect)
-        # 从配置读取网格颜色，默认白色半透明
-        grid_color = QColor(getattr(self.config, "grid_color", "#ffffff80"))
-        pen = QPen(grid_color, 1, Qt.PenStyle.DashLine)
-        painter.setPen(pen)
+        self._ensure_paint_cache()
+        painter.setPen(self._pen_grid)
         # 垂直三等分线
         x1 = rect.x() + rect.width() // 3
         x2 = rect.x() + rect.width() * 2 // 3
@@ -152,6 +190,16 @@ class PaintMixin:
 
     # ── 标注叠加层 ──
 
+    @staticmethod
+    def _annotation_color(item: dict) -> QColor:
+        """获取标注的 QColor（带缓存，避免每帧字符串解析）。"""
+        cached = item.get("_qc")
+        if cached is not None:
+            return cached
+        color = QColor(str(item.get("color", STROKE_DEFAULT)))
+        item["_qc"] = color
+        return color
+
     def draw_annotations_overlay(self, painter: QPainter) -> None:
         if self.selection_rect.isNull() or not self.annotations:
             return
@@ -162,14 +210,14 @@ class PaintMixin:
             if kind == "arrow":
                 start = QPoint(int(item.get("x1", 0)), int(item.get("y1", 0)))
                 end = QPoint(int(item.get("x2", 0)), int(item.get("y2", 0)))
-                color = QColor(str(item.get("color", STROKE_DEFAULT)))
+                color = self._annotation_color(item)
                 width = self.scaled_stroke_width(float(item.get("width", 5)))
                 annotation_painter.draw_arrow(painter, self.image_to_widget(start), self.image_to_widget(end), color, width, max(12.0, width * 4.2))
             elif kind == "rect":
                 rect = QRect(int(item.get("x", 0)), int(item.get("y", 0)), int(item.get("w", 0)), int(item.get("h", 0)))
                 top_left = self.image_to_widget(rect.topLeft())
                 bottom_right = self.image_to_widget(QPoint(rect.right() + 1, rect.bottom() + 1))
-                color = QColor(str(item.get("color", STROKE_DEFAULT)))
+                color = self._annotation_color(item)
                 annotation_painter.draw_rect_annotation(
                     painter,
                     QRectF(top_left, bottom_right).normalized(),
@@ -178,7 +226,7 @@ class PaintMixin:
                 )
             elif kind in ("pen", "highlight"):
                 points = self.annotation_points_to_widget(item)
-                color = QColor(str(item.get("color", STROKE_DEFAULT)))
+                color = self._annotation_color(item)
                 if kind == "highlight":
                     color.setAlpha(96)
                 annotation_painter.draw_polyline(painter, points, color, self.scaled_stroke_width(float(item.get("width", 5))))
@@ -202,7 +250,7 @@ class PaintMixin:
                 rect = QRect(int(item.get("x", 0)), int(item.get("y", 0)), int(item.get("w", 0)), int(item.get("h", 0)))
                 top_left = self.image_to_widget(rect.topLeft())
                 bottom_right = self.image_to_widget(QPoint(rect.right() + 1, rect.bottom() + 1))
-                color = QColor(str(item.get("color", STROKE_DEFAULT)))
+                color = self._annotation_color(item)
                 annotation_painter.draw_ellipse_annotation(
                     painter,
                     QRectF(top_left, bottom_right).normalized(),
@@ -213,7 +261,7 @@ class PaintMixin:
                 rect = QRect(int(item.get("x", 0)), int(item.get("y", 0)), int(item.get("w", 0)), int(item.get("h", 0)))
                 top_left = self.image_to_widget(rect.topLeft())
                 bottom_right = self.image_to_widget(QPoint(rect.right() + 1, rect.bottom() + 1))
-                color = QColor(str(item.get("color", STROKE_DEFAULT)))
+                color = self._annotation_color(item)
                 annotation_painter.draw_dashed_rect_annotation(
                     painter,
                     QRectF(top_left, bottom_right).normalized(),
@@ -222,7 +270,7 @@ class PaintMixin:
                 )
             elif kind == "number":
                 center = self.image_to_widget(QPoint(int(item.get("x", 0)), int(item.get("y", 0))))
-                color = QColor(str(item.get("color", STROKE_DEFAULT)))
+                color = self._annotation_color(item)
                 annotation_painter.draw_number_badge(painter, center, int(item.get("num", 1)), color)
             elif kind == "blur":
                 self.draw_mosaic_overlay(painter, item)
@@ -240,11 +288,20 @@ class PaintMixin:
         target = QRectF(top_left, bottom_right).normalized()
         if target.width() <= 0 or target.height() <= 0:
             return
-        scaled = patch.scaled(
-            max(1, int(round(target.width()))), max(1, int(round(target.height()))),
-            Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.FastTransformation,
-        )
-        scaled.setDevicePixelRatio(1.0)
+        tw = max(1, int(round(target.width())))
+        th = max(1, int(round(target.height())))
+        # 缓存缩放后的 pixmap：仅当 patch 或目标尺寸变化时才重新缩放
+        cache_key = (id(patch), tw, th)
+        cached = getattr(self, "_mosaic_scaled_cache", None)
+        if cached is not None and cached[0] == cache_key:
+            scaled = cached[1]
+        else:
+            scaled = patch.scaled(
+                tw, th,
+                Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.FastTransformation,
+            )
+            scaled.setDevicePixelRatio(1.0)
+            self._mosaic_scaled_cache = (cache_key, scaled)
         painter.drawPixmap(target.topLeft(), scaled)
 
     # ── 浮动元素 ──
@@ -415,7 +472,6 @@ class PaintMixin:
             return
 
         painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
         panel = QRectF(self.toolbar_rect)
 
@@ -428,9 +484,9 @@ class PaintMixin:
         painter.setPen(QPen(floating_border(), 1))
         painter.drawRoundedRect(panel, 7, 7)
 
+        self._ensure_paint_cache()
         items = self.toolbar_items()  # 缓存为局部变量，下面 3 处复用
-        sep_color = QColor(255, 255, 255, 40)
-        painter.setPen(QPen(sep_color, 1))
+        painter.setPen(self._pen_sep)
         for index, (key, _label, _icon, _tip) in enumerate(items):
             if key != 'sep':
                 continue
@@ -465,23 +521,23 @@ class PaintMixin:
             icon_rect = QRect(rect.left() + 7, rect.top() + 7, rect.width() - 14, rect.height() - 14)
 
             if primary:
-                fill = QColor(34, 197, 94, 220) if hovered else QColor(34, 197, 94, 160)
-                border = QColor(34, 197, 94, 200)
+                fill = self._tb_primary_fill_hover if hovered else self._tb_primary_fill
+                border = self._tb_primary_border
             elif danger:
-                fill = QColor(239, 68, 68, 220) if hovered else QColor(239, 68, 68, 140)
-                border = QColor(239, 68, 68, 200)
+                fill = self._tb_danger_fill_hover if hovered else self._tb_danger_fill
+                border = self._tb_danger_border
             elif toggled:
-                fill = QColor(59, 130, 246, 180)
-                border = QColor(59, 130, 246, 220)
+                fill = self._tb_toggled_fill
+                border = self._tb_toggled_border
             elif active:
-                fill = QColor(59, 130, 246, 120)
-                border = QColor(59, 130, 246, 180)
+                fill = self._tb_active_fill
+                border = self._tb_active_border
             elif hovered:
-                fill = QColor(255, 255, 255, 35)
-                border = QColor(255, 255, 255, 50)
+                fill = self._tb_hover_fill
+                border = self._tb_hover_border
             else:
-                fill = QColor(255, 255, 255, 0)
-                border = QColor(0, 0, 0, 0)
+                fill = self._tb_normal_fill
+                border = self._tb_normal_border
 
             if fill.alpha() > 0:
                 painter.setPen(QPen(border, 1))
@@ -491,17 +547,15 @@ class PaintMixin:
             if active or toggled:
                 accent_rect = QRectF(rect.left() + 9, rect.bottom() - 4, rect.width() - 18, 2.5)
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QColor(96, 165, 250))
+                painter.setBrush(self._tb_accent_bar)
                 painter.drawRoundedRect(accent_rect, 1.1, 1.1)
 
-            if primary:
-                icon_color = QColor(255, 255, 255)
-            elif danger:
-                icon_color = QColor(255, 255, 255)
+            if primary or danger:
+                icon_color = self._tb_icon_white
             elif active or toggled:
-                icon_color = QColor(147, 197, 253)
+                icon_color = self._tb_icon_active
             else:
-                icon_color = QColor(209, 213, 219) if not hovered else QColor(255, 255, 255)
+                icon_color = self._tb_icon_normal if not hovered else self._tb_icon_white
 
             self.icons.draw(painter, key, icon_rect, icon_color)
 
@@ -528,8 +582,9 @@ class PaintMixin:
             shadow_layers=((6, 18), (2, 35)),
         )
 
+        self._ensure_paint_cache()
+
         painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
         if self.style_panel_kind in ("color", "style"):
             for option_id, rect in self.style_option_rects.items():
@@ -540,14 +595,13 @@ class PaintMixin:
                 hovered = option_id == self.hover_style_option
                 outer = QRectF(rect).adjusted(-1.5, -1.5, 1.5, 1.5)
                 if selected or hovered:
-                    painter.setPen(QPen(qc("accent.base") if selected else QColor(255, 255, 255, 80), 1.5))
-                    painter.setBrush(QColor(59, 130, 246, 60) if selected else QColor(255, 255, 255, 25))
+                    painter.setPen(self._pen_color_sel if selected else self._pen_color_hover)
+                    painter.setBrush(self._sp_selected_bg if selected else self._sp_hover_bg)
                     painter.drawEllipse(outer)
-                painter.setPen(QPen(qc("text.primary", 90), 1))
+                painter.setPen(self._pen_color_dot)
                 painter.setBrush(QColor(color_name))
                 painter.drawEllipse(QRectF(rect))
                 if selected:
-                    check_color = QColor(255, 255, 255) if color_name.lower() not in ("#ffffff", "#ffcc00") else qc("text.primary")
                     cx = rect.center().x()
                     cy = rect.center().y()
                     r = rect.width() * 0.28
@@ -555,7 +609,7 @@ class PaintMixin:
                     path.moveTo(cx - r, cy)
                     path.lineTo(cx - r * 0.25, cy + r * 0.7)
                     path.lineTo(cx + r, cy - r * 0.6)
-                    painter.setPen(QPen(check_color, 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+                    painter.setPen(self._pen_check_white if color_name.lower() not in ("#ffffff", "#ffcc00") else self._pen_check_dark)
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     painter.drawPath(path)
         if self.style_panel_kind in ("width", "style"):
@@ -569,13 +623,14 @@ class PaintMixin:
                     continue
                 selected = width_value == int(self.stroke_width)
                 hovered = option_id == self.hover_style_option
-                bg = QColor(59, 130, 246, 60) if selected else QColor(255, 255, 255, 25) if hovered else QColor(255, 255, 255, 0)
-                border = QColor(96, 165, 250) if selected else QColor(255, 255, 255, 60) if hovered else QColor(0, 0, 0, 0)
+                bg = self._sp_selected_bg if selected else self._sp_hover_bg if hovered else self._sp_normal_bg
+                border = self._sp_selected_border if selected else self._sp_hover_border if hovered else self._sp_normal_border
                 painter.setPen(QPen(border, 1))
                 painter.setBrush(bg)
                 painter.drawRoundedRect(QRectF(rect), 6, 6)
                 sample_y = rect.center().y()
-                painter.setPen(QPen(QColor(255, 255, 255), max(1.8, min(5.0, width_value / 1.6)), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+                self._pen_width_sample.setWidthF(max(1.8, min(5.0, width_value / 1.6)))
+                painter.setPen(self._pen_width_sample)
                 painter.drawLine(rect.left() + 6, sample_y, rect.right() - 6, sample_y)
         # 预设按钮
         if self.style_panel_kind == "style":

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import datetime
+import threading
 from pathlib import Path
 from typing import Dict, Optional
 
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QFileDialog
 
 from ..pin import show_pin_window
@@ -117,7 +119,7 @@ class ExportMixin:
         self.close()
 
     def _maybe_run_post_capture_pipeline(self, saved_path: str = "") -> None:
-        """触发截图后工作流（上传 → 复制 Markdown）。"""
+        """触发截图后工作流（上传 → 复制 Markdown），后台线程执行避免阻塞 UI。"""
         if not should_run_post_capture(self.config):
             return
         image_path = saved_path
@@ -129,18 +131,29 @@ class ExportMixin:
             image_path = tmp_path
         if not image_path:
             return
-        try:
-            ctx = run_post_capture_pipeline(image_path, self.config)
-            for msg in ctx.messages:
-                self.maybe_notify(msg)
-            if ctx.errors:
-                debug_log(f"post-capture pipeline errors: {ctx.errors}")
-        finally:
-            if tmp_path:
-                try:
-                    Path(tmp_path).unlink(missing_ok=True)
-                except OSError as exc:
-                    debug_log(f"temp pipeline file cleanup failed: {exc}")
+
+        # 捕获当前 config 值（避免后台线程访问 GUI 对象）
+        config = self.config
+
+        def _run_pipeline() -> None:
+            try:
+                ctx = run_post_capture_pipeline(image_path, config)
+                if ctx.messages or ctx.errors:
+                    # 用 QTimer.singleShot 回到主线程发通知
+                    for msg in ctx.messages:
+                        QTimer.singleShot(0, lambda m=msg: self.maybe_notify(m))
+                    if ctx.errors:
+                        debug_log(f"post-capture pipeline errors: {ctx.errors}")
+            except Exception as exc:
+                debug_log(f"post-capture pipeline failed: {exc}")
+            finally:
+                if tmp_path:
+                    try:
+                        Path(tmp_path).unlink(missing_ok=True)
+                    except OSError as exc:
+                        debug_log(f"temp pipeline file cleanup failed: {exc}")
+
+        threading.Thread(target=_run_pipeline, daemon=True, name="quickshot-pipeline").start()
 
     def _history_image_path(self) -> str:
         history_id = getattr(self, "history_item_id", "")

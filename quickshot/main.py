@@ -485,6 +485,7 @@ class QuickShotApp(QObject):
             int(sel_w * scale_x), int(sel_h * scale_y),
         )
         overlay.mode = "edit"
+        overlay.selection_snapshot_required = True
         overlay.update_toolbar_layout()
         overlay.update_selection_display_cache()
         overlay.message = "已加载历史截图，可继续编辑或标注"

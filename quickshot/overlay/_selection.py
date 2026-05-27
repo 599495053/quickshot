@@ -31,6 +31,7 @@ class SelectionMixin:
         self.base_edit_pixmap.setDevicePixelRatio(1.0)
         self.edit_pixmap = self.base_edit_pixmap.copy()
         self.edit_pixmap.setDevicePixelRatio(1.0)
+        self.selection_snapshot_required = False
         self.history.clear()
         self.annotations.clear()
         self.active_tool = "none"
@@ -156,6 +157,7 @@ class SelectionMixin:
         self.selection_physical_rect = physical_rect
         self.base_edit_pixmap = self.raw_pixmap.copy(self.selection_physical_rect)
         self.base_edit_pixmap.setDevicePixelRatio(1.0)
+        self.selection_snapshot_required = False
         self.rebuild_edit_pixmap()
         return True
 
@@ -176,6 +178,7 @@ class SelectionMixin:
         if self.base_edit_pixmap.isNull():
             self.edit_pixmap = QPixmap()
             self.selection_display_pixmap = QPixmap()
+            self.selection_snapshot_required = False
             return
 
         pixmap = self.base_edit_pixmap.copy()

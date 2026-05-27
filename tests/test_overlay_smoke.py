@@ -102,6 +102,14 @@ class OverlayToolSmokeTest(unittest.TestCase):
         overlay.draw_arrow_on_pixmap(QPoint(50, 50), QPoint(200, 150))
         self.assertEqual(overlay.annotations[-1]["type"], "arrow")
 
+    def test_commit_number_annotation_accepts_click_point(self) -> None:
+        overlay = _make_overlay()
+        overlay.select_tool("number")
+        overlay.push_history()
+        overlay.draw_number_on_pixmap(QPoint(120, 90))
+        self.assertEqual(overlay.annotations[-1]["type"], "number")
+        _paint_once(overlay)
+
     def test_style_panel_renders_for_all_draw_tools(self) -> None:
         # 直接覆盖之前 QPainterPath 漏导入触发的崩溃路径
         for tool in self.STYLE_TOOLS:
@@ -120,6 +128,66 @@ class OverlayToolSmokeTest(unittest.TestCase):
         overlay.drag_start = QPoint(40, 40)
         overlay.drag_end = QPoint(220, 140)
         _paint_once(overlay)
+
+    def test_adjusting_selection_skips_toolbar_and_style_panel(self) -> None:
+        overlay = _make_overlay()
+        overlay.select_tool("arrow")
+        overlay.adjusting_selection = True
+        calls = []
+        orig_toolbar = overlay.draw_toolbar
+        orig_style = overlay.draw_style_panel
+        try:
+            overlay.draw_toolbar = lambda _painter: calls.append("toolbar")
+            overlay.draw_style_panel = lambda _painter: calls.append("style")
+            _paint_once(overlay)
+        finally:
+            overlay.draw_toolbar = orig_toolbar
+            overlay.draw_style_panel = orig_style
+        self.assertEqual(calls, [])
+
+    def test_select_and_edit_mode_use_same_dim_rect(self) -> None:
+        overlay = _make_overlay()
+        overlay.mode = "select"
+        overlay.start = QPoint(100, 100)
+        overlay.end = QPoint(499, 399)
+        rect = overlay.current_select_rect()
+        calls = []
+        original = overlay.draw_dim_outside
+        try:
+            overlay.draw_dim_outside = lambda _painter, clear_rect: calls.append(QRect(clear_rect))
+            canvas = QPixmap(overlay.width(), overlay.height())
+            painter = QPainter(canvas)
+            try:
+                overlay.paint_select_mode(painter)
+            finally:
+                painter.end()
+        finally:
+            overlay.draw_dim_outside = original
+        self.assertEqual(calls, [rect])
+
+    def test_edit_mode_skips_selection_snapshot_by_default(self) -> None:
+        overlay = _make_overlay()
+        calls = []
+        original = overlay.draw_selection_snapshot
+        try:
+            overlay.draw_selection_snapshot = lambda _painter: calls.append(True)
+            _paint_once(overlay)
+        finally:
+            overlay.draw_selection_snapshot = original
+        self.assertEqual(calls, [])
+
+    def test_edit_mode_draws_selection_snapshot_when_required(self) -> None:
+        overlay = _make_overlay()
+        overlay.selection_snapshot_required = True
+        overlay.update_selection_display_cache()
+        calls = []
+        original = overlay.draw_selection_snapshot
+        try:
+            overlay.draw_selection_snapshot = lambda _painter: calls.append(True)
+            _paint_once(overlay)
+        finally:
+            overlay.draw_selection_snapshot = original
+        self.assertEqual(calls, [True])
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Overlay 新功能测试：网格、尺寸锁定、工具切换、选区复用。
+"""Overlay 新功能测试：网格、工具切换、工具栏按钮、样式面板。
 
 覆盖 widget.py 中新增的交互功能，确保这些功能在各种场景下正常工作。
 """
@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QPoint, QRect  # noqa: E402
+from PyQt6.QtCore import QPoint, QRect, Qt  # noqa: E402
 from PyQt6.QtGui import QColor, QPixmap  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
@@ -38,6 +38,7 @@ def _ensure_app() -> QApplication:
 def _make_overlay() -> FloatingSnipOverlay:
     _ensure_app()
     cfg = Config()
+    cfg.grid_color = "#ffffff80"
     store = CaptureHistoryStore(cfg)
     raw = QPixmap(800, 600)
     raw.fill(QColor(60, 60, 60))
@@ -85,31 +86,17 @@ class GridToggleTest(unittest.TestCase):
         finally:
             painter.end()
 
-
-class SizeLockTest(unittest.TestCase):
-    """测试尺寸锁定功能。"""
-
-    def test_size_lock_default_off(self) -> None:
+    def test_default_grid_color_uses_trailing_alpha(self) -> None:
         overlay = _make_overlay()
-        self.assertFalse(overlay.size_locked)
-
-    def test_toggle_size_lock_on(self) -> None:
-        overlay = _make_overlay()
-        overlay.toggle_size_lock()
-        self.assertTrue(overlay.size_locked)
-        self.assertEqual(overlay.locked_size, overlay.selection_rect.size())
-
-    def test_toggle_size_lock_off(self) -> None:
-        overlay = _make_overlay()
-        overlay.toggle_size_lock()
-        overlay.toggle_size_lock()
-        self.assertFalse(overlay.size_locked)
-
-    def test_size_lock_preserves_size(self) -> None:
-        overlay = _make_overlay()
-        original_size = overlay.selection_rect.size()
-        overlay.toggle_size_lock()
-        self.assertEqual(overlay.locked_size, original_size)
+        from PyQt6.QtGui import QPainter
+        canvas = QPixmap(800, 600)
+        painter = QPainter(canvas)
+        try:
+            overlay.draw_grid(painter)
+            pen_color = overlay._pen_grid.color()
+        finally:
+            painter.end()
+        self.assertEqual((pen_color.red(), pen_color.green(), pen_color.blue(), pen_color.alpha()), (255, 255, 255, 128))
 
 
 class ToolSwitchTest(unittest.TestCase):
@@ -146,47 +133,17 @@ class ToolSwitchTest(unittest.TestCase):
         self.assertEqual(overlay.active_tool, "none")
 
 
-class ReuseSelectionTest(unittest.TestCase):
-    """测试选区复用功能。"""
-
-    def test_reuse_when_no_last_selection(self) -> None:
-        overlay = _make_overlay()
-        FloatingSnipOverlay._last_selection_rect = QRect()
-        FloatingSnipOverlay._last_selection_physical_rect = QRect()
-        result = overlay.reuse_last_selection()
-        self.assertFalse(result)
-
-    def test_reuse_saves_and_restores(self) -> None:
-        overlay = _make_overlay()
-        # 先进入编辑模式，会保存选区
-        overlay.enter_edit_mode(QRect(100, 100, 400, 300), QRect(100, 100, 400, 300))
-        saved_rect = QRect(FloatingSnipOverlay._last_selection_rect)
-
-        # 修改选区
-        overlay.selection_rect = QRect(50, 50, 200, 150)
-
-        # 复用应该恢复
-        overlay.reuse_last_selection()
-        self.assertEqual(overlay.selection_rect, saved_rect)
-
-    def test_reuse_with_size_lock(self) -> None:
-        overlay = _make_overlay()
-        overlay.enter_edit_mode(QRect(100, 100, 400, 300), QRect(100, 100, 400, 300))
-        original_size = overlay.selection_rect.size()
-        overlay.size_locked = True
-        overlay.locked_size = original_size
-
-        # 复用应该保持原来的选区
-        overlay.reuse_last_selection()
-        self.assertEqual(overlay.selection_rect.size(), original_size)
-
-
 class ToolbarButtonTest(unittest.TestCase):
     """测试工具栏按钮布局和点击检测。"""
 
     def test_toolbar_items_count(self) -> None:
         items = FloatingSnipOverlay.toolbar_items()
         self.assertGreater(len(items), 0)
+
+    def test_toolbar_omits_size_lock_and_reuse(self) -> None:
+        keys = [item[0] for item in FloatingSnipOverlay.toolbar_items()]
+        self.assertNotIn("size_lock", keys)
+        self.assertNotIn("reuse", keys)
 
     def test_button_at_returns_key(self) -> None:
         overlay = _make_overlay()
@@ -222,6 +179,43 @@ class StylePanelTest(unittest.TestCase):
         overlay = _make_overlay()
         overlay.select_tool("arrow")
         overlay.close_style_panel()
+        self.assertEqual(overlay.style_panel_kind, "")
+
+    def test_style_tools_open_style_panel(self) -> None:
+        overlay = _make_overlay()
+        for tool in ("arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight"):
+            with self.subTest(tool=tool):
+                overlay.select_tool(tool)
+                self.assertEqual(overlay.style_panel_kind, "style")
+                overlay.select_tool(tool)  # 退出当前工具，避免影响下一个 subTest
+
+    def test_non_style_tools_keep_style_panel_closed(self) -> None:
+        overlay = _make_overlay()
+        for tool in ("text", "number", "mosaic", "blur"):
+            with self.subTest(tool=tool):
+                overlay.select_tool(tool)
+                self.assertEqual(overlay.style_panel_kind, "")
+                overlay.active_tool = "none"
+
+    def test_click_outside_style_panel_closes_it(self) -> None:
+        overlay = _make_overlay()
+        overlay.select_tool("arrow")
+        overlay.update_toolbar_layout()
+        overlay.update_style_panel_layout()
+        self.assertEqual(overlay.style_panel_kind, "style")
+        outside = QPoint(0, 0)
+
+        class _Evt:
+            def button(self):
+                return Qt.MouseButton.LeftButton
+
+            def position(self):
+                class _Pos:
+                    def toPoint(self_inner):
+                        return outside
+                return _Pos()
+
+        overlay._handle_mouse_press(_Evt())
         self.assertEqual(overlay.style_panel_kind, "")
 
     def test_cycle_stroke_color(self) -> None:

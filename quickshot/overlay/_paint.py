@@ -15,8 +15,27 @@ from ..theme import (
     floating_text,
     handle_fill,
     overlay_dim,
+    overlay_panel_bg,
+    overlay_panel_border,
     overlay_solid,
+    overlay_tip_bg,
+    overlay_tip_border,
+    overlay_tip_text,
+    overlay_toolbar_active_bg,
+    overlay_toolbar_active_border,
+    overlay_toolbar_bg,
+    overlay_toolbar_border,
+    overlay_toolbar_danger_bg,
+    overlay_toolbar_danger_bg_hover,
+    overlay_toolbar_danger_border,
+    overlay_toolbar_hover_bg,
+    overlay_toolbar_icon,
+    overlay_toolbar_primary_bg,
+    overlay_toolbar_primary_bg_hover,
+    overlay_toolbar_primary_border,
+    overlay_toolbar_text,
     qc,
+    qcolor_from_rgba_hex,
 )
 
 
@@ -46,8 +65,8 @@ class PaintMixin:
         pen_handle.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         self._pen_handle = pen_handle
 
-        self._color_drag_active_bg = QColor(34, 142, 255, 245)
-        self._color_drag_active_border = QColor(115, 190, 255, 245)
+        self._color_drag_active_bg = overlay_toolbar_primary_bg()
+        self._color_drag_active_border = overlay_toolbar_primary_border()
         self._color_drag_active_text = QColor(255, 255, 255)
 
         # QFont / QFontMetrics 缓存（paintEvent 中高频构造，提升到这里只构造一次）
@@ -60,43 +79,57 @@ class PaintMixin:
 
         # ── 工具栏按钮状态颜色缓存 ──
         # 每种状态预建 (fill, border) QColor 对，避免 draw_toolbar 每帧 new
-        self._tb_primary_fill = QColor(34, 197, 94, 160)
-        self._tb_primary_fill_hover = QColor(34, 197, 94, 220)
-        self._tb_primary_border = QColor(34, 197, 94, 200)
-        self._tb_danger_fill = QColor(239, 68, 68, 140)
-        self._tb_danger_fill_hover = QColor(239, 68, 68, 220)
-        self._tb_danger_border = QColor(239, 68, 68, 200)
-        self._tb_toggled_fill = QColor(59, 130, 246, 180)
-        self._tb_toggled_border = QColor(59, 130, 246, 220)
-        self._tb_active_fill = QColor(59, 130, 246, 120)
-        self._tb_active_border = QColor(59, 130, 246, 180)
-        self._tb_hover_fill = QColor(255, 255, 255, 35)
-        self._tb_hover_border = QColor(255, 255, 255, 50)
+        self._tb_primary_fill = overlay_toolbar_primary_bg()
+        self._tb_primary_fill_hover = overlay_toolbar_primary_bg_hover()
+        self._tb_primary_border = overlay_toolbar_primary_border()
+        self._tb_danger_fill = overlay_toolbar_danger_bg()
+        self._tb_danger_fill_hover = overlay_toolbar_danger_bg_hover()
+        self._tb_danger_border = overlay_toolbar_danger_border()
+        self._tb_toggled_fill = overlay_toolbar_active_bg()
+        self._tb_toggled_border = overlay_toolbar_active_border()
+        self._tb_active_fill = overlay_toolbar_active_bg()
+        self._tb_active_border = overlay_toolbar_active_border()
+        self._tb_hover_fill = overlay_toolbar_hover_bg()
+        self._tb_hover_border = qc("border.light", 235)
         self._tb_normal_fill = QColor(255, 255, 255, 0)
         self._tb_normal_border = QColor(0, 0, 0, 0)
-        self._tb_accent_bar = QColor(96, 165, 250)
+        self._tb_accent_bar = qc("accent.base", 220)
+        self._tb_group_bg = qc("surface.subtle", 220)
+        self._tb_group_border = qc("border.light", 220)
+        self._tb_cta_group_bg = qc("accent.soft", 150)
+        self._tb_cta_group_border = qc("accent.outline", 170)
         # 图标颜色缓存
         self._tb_icon_white = QColor(255, 255, 255)
-        self._tb_icon_active = QColor(147, 197, 253)
-        self._tb_icon_normal = QColor(209, 213, 219)
+        self._tb_icon_active = qc("accent.base")
+        self._tb_icon_normal = overlay_toolbar_icon()
+        self._tb_icon_hover = overlay_toolbar_text()
         # 网格 pen 缓存
-        self._pen_grid = QPen(QColor(getattr(self.config, "grid_color", "#ffffff80")), 1, Qt.PenStyle.DashLine)
+        grid_color = qcolor_from_rgba_hex(getattr(self.config, "grid_color", "#ffffff80"))
+        grid_shadow = QColor(17, 24, 39, max(46, min(120, grid_color.alpha() + 28)))
+        self._pen_grid_shadow = QPen(grid_shadow, 2, Qt.PenStyle.DashLine)
+        self._pen_grid = QPen(grid_color, 1, Qt.PenStyle.DashLine)
         # separator pen 缓存
-        self._pen_sep = QPen(QColor(255, 255, 255, 40), 1)
+        self._pen_sep = QPen(qc("border.light", 235), 1)
         # 样式面板状态颜色缓存
-        self._sp_selected_bg = QColor(59, 130, 246, 60)
-        self._sp_hover_bg = QColor(255, 255, 255, 25)
+        self._sp_selected_bg = qc("accent.soft", 245)
+        self._sp_hover_bg = qc("surface.subtle", 245)
         self._sp_normal_bg = QColor(255, 255, 255, 0)
-        self._sp_selected_border = QColor(96, 165, 250)
-        self._sp_hover_border = QColor(255, 255, 255, 60)
+        self._sp_selected_border = qc("accent.outline", 235)
+        self._sp_hover_border = qc("border.regular", 235)
         self._sp_normal_border = QColor(0, 0, 0, 0)
         # 样式面板绘制用 pen 缓存
         self._pen_color_sel = QPen(accent, 1.5)
-        self._pen_color_hover = QPen(QColor(255, 255, 255, 80), 1.5)
+        self._pen_color_hover = QPen(qc("border.regular", 235), 1.5)
         self._pen_color_dot = QPen(qc("text.primary", 90), 1)
         self._pen_check_white = QPen(QColor(255, 255, 255), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         self._pen_check_dark = QPen(qc("text.primary"), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-        self._pen_width_sample = QPen(QColor(255, 255, 255), 1, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+        self._pen_width_sample = QPen(qc("text.secondary"), 1, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+        self._sp_preset_hover_bg = qc("surface.subtle", 245)
+        self._sp_preset_bg = qc("surface.card", 235)
+        self._sp_preset_hover_border = qc("accent.outline", 220)
+        self._sp_preset_border = qc("border.light", 235)
+        self._sp_preset_text = qc("text.secondary", 225)
+        self._pen_panel_divider = QPen(qc("border.light", 225), 1)
 
         self._paint_cache_ready = True
 
@@ -175,17 +208,24 @@ class PaintMixin:
         painter.save()
         painter.setClipRect(rect)
         self._ensure_paint_cache()
-        painter.setPen(self._pen_grid)
         # 垂直三等分线
         x1 = rect.x() + rect.width() // 3
         x2 = rect.x() + rect.width() * 2 // 3
-        painter.drawLine(x1, rect.y(), x1, rect.bottom())
-        painter.drawLine(x2, rect.y(), x2, rect.bottom())
         # 水平三等分线
         y1 = rect.y() + rect.height() // 3
         y2 = rect.y() + rect.height() * 2 // 3
-        painter.drawLine(rect.x(), y1, rect.right(), y1)
-        painter.drawLine(rect.x(), y2, rect.right(), y2)
+        lines = (
+            (x1, rect.y(), x1, rect.bottom()),
+            (x2, rect.y(), x2, rect.bottom()),
+            (rect.x(), y1, rect.right(), y1),
+            (rect.x(), y2, rect.right(), y2),
+        )
+        painter.setPen(self._pen_grid_shadow)
+        for line in lines:
+            painter.drawLine(*line)
+        painter.setPen(self._pen_grid)
+        for line in lines:
+            painter.drawLine(*line)
         painter.restore()
 
     # ── 标注叠加层 ──
@@ -475,17 +515,43 @@ class PaintMixin:
 
         panel = QRectF(self.toolbar_rect)
 
-        for offset, alpha in ((5, 18), (2, 35)):
+        for offset, alpha in ((7, 8), (3, 14), (1, 22)):
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor(0, 0, 0, alpha))
-            painter.drawRoundedRect(panel.adjusted(-offset, -offset, offset, offset), 7 + offset, 7 + offset)
+            painter.setBrush(QColor(15, 23, 42, alpha))
+            painter.drawRoundedRect(panel.adjusted(-offset, -offset, offset, offset), 11 + offset, 11 + offset)
 
-        painter.setBrush(floating_bg())
-        painter.setPen(QPen(floating_border(), 1))
-        painter.drawRoundedRect(panel, 7, 7)
+        painter.setBrush(overlay_toolbar_bg())
+        painter.setPen(QPen(overlay_toolbar_border(), 1))
+        painter.drawRoundedRect(panel, 11, 11)
 
         self._ensure_paint_cache()
         items = self.toolbar_items()  # 缓存为局部变量，下面 3 处复用
+
+        # 轻分组底色：让信息密度高的单行 toolbar 更有层次，但不改变 hit rect
+        groups = []
+        current_group = []
+        for key, _label, _icon, _tip in items:
+            if key == 'sep':
+                if current_group:
+                    groups.append(current_group)
+                current_group = []
+                continue
+            rect = self.toolbar_buttons.get(key)
+            if rect is not None:
+                current_group.append((key, rect))
+        if current_group:
+            groups.append(current_group)
+        for group in groups:
+            left = group[0][1].left() - 3
+            right = group[-1][1].right() + 3
+            top = self.toolbar_rect.top() + 4
+            bottom = self.toolbar_rect.bottom() - 4
+            group_rect = QRectF(left, top, right - left + 1, bottom - top + 1)
+            is_cta_group = any(k in ("cancel", "done") for k, _ in group)
+            painter.setPen(QPen(self._tb_cta_group_border if is_cta_group else self._tb_group_border, 1))
+            painter.setBrush(self._tb_cta_group_bg if is_cta_group else self._tb_group_bg)
+            painter.drawRoundedRect(group_rect, 9, 9)
+
         painter.setPen(self._pen_sep)
         for index, (key, _label, _icon, _tip) in enumerate(items):
             if key != 'sep':
@@ -502,7 +568,7 @@ class PaintMixin:
                     break
             if left_button is not None and right_button is not None:
                 sx = (left_button.right() + right_button.left()) // 2
-                painter.drawLine(QPoint(sx, self.toolbar_rect.top() + 9), QPoint(sx, self.toolbar_rect.bottom() - 9))
+                painter.drawLine(QPoint(sx, self.toolbar_rect.top() + 10), QPoint(sx, self.toolbar_rect.bottom() - 10))
 
         for key, label, _icon, _tip in items:
             if key == 'sep':
@@ -517,8 +583,10 @@ class PaintMixin:
             danger = key == 'cancel'
             toggled = key in ("color", "width") and self.style_panel_kind in ("style", key)
 
-            rr = QRectF(rect).adjusted(1.5, 1.5, -1.5, -1.5)
-            icon_rect = QRect(rect.left() + 7, rect.top() + 7, rect.width() - 14, rect.height() - 14)
+            rr = QRectF(rect).adjusted(2.0, 2.0, -2.0, -2.0)
+            icon_rect = QRect(rect.left() + 8, rect.top() + 8, rect.width() - 16, rect.height() - 16)
+            if primary:
+                icon_rect.adjust(1, 1, -1, -1)
 
             if primary:
                 fill = self._tb_primary_fill_hover if hovered else self._tb_primary_fill
@@ -542,20 +610,38 @@ class PaintMixin:
             if fill.alpha() > 0:
                 painter.setPen(QPen(border, 1))
                 painter.setBrush(fill)
-                painter.drawRoundedRect(rr, 6.5, 6.5)
+                painter.drawRoundedRect(rr, 8.5, 8.5)
+            elif hovered:
+                painter.setPen(QPen(self._tb_hover_border, 1))
+                painter.setBrush(self._tb_hover_fill)
+                painter.drawRoundedRect(rr, 8.5, 8.5)
 
             if active or toggled:
-                accent_rect = QRectF(rect.left() + 9, rect.bottom() - 4, rect.width() - 18, 2.5)
+                accent_rect = QRectF(rect.left() + 9, rect.bottom() - 4, rect.width() - 18, 3)
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.setBrush(self._tb_accent_bar)
-                painter.drawRoundedRect(accent_rect, 1.1, 1.1)
+                painter.drawRoundedRect(accent_rect, 1.5, 1.5)
 
-            if primary or danger:
+            if primary:
+                # done 做成更强主按钮感：双层卡片 + 白图标
+                inner = QRectF(rr).adjusted(0.5, 0.5, -0.5, -0.5)
+                painter.setPen(QPen(qc("accent.base", 55), 1))
+                painter.setBrush(fill)
+                painter.drawRoundedRect(inner, 8.5, 8.5)
+                painter.setPen(QPen(qc("accent.base", 18), 1))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawRoundedRect(inner.adjusted(1.0, 1.0, -1.0, -1.0), 7.5, 7.5)
                 icon_color = self._tb_icon_white
+            elif danger:
+                if fill.alpha() > 0:
+                    painter.setPen(QPen(border, 1))
+                    painter.setBrush(fill)
+                    painter.drawRoundedRect(rr, 8.5, 8.5)
+                icon_color = qc("danger.base")
             elif active or toggled:
                 icon_color = self._tb_icon_active
             else:
-                icon_color = self._tb_icon_normal if not hovered else self._tb_icon_white
+                icon_color = self._tb_icon_hover if hovered else self._tb_icon_normal
 
             self.icons.draw(painter, key, icon_rect, icon_color)
 
@@ -576,15 +662,27 @@ class PaintMixin:
             painter,
             self.style_panel_rect,
             "",
-            radius=8,
-            bg=floating_bg(),
-            border=floating_border(),
-            shadow_layers=((6, 18), (2, 35)),
+            radius=10,
+            bg=overlay_panel_bg(),
+            border=overlay_panel_border(),
+            shadow_layers=((7, 10), (3, 18), (1, 28)),
         )
 
         self._ensure_paint_cache()
 
         painter.save()
+
+        # 在组合 style panel 中加轻量分组分隔线（纯视觉，不参与命中）
+        if self.style_panel_kind == "style":
+            painter.setPen(self._pen_panel_divider)
+            color_row_bottom = min((rect.bottom() for option_id, rect in self.style_option_rects.items() if option_id.startswith("color:")), default=0)
+            width_row_bottom = min((rect.bottom() for option_id, rect in self.style_option_rects.items() if option_id.startswith("width:")), default=0)
+            if color_row_bottom:
+                y = color_row_bottom + self.STYLE_ROW_GAP // 2
+                painter.drawLine(self.style_panel_rect.left() + 10, y, self.style_panel_rect.right() - 10, y)
+            if width_row_bottom and any(option_id.startswith("preset:") for option_id in self.style_option_rects):
+                y = width_row_bottom + self.STYLE_ROW_GAP // 2
+                painter.drawLine(self.style_panel_rect.left() + 10, y, self.style_panel_rect.right() - 10, y)
 
         if self.style_panel_kind in ("color", "style"):
             for option_id, rect in self.style_option_rects.items():
@@ -627,11 +725,11 @@ class PaintMixin:
                 border = self._sp_selected_border if selected else self._sp_hover_border if hovered else self._sp_normal_border
                 painter.setPen(QPen(border, 1))
                 painter.setBrush(bg)
-                painter.drawRoundedRect(QRectF(rect), 6, 6)
+                painter.drawRoundedRect(QRectF(rect), 7, 7)
                 sample_y = rect.center().y()
                 self._pen_width_sample.setWidthF(max(1.8, min(5.0, width_value / 1.6)))
                 painter.setPen(self._pen_width_sample)
-                painter.drawLine(rect.left() + 6, sample_y, rect.right() - 6, sample_y)
+                painter.drawLine(rect.left() + 7, sample_y, rect.right() - 7, sample_y)
         # 预设按钮
         if self.style_panel_kind == "style":
             presets = getattr(self.config, "annotation_presets", [])
@@ -646,23 +744,28 @@ class PaintMixin:
                     continue
                 preset = presets[idx]
                 hovered = option_id == self.hover_style_option
-                bg = QColor(255, 255, 255, 25) if hovered else QColor(255, 255, 255, 10)
-                border = QColor(255, 255, 255, 60) if hovered else QColor(255, 255, 255, 30)
+                selected = (
+                    str(preset.get("color", "#ff4646")) == self.stroke_color_name
+                    and int(preset.get("width", 5)) == int(self.stroke_width)
+                )
+                bg = self._sp_selected_bg if selected else self._sp_preset_hover_bg if hovered else self._sp_preset_bg
+                border = self._sp_selected_border if selected else self._sp_preset_hover_border if hovered else self._sp_preset_border
                 painter.setPen(QPen(border, 1))
                 painter.setBrush(bg)
-                painter.drawRoundedRect(QRectF(rect), 4, 4)
+                painter.drawRoundedRect(QRectF(rect), 7, 7)
                 # 颜色小圆点
-                color_dot = QRect(rect.left() + 4, rect.center().y() - 4, 8, 8)
+                color_dot = QRect(rect.left() + 7, rect.center().y() - 4, 8, 8)
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.setBrush(QColor(preset.get("color", "#ff4646")))
                 painter.drawEllipse(color_dot)
                 # 名称
-                painter.setPen(QColor(255, 255, 255, 200))
+                painter.setPen(self._sp_preset_text if not selected else qc("accent.base"))
                 font = painter.font()
                 font.setPixelSize(10)
+                font.setBold(selected)
                 painter.setFont(font)
                 name = preset.get("name", "")
-                painter.drawText(rect.adjusted(14, 0, 0, 0), Qt.AlignmentFlag.AlignVCenter, name[:6])
+                painter.drawText(rect.adjusted(18, 0, -4, 0), Qt.AlignmentFlag.AlignVCenter, name[:6])
         painter.restore()
 
     def draw_toolbar_tip(self, painter: QPainter, text: str) -> None:
@@ -685,11 +788,11 @@ class PaintMixin:
             r,
             text,
             font=font,
-            radius=8,
-            bg=floating_bg(),
-            border=floating_border(),
-            text_color=floating_text(),
-            shadow_layers=((5, 18), (2, 28)),
+            radius=9,
+            bg=overlay_tip_bg(),
+            border=overlay_tip_border(),
+            text_color=overlay_tip_text(),
+            shadow_layers=((5, 10), (2, 18)),
         )
 
     # ── 尺寸/消息布局 ──
@@ -779,8 +882,8 @@ class PaintMixin:
             text,
             font=font,
             radius=9,
-            bg=floating_bg(),
-            border=floating_border(),
-            text_color=floating_text(),
-            shadow_layers=((5, 18), (2, 28)),
+            bg=overlay_tip_bg(),
+            border=overlay_tip_border(),
+            text_color=overlay_tip_text(),
+            shadow_layers=((5, 10), (2, 18)),
         )

@@ -99,9 +99,10 @@ class FloatingSnipOverlay(
         self.base_edit_pixmap = QPixmap()
         self.edit_pixmap = QPixmap()
         self.selection_display_pixmap = QPixmap()
+        self.selection_snapshot_required = False
         self.adjust_preview_pixmap = QPixmap()
-        self.history: List[Tuple[QPixmap, List[Dict[str, object]]]] = []
-        self.redo_stack: List[Tuple[QPixmap, List[Dict[str, object]]]] = []
+        self.history: List[Tuple[QPixmap, List[Dict[str, object]], bool]] = []
+        self.redo_stack: List[Tuple[QPixmap, List[Dict[str, object]], bool]] = []
         self.annotations: List[Dict[str, object]] = []
 
         self.active_tool = "none"
@@ -453,7 +454,7 @@ class FloatingSnipOverlay(
             return
 
         physical_rect = self.logical_to_physical_rect(rect)
-        self.draw_dim_outside(painter, rect.adjusted(1, 1, -1, -1))
+        self.draw_dim_outside(painter, rect)
         self.draw_selection_border(painter, rect)
         self.draw_handles(painter, rect)
         self.draw_size_label(painter, rect, physical_rect.width(), physical_rect.height())
@@ -466,7 +467,8 @@ class FloatingSnipOverlay(
 
         self.draw_dim_outside(painter, self.selection_rect)
         if not self.adjusting_selection:
-            self.draw_selection_snapshot(painter)
+            if self.selection_snapshot_required:
+                self.draw_selection_snapshot(painter)
             self.draw_annotations_overlay(painter)
         if self.grid_visible:
             self.draw_grid(painter)

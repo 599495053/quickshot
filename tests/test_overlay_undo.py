@@ -101,6 +101,19 @@ class UndoRedoTest(unittest.TestCase):
         ov.redo()
         self.assertEqual(len(ov.history), 1)
 
+    def test_undo_redo_restore_snapshot_requirement(self):
+        ov = _make_overlay()
+        ov.selection_snapshot_required = False
+        ov.push_history()
+        modified = ov.edit_pixmap.copy()
+        modified.fill(QColor(255, 0, 0))
+        ov.edit_pixmap = modified
+        ov.selection_snapshot_required = True
+        ov.undo()
+        self.assertFalse(ov.selection_snapshot_required)
+        ov.redo()
+        self.assertTrue(ov.selection_snapshot_required)
+
     def test_undo_empty_stack_noop(self):
         ov = _make_overlay()
         self.assertEqual(len(ov.history), 0)

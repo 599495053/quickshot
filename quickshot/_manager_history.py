@@ -116,8 +116,8 @@ class HistoryWindow(HistoryActions, QWidget):
 
         left_card = make_card()
         left_layout = QVBoxLayout()
-        left_layout.setContentsMargins(16, 16, 16, 16)
-        left_layout.setSpacing(10)
+        left_layout.setContentsMargins(14, 14, 14, 14)
+        left_layout.setSpacing(9)
         left_layout.addLayout(filter_row)
         left_layout.addWidget(self.status_label)
         left_layout.addWidget(self.list_widget, 1)
@@ -125,8 +125,8 @@ class HistoryWindow(HistoryActions, QWidget):
 
         preview_card = make_card()
         preview_layout = QVBoxLayout()
-        preview_layout.setContentsMargins(16, 16, 16, 16)
-        preview_layout.setSpacing(8)
+        preview_layout.setContentsMargins(16, 15, 16, 16)
+        preview_layout.setSpacing(9)
         preview_title_row = QHBoxLayout()
         preview_title_row.setContentsMargins(0, 0, 0, 0)
         preview_title_row.setSpacing(8)
@@ -172,8 +172,8 @@ class HistoryWindow(HistoryActions, QWidget):
 
         ocr_card = make_card()
         ocr_layout = QVBoxLayout()
-        ocr_layout.setContentsMargins(16, 16, 16, 16)
-        ocr_layout.setSpacing(10)
+        ocr_layout.setContentsMargins(16, 15, 16, 16)
+        ocr_layout.setSpacing(9)
 
         ocr_title_row = QHBoxLayout()
         ocr_title_row.setContentsMargins(0, 0, 0, 0)
@@ -262,14 +262,15 @@ class HistoryWindow(HistoryActions, QWidget):
 
         actions_card = make_card()
         actions_inner = QVBoxLayout()
-        actions_inner.setContentsMargins(16, 16, 16, 16)
+        actions_inner.setContentsMargins(16, 14, 16, 15)
         actions_inner.setSpacing(8)
         actions_title = QLabel("快捷操作")
         actions_title.setObjectName("sectionTitle")
 
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(6)
+        grid.setHorizontalSpacing(7)
+        grid.setVerticalSpacing(7)
         grid.addWidget(copy_image_btn,     0, 0)
         grid.addWidget(pin_btn,            0, 1)
         grid.addWidget(export_btn,         0, 2)
@@ -290,7 +291,7 @@ class HistoryWindow(HistoryActions, QWidget):
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setStyleSheet("color: #d7deea; background: #d7deea; max-width: 1px;")
+        sep.setStyleSheet("color: #e5e7eb; background: #e5e7eb; max-width: 1px;")
         grid.addWidget(sep, 0, 4, 2, 1)
 
         actions_inner.addWidget(actions_title)
@@ -309,10 +310,10 @@ class HistoryWindow(HistoryActions, QWidget):
         splitter = QSplitter()
         splitter.addWidget(left_card)
         splitter.addWidget(right_panel)
-        splitter.setSizes([350, 760])
+        splitter.setSizes([370, 760])
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setContentsMargins(18, 16, 18, 18)
         layout.setSpacing(12)
         layout.addWidget(header_card)
         layout.addWidget(splitter, 1)
@@ -609,4 +610,3 @@ class HistoryWindow(HistoryActions, QWidget):
         if self._preview_zoom < 0.06:
             self._preview_zoom = 0.0
         self.update_preview()
-

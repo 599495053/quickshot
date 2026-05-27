@@ -6,6 +6,8 @@ import datetime
 
 from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap
 
+from ..theme import qcolor_from_rgba_hex
+
 
 class PostProcessMixin:
 
@@ -29,6 +31,7 @@ class PostProcessMixin:
         self._extend_selection_rect(old_w, old_h, 0, 0, offset, offset)
         self.edit_pixmap = result
         self.edit_pixmap.setDevicePixelRatio(1.0)
+        self.selection_snapshot_required = True
         self.update_selection_display_cache()
         self.message = "已添加阴影效果"
         self.update()
@@ -54,6 +57,7 @@ class PostProcessMixin:
         self._extend_selection_rect(old_w, old_h, thickness, thickness, thickness, thickness)
         self.edit_pixmap = result
         self.edit_pixmap.setDevicePixelRatio(1.0)
+        self.selection_snapshot_required = True
         self.update_selection_display_cache()
         self.message = f"已添加 {thickness}px 边框"
         self.update()
@@ -96,7 +100,7 @@ class PostProcessMixin:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         font = QFont("Microsoft YaHei", 14, QFont.Weight.DemiBold)
         painter.setFont(font)
-        watermark_color = QColor(getattr(self.config, "watermark_color", "#ffffff40"))
+        watermark_color = qcolor_from_rgba_hex(getattr(self.config, "watermark_color", "#ffffff40"))
         painter.setPen(watermark_color)
         painter.translate(pixmap.width() / 2, pixmap.height() / 2)
         painter.rotate(-45)
@@ -109,6 +113,7 @@ class PostProcessMixin:
         painter.end()
         self.edit_pixmap = pixmap
         self.edit_pixmap.setDevicePixelRatio(1.0)
+        self.selection_snapshot_required = True
         self.update_selection_display_cache()
         self.message = "已添加水印"
         self.update()

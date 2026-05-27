@@ -169,9 +169,9 @@ class SettingsHandlers:
         <tr><td class="key">L</td><td class="desc">模糊打码</td>
             <td class="key">O</td><td class="desc">OCR 识文</td>
             <td class="key">G</td><td class="desc">网格辅助</td></tr>
-        <tr><td class="key">K</td><td class="desc">尺寸锁定</td>
-            <td class="key">P</td><td class="desc">复用选区</td>
-            <td class="key">Tab</td><td class="desc">切换上一工具</td></tr>
+        <tr><td class="key">Tab</td><td class="desc">切换上一工具</td>
+            <td class="key">↑↓←→</td><td class="desc">微调选区</td>
+            <td class="key">Shift+方向键</td><td class="desc">大步微调</td></tr>
         <tr><td class="key">Ctrl+C</td><td class="desc">复制到剪贴板</td>
             <td class="key">Ctrl+S</td><td class="desc">保存文件</td>
             <td class="key">Ctrl+Z</td><td class="desc">撤销标注</td></tr>

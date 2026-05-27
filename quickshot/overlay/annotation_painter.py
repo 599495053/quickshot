@@ -160,6 +160,7 @@ def draw_number_badge(
     color: QColor,
 ) -> None:
     radius = 16.0
+    center = QPointF(center)
     painter.save()
     painter.setPen(Qt.PenStyle.NoPen)
     painter.setBrush(color)

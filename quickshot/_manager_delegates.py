@@ -43,16 +43,18 @@ class BaseCardDelegate(QStyledItemDelegate):
         self._fm_title = QFontMetrics(self._font_title)
         self._fm_meta = QFontMetrics(self._font_meta)
 
-        self._card_selected = (QColor(232, 240, 255, 230), QPen(QColor(160, 195, 255, 220), 1))
-        self._card_hover = (QColor(245, 247, 250, 220), QPen(QColor(218, 222, 228, 180), 1))
-        self._card_normal = (QColor(255, 255, 255, 200), QPen(QColor(228, 232, 238, 140), 1))
+        self._card_selected = (QColor(244, 247, 255, 242), QPen(QColor(199, 210, 254, 235), 1))
+        self._card_hover = (QColor(255, 255, 255, 238), QPen(QColor(216, 222, 232, 225), 1))
+        self._card_normal = (QColor(255, 255, 255, 218), QPen(QColor(229, 231, 235, 160), 1))
 
-        self._thumb_shadow = QColor(0, 0, 0, 18)
-        self._thumb_bg = QColor(240, 242, 245)
-        self._thumb_placeholder_pen = QColor(180, 185, 195)
-        self._pen_title_selected = QColor(30, 60, 120)
+        self._thumb_shadow = QColor(17, 24, 39, 18)
+        self._thumb_border = QPen(QColor(229, 231, 235, 210), 1)
+        self._thumb_bg = QColor(243, 244, 246)
+        self._thumb_placeholder_pen = QColor(156, 163, 175)
+        self._pen_title_selected = QColor(67, 56, 202)
         self._pen_title_normal = QColor(55, 65, 81)
-        self._pen_size = QColor(120, 130, 145)
+        self._pen_size = QColor(107, 114, 128)
+        self._selected_bar = QColor(79, 70, 229, 220)
 
     def sizeHint(self, option, index) -> QSize:
         return QSize(option.rect.width(), self.ITEM_H)
@@ -70,6 +72,14 @@ class BaseCardDelegate(QStyledItemDelegate):
         painter.setPen(border_pen)
         painter.setBrush(bg)
         painter.drawRoundedRect(card_rect, self.RADIUS, self.RADIUS)
+        if is_selected:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(self._selected_bar)
+            painter.drawRoundedRect(
+                QRectF(rect.left() + 1, rect.top() + 12, 3, rect.height() - 24),
+                1.5,
+                1.5,
+            )
 
         thumb_x = rect.left() + 8
         thumb_y = rect.top() + (rect.height() - self.THUMB_H) // 2
@@ -79,12 +89,13 @@ class BaseCardDelegate(QStyledItemDelegate):
             painter.setBrush(self._thumb_shadow)
             painter.drawRoundedRect(thumb_rect.adjusted(-1, -1, 1, 1), 6, 6)
             painter.setBrush(self._thumb_bg)
+            painter.setPen(self._thumb_border)
             painter.drawRoundedRect(thumb_rect, 5, 5)
             sx = thumb_x + (self.THUMB_W - thumb_pixmap.width()) / 2
             sy = thumb_y + (self.THUMB_H - thumb_pixmap.height()) / 2
             painter.drawPixmap(int(sx), int(sy), thumb_pixmap)
         else:
-            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setPen(self._thumb_border)
             painter.setBrush(self._thumb_bg)
             painter.drawRoundedRect(thumb_rect, 5, 5)
             painter.setPen(self._thumb_placeholder_pen)
@@ -103,9 +114,9 @@ class HistoryItemDelegate(BaseCardDelegate):
         super().__init__(parent)
         self._font_ocr = QFont("Microsoft YaHei", 8, italic=True)
         self._fm_ocr = QFontMetrics(self._font_ocr)
-        self._pen_ocr = QColor(140, 150, 165)
-        self._tag_selected = (QColor(100, 150, 255, 60), QPen(QColor(100, 150, 255, 120), 1))
-        self._tag_normal = (QColor(230, 235, 242, 180), QPen(QColor(200, 208, 218), 1))
+        self._pen_ocr = QColor(107, 114, 128)
+        self._tag_selected = (QColor(199, 210, 254, 95), QPen(QColor(165, 180, 252, 150), 1))
+        self._tag_normal = (QColor(243, 244, 246, 190), QPen(QColor(209, 213, 219), 1))
 
     def paint(self, painter: QPainter, option, index) -> None:
         painter.save()

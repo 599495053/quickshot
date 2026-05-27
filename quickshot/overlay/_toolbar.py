@@ -15,14 +15,14 @@ STYLE_TOOLS = frozenset({"arrow", "rect", "ellipse", "dashed_rect", "pen", "high
 class ToolbarMixin:
 
     # 样式面板几何常量（颜色/线宽两组选项）
-    STYLE_COLOR_OPTION_SIZE = 26
-    STYLE_WIDTH_OPTION_W = 32
-    STYLE_WIDTH_OPTION_H = 24
-    STYLE_PAD_X = 10
-    STYLE_PAD_Y = 8
+    STYLE_COLOR_OPTION_SIZE = 28
+    STYLE_WIDTH_OPTION_W = 36
+    STYLE_WIDTH_OPTION_H = 26
+    STYLE_PAD_X = 12
+    STYLE_PAD_Y = 10
     STYLE_GAP_COLOR = 8
-    STYLE_GAP_WIDTH = 6
-    STYLE_ROW_GAP = 8
+    STYLE_GAP_WIDTH = 8
+    STYLE_ROW_GAP = 10
 
     # ── 工具栏布局 ──
 
@@ -45,8 +45,6 @@ class ToolbarMixin:
             ("width", "粗细", "", "切换线宽"),
             ("fill", "填充", "", "图形填充模式"),
             ("grid", "网格", "", "网格辅助 G"),
-            ("size_lock", "锁尺寸", "", "锁定选区尺寸 K"),
-            ("reuse", "复用", "", "复用上次选区 P"),
             ("sep", "", "", ""),
             ("ocr", "识文", "", "识别文字 O"),
             ("copy", "复制", "", "复制 Ctrl+C"),
@@ -89,9 +87,9 @@ class ToolbarMixin:
         items = self.toolbar_items()
         button_size = 42
         sep_w = 10
-        pad_x = 10
-        pad_y = 5
-        spacing = 2
+        pad_x = 12
+        pad_y = 6
+        spacing = 4
 
         compact_width = self.width() - 20
         if compact_width < 900:
@@ -240,8 +238,8 @@ class ToolbarMixin:
             panel_h = pad_y * 2 + color_size + row_gap + opt_h
             # 预设行
             if presets:
-                preset_btn_w = 80
-                preset_btn_h = 24
+                preset_btn_w = 88
+                preset_btn_h = 26
                 presets_row_w = len(presets) * preset_btn_w + max(0, len(presets) - 1) * gap
                 content_w = max(content_w, presets_row_w)
                 panel_w = pad_x * 2 + content_w
@@ -279,8 +277,8 @@ class ToolbarMixin:
             self._lay_out_width_row(width_values, width_x, width_y, gap)
             # 预设行
             if presets:
-                preset_btn_w = 80
-                preset_btn_h = 24
+                preset_btn_w = 88
+                preset_btn_h = 26
                 presets_row_w = len(presets) * preset_btn_w + max(0, len(presets) - 1) * gap
                 preset_x = x + pad_x + (content_w - presets_row_w) // 2
                 preset_y = width_y + opt_h + row_gap

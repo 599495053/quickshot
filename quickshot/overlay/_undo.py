@@ -21,7 +21,11 @@ class UndoMixin:
 
     def push_history(self) -> None:
         if not self.edit_pixmap.isNull():
-            self.history.append((self.edit_pixmap.copy(), self.copy_annotations()))
+            self.history.append((
+                self.edit_pixmap.copy(),
+                self.copy_annotations(),
+                bool(getattr(self, "selection_snapshot_required", False)),
+            ))
             self.redo_stack.clear()
             if len(self.history) > 15:
                 self.history.pop(0)
@@ -84,11 +88,16 @@ class UndoMixin:
             self.message = "没有可撤销的操作"
             self.update()
             return
-        self.redo_stack.append((self.edit_pixmap.copy(), self.copy_annotations()))
-        pixmap, annotations = self.history.pop()
+        self.redo_stack.append((
+            self.edit_pixmap.copy(),
+            self.copy_annotations(),
+            bool(getattr(self, "selection_snapshot_required", False)),
+        ))
+        pixmap, annotations, snapshot_required = self.history.pop()
         self.edit_pixmap = pixmap
         self.edit_pixmap.setDevicePixelRatio(1.0)
         self.annotations = annotations
+        self.selection_snapshot_required = bool(snapshot_required)
         self._reset_text_state()
         self.update_selection_display_cache()
         self.message = "已撤销，Ctrl+Y 可重做"
@@ -99,11 +108,16 @@ class UndoMixin:
             self.message = "没有可重做的操作"
             self.update()
             return
-        self.history.append((self.edit_pixmap.copy(), self.copy_annotations()))
-        pixmap, annotations = self.redo_stack.pop()
+        self.history.append((
+            self.edit_pixmap.copy(),
+            self.copy_annotations(),
+            bool(getattr(self, "selection_snapshot_required", False)),
+        ))
+        pixmap, annotations, snapshot_required = self.redo_stack.pop()
         self.edit_pixmap = pixmap
         self.edit_pixmap.setDevicePixelRatio(1.0)
         self.annotations = annotations
+        self.selection_snapshot_required = bool(snapshot_required)
         self._reset_text_state()
         self.update_selection_display_cache()
         self.message = "已重做"

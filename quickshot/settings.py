@@ -333,8 +333,8 @@ class SettingsWindow(SettingsHandlers, QWidget):
         header_card = make_card("heroCard")
         icon_label = QLabel()
         icon_label.setObjectName("headerIcon")
-        icon_label.setPixmap(load_app_icon().pixmap(40, 40))
-        icon_label.setFixedSize(56, 56)
+        icon_label.setPixmap(load_app_icon().pixmap(36, 36))
+        icon_label.setFixedSize(52, 52)
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         title = QLabel(f"QuickShot V{APP_VERSION} 设置")
@@ -349,8 +349,8 @@ class SettingsWindow(SettingsHandlers, QWidget):
         title_box.addWidget(subtitle)
 
         header_row = QHBoxLayout()
-        header_row.setContentsMargins(22, 16, 22, 16)
-        header_row.setSpacing(16)
+        header_row.setContentsMargins(22, 14, 22, 14)
+        header_row.setSpacing(14)
         header_row.addWidget(icon_label)
         header_row.addLayout(title_box, 1)
         header_card.setLayout(header_row)
@@ -358,8 +358,8 @@ class SettingsWindow(SettingsHandlers, QWidget):
         nav = QFrame()
         nav.setObjectName("settingsSidebar")
         nav_layout = QVBoxLayout()
-        nav_layout.setContentsMargins(10, 14, 10, 14)
-        nav_layout.setSpacing(2)
+        nav_layout.setContentsMargins(10, 12, 10, 12)
+        nav_layout.setSpacing(3)
         nav.setLayout(nav_layout)
 
         nav_title = QLabel("设置")
@@ -379,7 +379,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
         for index, (name, desc, page) in enumerate(pages):
             button = set_button_role(QPushButton(name), "nav")
             button.setCheckable(True)
-            button.setMinimumSize(190, 40)
+            button.setMinimumSize(186, 38)
             button.setToolTip(desc)
             button.clicked.connect(lambda _checked=False, i=index: self.switch_settings_page(i))
             self._nav_buttons.append(button)
@@ -388,7 +388,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
         nav_layout.addStretch(1)
 
         body = QHBoxLayout()
-        body.setContentsMargins(20, 12, 20, 12)
+        body.setContentsMargins(18, 14, 18, 14)
         body.setSpacing(16)
         body.addWidget(nav, 0)
         body.addWidget(self.settings_stack, 1)
@@ -396,7 +396,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
         footer = QFrame()
         footer.setObjectName("footer")
         footer_layout = QHBoxLayout()
-        footer_layout.setContentsMargins(22, 12, 22, 14)
+        footer_layout.setContentsMargins(22, 11, 22, 13)
         footer_layout.setSpacing(12)
         footer_hint = self._helper("修改即时保存。Token 存于系统凭据，不写入配置文件。")
         footer_hint.setObjectName("footerHelper")
@@ -531,8 +531,8 @@ class SettingsWindow(SettingsHandlers, QWidget):
     def _page(self):
         content = QWidget()
         page = QVBoxLayout()
-        page.setContentsMargins(22, 20, 22, 20)
-        page.setSpacing(16)
+        page.setContentsMargins(20, 18, 20, 20)
+        page.setSpacing(14)
         content.setLayout(page)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -543,8 +543,8 @@ class SettingsWindow(SettingsHandlers, QWidget):
     def _card(self, title: str, subtitle: str = ""):
         card = make_card()
         layout = QVBoxLayout()
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(12)
+        layout.setContentsMargins(20, 17, 20, 18)
+        layout.setSpacing(10)
         title_label = QLabel(title)
         title_label.setObjectName("sectionTitle")
         layout.addWidget(title_label)
@@ -552,7 +552,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
             sub = self._helper(subtitle)
             layout.addWidget(sub)
             # 在副标题后留一点呼吸空间，再开始字段区
-            layout.addSpacing(2)
+            layout.addSpacing(4)
         card.setLayout(layout)
         return card, layout
 
@@ -579,7 +579,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
             hint_label = self._helper(hint)
             layout.addWidget(hint_label)
         # 字段之间留更明显的呼吸空间
-        layout.addSpacing(4)
+        layout.addSpacing(6)
 
     def _add_hotkey_row(self, layout: QVBoxLayout, label_text: str, editor: HotkeyCaptureEdit, reset_btn: QPushButton) -> None:
         label = self._field_label(label_text)
@@ -602,4 +602,3 @@ class SettingsWindow(SettingsHandlers, QWidget):
 
     def apply_style(self) -> None:
         self.setStyleSheet(APP_STYLE + settings_extras_stylesheet())
-

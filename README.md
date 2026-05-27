@@ -26,7 +26,7 @@ python -m quickshot
 - A：箭头 | R：矩形 | U：椭圆 | D：虚线框
 - B：画笔 | H：高亮 | T：文字 | N：序号
 - M：马赛克 | L：模糊打码 | O：OCR 识文
-- G：网格辅助 | K：尺寸锁定 | P：复用选区 | Tab：切换上一工具
+- G：网格辅助 | Tab：切换上一工具 | 方向键：微调选区
 - Ctrl + C：复制 | Ctrl + S：保存 | Ctrl + Z：撤销 | Ctrl + Y：重做
 - Enter：完成 | Esc：取消
 
@@ -47,9 +47,8 @@ python -m quickshot
 
 ### 编辑效率
 - 网格辅助（G 键，三分法构图）
-- 尺寸锁定（K 键）
-- 复用选区（P 键）
 - 工具快速切换（Tab 键）
+- 键盘微调选区（方向键 1px，Shift+10px）
 
 ### OCR 功能
 - 文字识别（RapidOCR + 系统 OCR 双引擎）

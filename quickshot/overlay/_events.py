@@ -37,8 +37,6 @@ _COMMAND_METHODS: Dict[str, str] = {
     "width": "toggle_style_panel",
     "fill": "cycle_fill_mode",
     "grid": "toggle_grid",
-    "size_lock": "toggle_size_lock",
-    "reuse": "reuse_last_selection",
     "blur_all": "apply_mosaic_to_selection",
 }
 
@@ -517,12 +515,8 @@ class EventMixin:
         # 功能键
         if key == Qt.Key.Key_G:
             self.toggle_grid()
-        elif key == Qt.Key.Key_K:
-            self.toggle_size_lock()
         elif key == Qt.Key.Key_Tab:
             self.switch_to_last_tool()
-        elif key == Qt.Key.Key_P:
-            self.reuse_last_selection()
         elif key in (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_Left, Qt.Key.Key_Right):
             self.nudge_selection(event)
 

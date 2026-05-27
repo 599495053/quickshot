@@ -43,6 +43,7 @@ _COMMAND_METHODS: Dict[str, str] = {
 _TOOL_KEYS = {
     "arrow", "rect", "ellipse", "dashed_rect",
     "pen", "highlight", "text", "number", "mosaic", "blur",
+    "picker",
 }
 
 # 键盘键 -> 命令映射（Ctrl 修饰符）
@@ -65,6 +66,7 @@ _TOOL_KEY_MAP = {
     Qt.Key.Key_D: "dashed_rect",
     Qt.Key.Key_N: "number",
     Qt.Key.Key_L: "blur",
+    Qt.Key.Key_I: "picker",
 }
 
 
@@ -187,6 +189,8 @@ class EventMixin:
                         return
                     if self.active_tool == "text":
                         self.open_inline_text_editor(image_pos)
+                    elif self.active_tool == "picker":
+                        self._pick_color_at(image_pos)
                     elif self.active_tool == "number":
                         self.push_history()
                         self.draw_number_on_pixmap(QPoint(image_pos))
@@ -224,6 +228,8 @@ class EventMixin:
                 self.hover_style_option = hover_style
                 self.hover_drag_button = False
                 self.update()
+            elif self.active_tool == "picker" and self.selection_rect.contains(pos):
+                self.update()  # 取色器需要持续刷新以显示放大镜
             if hover_text != self.text_drag.hover_index and not self.text_drag.is_dragging:
                 self.text_drag.hover_index = hover_text
                 self.update()
@@ -258,6 +264,8 @@ class EventMixin:
             elif self.selection_rect.contains(pos) and self.active_tool in DRAW_TOOLS:
                 cursor = Qt.CursorShape.CrossCursor
             elif self.selection_rect.contains(pos) and self.active_tool == "number":
+                cursor = Qt.CursorShape.CrossCursor
+            elif self.selection_rect.contains(pos) and self.active_tool == "picker":
                 cursor = Qt.CursorShape.CrossCursor
             elif self.selection_rect.contains(pos) and getattr(self, "ocr_region_mode", False):
                 cursor = Qt.CursorShape.CrossCursor
@@ -548,6 +556,23 @@ class EventMixin:
         """切换网格辅助显示。"""
         self.grid_visible = not self.grid_visible
         self.message = "网格辅助：开" if self.grid_visible else "网格辅助：关"
+        self.update()
+
+    def _pick_color_at(self, image_pos) -> None:
+        """取色器：采样像素颜色，应用到标注颜色并复制到剪贴板。"""
+        from ..utils import copy_text_to_clipboard
+        x, y = int(image_pos.x()), int(image_pos.y())
+        if self.edit_pixmap.isNull():
+            return
+        if x < 0 or y < 0 or x >= self.edit_pixmap.width() or y >= self.edit_pixmap.height():
+            return
+        color = self.edit_pixmap.toImage().pixelColor(x, y)
+        hex_str = color.name().upper()
+        rgb_str = f"rgb({color.red()}, {color.green()}, {color.blue()})"
+        # 应用到标注颜色
+        self.stroke_color_name = hex_str
+        copy_text_to_clipboard(hex_str)
+        self.message = f"已取色 {hex_str} ({rgb_str})，已设为标注颜色并复制到剪贴板"
         self.update()
 
     def toggle_size_lock(self) -> None:

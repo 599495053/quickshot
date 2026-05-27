@@ -31,6 +31,17 @@ class SettingsHandlers:
             self.config.save_dir_mode = mode
             self._schedule_save()
 
+    def on_save_format_changed(self, index: int) -> None:
+        fmt = self.save_format_combo.itemData(index)
+        if fmt:
+            self.config.save_format = fmt
+            self.jpeg_quality_spin.setEnabled(fmt in ("jpg", "jpeg"))
+            self._schedule_save()
+
+    def on_jpeg_quality_changed(self, value: int) -> None:
+        self.config.jpeg_quality = value
+        self._schedule_save()
+
     def on_notification_changed(self, state: int) -> None:
         self.config.show_notifications = state == self.Qt_CHECKED
         self._schedule_save()

@@ -156,6 +156,26 @@ class SettingsWindow(SettingsHandlers, QWidget):
                 break
         self.save_mode_combo.currentIndexChanged.connect(self.on_save_mode_changed)
 
+        self.save_format_combo = QComboBox()
+        _disable_wheel(self.save_format_combo)
+        self.save_format_combo.addItem("PNG", "png")
+        self.save_format_combo.addItem("JPEG", "jpg")
+        self.save_format_combo.addItem("WebP", "webp")
+        self.save_format_combo.addItem("BMP", "bmp")
+        current_fmt = getattr(self.config, "save_format", "png")
+        for i in range(self.save_format_combo.count()):
+            if self.save_format_combo.itemData(i) == current_fmt:
+                self.save_format_combo.setCurrentIndex(i)
+                break
+        self.save_format_combo.currentIndexChanged.connect(self.on_save_format_changed)
+
+        self.jpeg_quality_spin = QSpinBox()
+        self.jpeg_quality_spin.setRange(1, 100)
+        self.jpeg_quality_spin.setValue(getattr(self.config, "jpeg_quality", 90))
+        self.jpeg_quality_spin.setSuffix("%")
+        self.jpeg_quality_spin.valueChanged.connect(self.on_jpeg_quality_changed)
+        self.jpeg_quality_spin.setEnabled(current_fmt in ("jpg", "jpeg"))
+
         self.auto_copy_check = QCheckBox("截图完成后自动复制到剪贴板")
         self.auto_copy_check.setChecked(self.config.auto_copy)
         self.auto_copy_check.stateChanged.connect(self.on_auto_copy_changed)
@@ -423,6 +443,15 @@ class SettingsWindow(SettingsHandlers, QWidget):
         save_row.addWidget(self.choose_save_dir_btn)
         self._add_field(save_layout, "保存目录", save_row)
         self._add_field(save_layout, "目录组织方式", self.save_mode_combo)
+
+        fmt_row = QHBoxLayout()
+        fmt_row.setContentsMargins(0, 0, 0, 0)
+        fmt_row.setSpacing(8)
+        fmt_row.addWidget(self.save_format_combo, 1)
+        fmt_row.addWidget(QLabel("JPEG 质量"))
+        fmt_row.addWidget(self.jpeg_quality_spin)
+        self._add_field(save_layout, "保存格式", fmt_row, "选择默认保存格式，JPEG 可调质量。")
+
         page.addWidget(save_card)
 
         behavior_card, behavior_layout = self._card("常用行为", "这些是日常最常改的开关。")

@@ -69,18 +69,36 @@ class ExportMixin:
         self.copy_current()
         self.close()
 
+    _SAVE_FILTERS = (
+        "PNG 图片 (*.png);;"
+        "JPEG 图片 (*.jpg *.jpeg);;"
+        "WebP 图片 (*.webp);;"
+        "BMP 图片 (*.bmp);;"
+        "所有文件 (*)"
+    )
+
+    _FORMAT_MAP = {
+        ".png": ("PNG", "PNG"),
+        ".jpg": ("JPEG", "JPEG"),
+        ".jpeg": ("JPEG", "JPEG"),
+        ".webp": ("WebP", "WEBP"),
+        ".bmp": ("BMP", "BMP"),
+    }
+
     def save_current(self) -> None:
         if self.edit_pixmap.isNull():
             return
         save_dir = self.config.ensure_save_dir()
-        filename = datetime.datetime.now().strftime("screenshot_%Y%m%d_%H%M%S.png")
+        default_fmt = getattr(self.config, "save_format", "png")
+        ext = f".{default_fmt}" if default_fmt != "png" else ".png"
+        filename = datetime.datetime.now().strftime(f"screenshot_%Y%m%d_%H%M%S{ext}")
         default_path = str(Path(save_dir) / filename)
         try:
             self.releaseKeyboard()
         except Exception as exc:
             debug_log(f"releaseKeyboard for save dialog failed: {exc}")
-        filepath, _ = QFileDialog.getSaveFileName(
-            self, "保存截图", default_path, "PNG 图片 (*.png)",
+        filepath, selected_filter = QFileDialog.getSaveFileName(
+            self, "保存截图", default_path, self._SAVE_FILTERS,
         )
         try:
             if self.isVisible():
@@ -88,14 +106,35 @@ class ExportMixin:
         except Exception as exc:
             debug_log(f"regrabKeyboard after save dialog failed: {exc}")
         if filepath:
-            if not filepath.lower().endswith(".png"):
-                filepath += ".png"
+            # 根据文件扩展名确定格式
+            ext = Path(filepath).suffix.lower()
+            fmt_info = self._FORMAT_MAP.get(ext)
+            if fmt_info is None:
+                # 用户没写扩展名或写了未知扩展名，按 filter 推断
+                if "JPEG" in selected_filter:
+                    ext = ".jpg"
+                    fmt_info = ("JPEG", "JPEG")
+                elif "WebP" in selected_filter:
+                    ext = ".webp"
+                    fmt_info = ("WebP", "WEBP")
+                elif "BMP" in selected_filter:
+                    ext = ".bmp"
+                    fmt_info = ("BMP", "BMP")
+                else:
+                    ext = ".png"
+                    fmt_info = ("PNG", "PNG")
+                if not filepath.lower().endswith(ext):
+                    filepath += ext
+            fmt_name, qt_fmt = fmt_info
+            quality = -1  # 默认质量
+            if qt_fmt == "JPEG":
+                quality = getattr(self.config, "jpeg_quality", 90)
             try:
-                saved = self.edit_pixmap.save(filepath, "PNG")
+                saved = self.edit_pixmap.save(filepath, qt_fmt, quality)
                 if not saved:
                     raise RuntimeError("pixmap.save returned False")
                 self.record_capture_history("save")
-                self.message = f"已保存：{filepath}"
+                self.message = f"已保存（{fmt_name}）：{filepath}"
                 self.maybe_notify(f"已保存：{Path(filepath).name}")
                 self._maybe_run_post_capture_pipeline(saved_path=filepath)
             except Exception as exc:

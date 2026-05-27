@@ -507,6 +507,81 @@ class FloatingSnipOverlay(
         if not self.adjusting_selection:
             self.draw_toolbar(painter)
             self.draw_style_panel(painter)
+            if self.active_tool == "picker":
+                self._draw_magnifier(painter)
             self.draw_message(painter)
         else:
             self.draw_message(painter)
+
+    def _draw_magnifier(self, painter: QPainter) -> None:
+        """取色器激活时，在光标附近显示放大镜和颜色预览。"""
+        cursor_pos = self.mapFromGlobal(self.cursor().pos())
+        if not self.selection_rect.contains(cursor_pos):
+            return
+        if self.edit_pixmap.isNull():
+            return
+
+        image_pos = self.widget_to_image(cursor_pos)
+        if image_pos is None:
+            return
+
+        # 放大镜参数
+        mag_size = 120       # 放大镜直径
+        zoom = 8             # 放大倍数
+        src_radius = mag_size // zoom // 2  # 源图像采样半径
+
+        # 放大镜位置（光标右下方，避免遮挡）
+        mx = cursor_pos.x() + 20
+        my = cursor_pos.y() + 20
+        # 防止超出窗口
+        if mx + mag_size > self.width():
+            mx = cursor_pos.x() - mag_size - 20
+        if my + mag_size > self.height():
+            my = cursor_pos.y() - mag_size - 20
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        # 裁剪圆形区域
+        from PyQt6.QtGui import QPainterPath
+        path = QPainterPath()
+        cx, cy = mx + mag_size / 2, my + mag_size / 2
+        path.addEllipse(QRectF(mx, my, mag_size, mag_size))
+        painter.setClipPath(path)
+
+        # 绘制放大后的图像
+        src_rect = QRect(
+            int(image_pos.x()) - src_radius,
+            int(image_pos.y()) - src_radius,
+            src_radius * 2 + 1,
+            src_radius * 2 + 1,
+        )
+        dest_rect = QRectF(mx, my, mag_size, mag_size)
+        painter.drawPixmap(dest_rect, self.edit_pixmap, QRectF(src_rect))
+
+        # 绘制十字准线
+        painter.setPen(QPen(QColor(255, 255, 255, 180), 1))
+        painter.drawLine(QPointF(cx, my + 2), QPointF(cx, my + mag_size - 2))
+        painter.drawLine(QPointF(mx + 2, cy), QPointF(mx + mag_size - 2, cy))
+        painter.setPen(QPen(QColor(0, 0, 0, 120), 1))
+        painter.drawLine(QPointF(cx - 6, cy), QPointF(cx + 6, cy))
+        painter.drawLine(QPointF(cx, cy - 6), QPointF(cx, cy + 6))
+
+        # 绘制边框
+        painter.setClipping(False)
+        painter.setPen(QPen(QColor(255, 255, 255, 200), 2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawEllipse(QRectF(mx, my, mag_size, mag_size))
+
+        # 绘制颜色预览方块
+        ix, iy = int(image_pos.x()), int(image_pos.y())
+        if 0 <= ix < self.edit_pixmap.width() and 0 <= iy < self.edit_pixmap.height():
+            color = self.edit_pixmap.toImage().pixelColor(ix, iy)
+            preview_size = 24
+            px = mx + mag_size - preview_size - 4
+            py = my + 4
+            painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
+            painter.setBrush(color)
+            painter.drawRect(QRectF(px, py, preview_size, preview_size))
+
+        painter.restore()

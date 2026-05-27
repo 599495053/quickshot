@@ -95,6 +95,13 @@ class HistoryWindow(HistoryActions, QWidget):
         self.tag_filter.addItem("全部标签", "")
         self.tag_filter.currentIndexChanged.connect(self.reload_items)
 
+        self.time_filter = QComboBox()
+        self.time_filter.addItem("全部时间", "all")
+        self.time_filter.addItem("今天", "today")
+        self.time_filter.addItem("本周", "week")
+        self.time_filter.addItem("本月", "month")
+        self.time_filter.currentIndexChanged.connect(self.reload_items)
+
         self.status_label = QLabel("")
         self.status_label.setObjectName("status")
 
@@ -102,6 +109,7 @@ class HistoryWindow(HistoryActions, QWidget):
         filter_row.setContentsMargins(0, 0, 0, 0)
         filter_row.setSpacing(8)
         filter_row.addWidget(self.search_edit, 1)
+        filter_row.addWidget(self.time_filter)
         filter_row.addWidget(self.source_filter)
         filter_row.addWidget(self.tag_filter)
 
@@ -369,11 +377,13 @@ class HistoryWindow(HistoryActions, QWidget):
         if favorite_only:
             source = "all"
         tag = str(self.tag_filter.currentData() or "")
+        time_range = str(self.time_filter.currentData() or "all")
         self.items = self.store.search(
             self.search_edit.text(),
             source,
             tag=tag,
             favorite_only=favorite_only,
+            time_range=time_range,
         )
         self._refresh_tag_filter()
         self.list_widget.setUpdatesEnabled(False)

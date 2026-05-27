@@ -40,6 +40,7 @@ class ToolbarMixin:
             ("mosaic", "马赛克", "", "马赛克 M"),
             ("blur", "模糊", "", "模糊打码 L"),
             ("blur_all", "打码", "", "智能识别隐私信息并打码"),
+            ("picker", "取色", "", "取色器 I"),
             ("sep", "", "", ""),
             ("color", "颜色", "", "切换颜色"),
             ("width", "粗细", "", "切换线宽"),
@@ -412,6 +413,7 @@ class ToolbarMixin:
                 "number": "序号模式：点击位置放置序号标记",
                 "mosaic": "马赛克模式：拖动选择要打码的区域",
                 "blur": "模糊模式：拖动选择要模糊的区域",
+                "picker": "取色器：点击取色，颜色值复制到剪贴板",
             }
             self.message = tips.get(tool, "")
         self.dragging_annotation = False

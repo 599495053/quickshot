@@ -52,6 +52,8 @@ class Config:
 
     save_dir: str = field(default_factory=lambda: str(Path.home() / "Pictures" / APP_NAME))
     save_dir_mode: str = "flat"  # flat / date / subdir
+    save_format: str = "png"  # png / jpg / webp / bmp
+    jpeg_quality: int = field(default=90, metadata={"loader": _clamp_int(1, 100)})
     auto_copy: bool = True
     show_notifications: bool = True
     hdr_color_accurate: bool = False
@@ -117,7 +119,7 @@ class Config:
                 else:
                     value = raw
                 setattr(self, f.name, value)
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
             debug_log(f"config load failed: {exc}")
 
     def save(self) -> None:

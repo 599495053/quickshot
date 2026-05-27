@@ -52,7 +52,7 @@ class CaptureHistoryStore:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 if isinstance(data, list):
                     items = [item for item in data if isinstance(item, dict)]
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError) as exc:
             debug_log(f"load history failed: {exc}")
         self._items_cache = items
         self._rebuild_index(items)
@@ -151,9 +151,11 @@ class CaptureHistoryStore:
             items[idx]["tags"] = tags
             self.save_items(items)
 
-    def search(self, query: str = "", source: str = "", tag: str = "", favorite_only: bool = False) -> List[Dict[str, object]]:
-        """搜索历史项，支持关键词、来源、标签、收藏筛选。"""
+    def search(self, query: str = "", source: str = "", tag: str = "", favorite_only: bool = False, time_range: str = "all") -> List[Dict[str, object]]:
+        """搜索历史项，支持关键词、来源、标签、收藏、时间范围筛选。"""
+        import datetime as _dt
         items = self.existing_items()
+        now = _dt.datetime.now()
         matched = []
         for item in items:
             if source and source != "all" and item.get("source") != source:
@@ -162,6 +164,23 @@ class CaptureHistoryStore:
                 continue
             if tag and tag not in item.get("tags", []):
                 continue
+            # 时间范围筛选
+            if time_range and time_range != "all":
+                created = str(item.get("created_at", ""))
+                try:
+                    item_dt = _dt.datetime.fromisoformat(created.replace("Z", "+00:00").replace("+00:00", ""))
+                except (ValueError, TypeError):
+                    continue
+                if time_range == "today":
+                    if item_dt.date() != now.date():
+                        continue
+                elif time_range == "week":
+                    week_start = now - _dt.timedelta(days=now.weekday())
+                    if item_dt < week_start.replace(hour=0, minute=0, second=0, microsecond=0):
+                        continue
+                elif time_range == "month":
+                    if item_dt.year != now.year or item_dt.month != now.month:
+                        continue
             if query:
                 keyword = query.lower()
                 haystack = " ".join([

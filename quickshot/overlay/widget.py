@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import traceback
 from typing import Dict, List, Optional, Tuple
 
@@ -242,6 +243,43 @@ class FloatingSnipOverlay(
             self.grabKeyboard()
         except Exception as exc:
             debug_log(f"grabKeyboard failed: {exc}")
+        self._disable_dwm_shadow()
+
+    def _disable_dwm_shadow(self) -> None:
+        """移除 Windows DWM 给 frameless 窗口添加的系统边框/阴影。"""
+        if not sys.platform.startswith("win"):
+            return
+        try:
+            import ctypes
+            hwnd = int(self.winId())
+            DWMWA_NCRENDERING_POLICY = 2
+            DWMNCRP_DISABLED = 2
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, DWMWA_NCRENDERING_POLICY,
+                ctypes.byref(ctypes.c_int(DWMNCRP_DISABLED)),
+                ctypes.sizeof(ctypes.c_int),
+            )
+            # 将 frame 扩展到客户区，消除 DWM 边框
+            MARGIN = ctypes.c_int(-1)
+            ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(
+                hwnd, ctypes.byref(MARGIN),
+            )
+        except Exception as exc:
+            debug_log(f"_disable_dwm_shadow failed: {exc}")
+
+    def nativeEvent(self, event_type, message):
+        """拦截 WM_NCCALCSIZE 移除非客户区，消除系统边框。"""
+        if sys.platform.startswith("win") and event_type == b"windows_generic_MSG":
+            try:
+                import ctypes
+                from ctypes import wintypes
+                msg = ctypes.cast(int(message), ctypes.POINTER(wintypes.MSG)).contents
+                WM_NCCALCSIZE = 0x0083
+                if msg.message == WM_NCCALCSIZE:
+                    return True, 0
+            except Exception:
+                pass
+        return super().nativeEvent(event_type, message)
 
     def closeEvent(self, event) -> None:
         self.detach_ocr_job()

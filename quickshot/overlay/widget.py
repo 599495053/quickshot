@@ -5,9 +5,9 @@ from __future__ import annotations
 import traceback
 from typing import Dict, List, Optional, Tuple
 
-from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPixmap, QKeySequence, QShortcut
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QSpinBox, QVBoxLayout, QWidget
+from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap
+from PyQt6.QtWidgets import QWidget
 
 from ..config import Config
 from ..history import CaptureHistoryStore
@@ -16,7 +16,6 @@ from ..theme import (
     STROKE_DEFAULT,
     overlay_dim,
     qc,
-    text_panel_stylesheet,
 )
 from ..utils import APP_NAME, debug_log
 from .coords import CoordinateSystem
@@ -27,10 +26,11 @@ from ._history import HistoryMixin
 from ._ocr import OcrMixin
 from ._paint import PaintMixin
 from ._selection import SelectionMixin
+from ._snap import SnapMixin
 from ._text_drag import TextDragState
 from ._text_editor import TextEditorMixin
-from ._toolbar import DRAW_TOOLS, ToolbarMixin
-from ._tool_strategies import TOOL_STRATEGIES, ToolContext
+from ._toolbar import ToolbarMixin
+from ._tool_strategies import TOOL_STRATEGIES
 
 
 class FloatingSnipOverlay(
@@ -42,6 +42,7 @@ class FloatingSnipOverlay(
     PaintMixin,
     OcrMixin,
     HistoryMixin,
+    SnapMixin,
     QWidget,
 ):
 
@@ -93,6 +94,8 @@ class FloatingSnipOverlay(
         self.end = QPoint()
         self.selecting = False
         self.auto_ocr = False
+        self._pending_frame_update_rect = QRect()
+        self._pending_full_frame_update = False
 
         self.selection_rect = QRect()
         self.selection_physical_rect = QRect()
@@ -111,6 +114,9 @@ class FloatingSnipOverlay(
         self.drag_start: Optional[QPoint] = None
         self.drag_end: Optional[QPoint] = None
         self.drag_path: List[QPoint] = []
+
+        # 吸附状态
+        self._init_snap_state()
         self.text_drag = TextDragState()
 
         self.toolbar_rect = QRect()
@@ -164,105 +170,15 @@ class FloatingSnipOverlay(
         self.setGeometry(self.logical_geometry)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setCursor(Qt.CursorShape.CrossCursor)
+        self.setCursor(Qt.CursorShape.ArrowCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
 
-        self.text_editor_panel = QFrame(self)
-        self.text_editor_panel.setObjectName("textEditorPanel")
-        self.text_editor_panel.hide()
+        self._frame_update_timer = QTimer(self)
+        self._frame_update_timer.setSingleShot(True)
+        self._frame_update_timer.setInterval(0)
+        self._frame_update_timer.timeout.connect(self._flush_frame_update)
 
-        panel_layout = QVBoxLayout()
-        panel_layout.setContentsMargins(10, 10, 10, 10)
-        panel_layout.setSpacing(8)
-
-        top_row = QHBoxLayout()
-        top_row.setContentsMargins(0, 0, 0, 0)
-        top_row.setSpacing(8)
-
-        panel_hint = QLabel("文字")
-        panel_hint.setObjectName("textPanelHint")
-        self.text_hint_label = QLabel("Ctrl+Enter 添加")
-        self.text_hint_label.setObjectName("textPanelSubHint")
-
-        self.text_editor = QPlainTextEdit(self.text_editor_panel)
-        self.text_editor.setObjectName("textEditor")
-        self.text_editor.setPlaceholderText("输入文字")
-        self.text_editor.setTabChangesFocus(True)
-        self.text_editor.setFixedHeight(72)
-        self.text_editor.installEventFilter(self)
-
-        options_row = QHBoxLayout()
-        options_row.setContentsMargins(0, 0, 0, 0)
-        options_row.setSpacing(8)
-
-        size_label = QLabel("字")
-        size_label.setObjectName("textPanelField")
-        self.text_size_spin = QSpinBox(self.text_editor_panel)
-        self.text_size_spin.setRange(12, 72)
-        self.text_size_spin.setSingleStep(2)
-        self.text_size_spin.setValue(max(12, min(72, int(self.text_font_size))))
-        self.text_size_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
-        self.text_size_spin.setFixedWidth(52)
-        self.text_size_spin.valueChanged.connect(self.on_text_size_changed)
-
-        color_label = QLabel("色")
-        color_label.setObjectName("textPanelField")
-
-        self.text_color_buttons: Dict[str, QPushButton] = {}
-        color_row = QHBoxLayout()
-        color_row.setContentsMargins(0, 0, 0, 0)
-        color_row.setSpacing(5)
-        for color_name, color_title in self.TEXT_COLOR_OPTIONS:
-            button = QPushButton(self.text_editor_panel)
-            button.setFixedSize(20, 20)
-            button.setToolTip(color_title)
-            button.clicked.connect(lambda _checked=False, c=color_name: self.select_text_color(c))
-            self.text_color_buttons[color_name] = button
-            color_row.addWidget(button)
-        color_row.addStretch(0)
-
-        options_row.addWidget(size_label)
-        options_row.addWidget(self.text_size_spin, 0)
-        options_row.addWidget(color_label)
-        options_row.addLayout(color_row, 0)
-        options_row.addStretch(1)
-
-        action_row = QHBoxLayout()
-        action_row.setContentsMargins(0, 0, 0, 0)
-        action_row.setSpacing(6)
-
-        self.text_cancel_btn = QPushButton("取消", self.text_editor_panel)
-        self.text_cancel_btn.clicked.connect(self.cancel_inline_text)
-        self.text_add_btn = QPushButton("添加", self.text_editor_panel)
-        self.text_add_btn.clicked.connect(self.commit_inline_text)
-        self.text_add_btn.setDefault(True)
-
-        action_row.addStretch(1)
-        action_row.addWidget(self.text_add_btn)
-        action_row.addWidget(self.text_cancel_btn)
-
-        top_row.addWidget(panel_hint)
-        top_row.addWidget(self.text_hint_label)
-        top_row.addStretch(1)
-
-        panel_layout.addLayout(top_row)
-        panel_layout.addWidget(self.text_editor)
-        panel_layout.addLayout(options_row)
-        panel_layout.addLayout(action_row)
-        self.text_editor_panel.setLayout(panel_layout)
-        self.text_editor_panel.setFixedWidth(320)
-        self.text_editor_panel.setStyleSheet(text_panel_stylesheet())
-        self.select_text_color(self.text_color_name)
-
-        self.text_commit_shortcut = QShortcut(QKeySequence("Ctrl+Return"), self.text_editor_panel)
-        self.text_commit_shortcut.activated.connect(self.commit_inline_text)
-        self.text_commit_shortcut.setEnabled(False)
-        self.text_commit_shortcut2 = QShortcut(QKeySequence("Ctrl+Enter"), self.text_editor_panel)
-        self.text_commit_shortcut2.activated.connect(self.commit_inline_text)
-        self.text_commit_shortcut2.setEnabled(False)
-        self.text_cancel_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self.text_editor_panel)
-        self.text_cancel_shortcut.activated.connect(self.cancel_inline_text)
-        self.text_cancel_shortcut.setEnabled(False)
+        self._init_text_editor_panel()
 
     # ── 兼容属性（委托到 text_drag，供 _paint.py / _text_editor.py 等使用）──
 
@@ -320,6 +236,8 @@ class FloatingSnipOverlay(
         super().showEvent(event)
         self.raise_()
         self.activateWindow()
+        if self.mode == "select":
+            self.setCursor(Qt.CursorShape.ArrowCursor)
         try:
             self.grabKeyboard()
         except Exception as exc:
@@ -336,6 +254,65 @@ class FloatingSnipOverlay(
             debug_log(f"releaseKeyboard failed: {exc}")
         self.closed.emit()
         super().closeEvent(event)
+
+    def request_frame_update(self, rect: Optional[QRect] = None) -> None:
+        """Coalesce high-frequency drag repaints into the next frame."""
+        if rect is None or rect.isNull():
+            self._pending_full_frame_update = True
+            self._pending_frame_update_rect = QRect()
+        elif not self._pending_full_frame_update:
+            clipped = QRect(rect).intersected(self.rect())
+            if not clipped.isNull():
+                if self._pending_frame_update_rect.isNull():
+                    self._pending_frame_update_rect = clipped
+                else:
+                    self._pending_frame_update_rect = self._pending_frame_update_rect.united(clipped)
+        if not self._frame_update_timer.isActive():
+            self._frame_update_timer.start()
+
+    def _flush_frame_update(self) -> None:
+        if self._pending_full_frame_update or self._pending_frame_update_rect.isNull():
+            self.update()
+        else:
+            self.update(self._pending_frame_update_rect)
+        self._pending_full_frame_update = False
+        self._pending_frame_update_rect = QRect()
+
+    def selection_frame_dirty_rect(
+        self,
+        old_rect: Optional[QRect],
+        new_rect: Optional[QRect],
+        padding: int = 72,
+    ) -> QRect:
+        """Dirty region for moving/resizing the selection and its full-width dim edges."""
+        bounds = self.rect()
+        dirty = QRect()
+        strip = max(12, padding // 4)
+        for source in (old_rect, new_rect):
+            if source is None:
+                continue
+            rect = QRect(source).normalized().intersected(bounds)
+            if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
+                continue
+            expanded = rect.adjusted(-padding, -padding, padding, padding).intersected(bounds)
+            dirty = expanded if dirty.isNull() else dirty.united(expanded)
+
+            # draw_dim_outside() changes full-width top/bottom bands when the
+            # selection edge moves. Repaint those strips to avoid stale 1px lines.
+            for y in (rect.top(), rect.bottom() + 1):
+                band = QRect(bounds.left(), y - strip, bounds.width(), strip * 2 + 1).intersected(bounds)
+                if not band.isNull():
+                    dirty = band if dirty.isNull() else dirty.united(band)
+
+            # Left/right dim bands only cover the selection height, but a taller
+            # strip is cheap and prevents edge residue during fast diagonal moves.
+            y_top = max(bounds.top(), rect.top() - padding)
+            y_bottom = min(bounds.bottom(), rect.bottom() + padding)
+            for x in (rect.left(), rect.right() + 1):
+                band = QRect(x - strip, y_top, strip * 2 + 1, y_bottom - y_top + 1).intersected(bounds)
+                if not band.isNull():
+                    dirty = band if dirty.isNull() else dirty.united(band)
+        return dirty.intersected(bounds)
 
     def eventFilter(self, watched, event) -> bool:
         editor = getattr(self, "text_editor", None)
@@ -455,6 +432,7 @@ class FloatingSnipOverlay(
 
         physical_rect = self.logical_to_physical_rect(rect)
         self.draw_dim_outside(painter, rect)
+        self.draw_snap_guides(painter)
         self.draw_selection_border(painter, rect)
         self.draw_handles(painter, rect)
         self.draw_size_label(painter, rect, physical_rect.width(), physical_rect.height())

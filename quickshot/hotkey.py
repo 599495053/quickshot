@@ -2,18 +2,10 @@ import ctypes
 from ctypes import wintypes
 import sys
 
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
 from .utils import APP_NAME, debug_log
-
-
-class HotkeyBridge(QObject):
-    region_hotkey = pyqtSignal()
-    window_hotkey = pyqtSignal()
-    history_hotkey = pyqtSignal()
-    pin_hotkey = pyqtSignal()
-    ocr_hotkey = pyqtSignal()
 
 
 class NativeHotkeyWindow(QWidget):

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
+from importlib.util import find_spec
 from typing import TYPE_CHECKING, List, Optional
 
 from PyQt6.QtGui import QImage
@@ -51,14 +52,11 @@ class RapidOcrEngine(OcrEngine):
         return "RapidOCR"
 
     def is_available(self) -> bool:
-        try:
-            from rapidocr_onnxruntime import RapidOCR  # noqa: F401
-            return True
-        except ImportError:
-            return False
+        return find_spec("rapidocr_onnxruntime") is not None
 
     def recognize(self, prepared_image: QImage) -> str:
-        from .ocr import _qimage_to_numpy, clean_ocr_text, format_rapidocr_result, rapidocr_engine
+        from .ocr import _qimage_to_numpy, rapidocr_engine
+        from .ocr_utils import clean_ocr_text, format_rapidocr_result
         result, _elapsed = rapidocr_engine()(_qimage_to_numpy(prepared_image))
         return clean_ocr_text(format_rapidocr_result(result))
 

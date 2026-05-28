@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import base64
+import time
 import datetime
 import os
 import shutil
@@ -89,7 +90,12 @@ class LocalArchiveUploader(Uploader):
         try:
             self.archive_dir.mkdir(parents=True, exist_ok=True)
             stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            dest = self.archive_dir / f"{stamp}_{src.name}"
+            # 截断过长文件名，避免 Windows 路径限制（MAX_PATH=260）
+            name = src.name
+            if len(name) > 200:
+                suffix = Path(name).suffix
+                name = name[:200 - len(suffix)] + suffix
+            dest = self.archive_dir / f"{stamp}_{name}"
             shutil.copy2(src, dest)
             url = dest.resolve().as_uri()  # file:///...
             return UploadResult(url=url, name=dest.name)
@@ -169,9 +175,18 @@ class GitHubUploader(Uploader):
             raise UploadError(f"源文件不存在：{image_path}")
 
         try:
-            payload = base64.b64encode(src.read_bytes()).decode("ascii")
+            file_bytes = src.read_bytes()
         except OSError as exc:
             raise UploadError(f"读取源文件失败：{exc}") from exc
+
+        # GitHub Contents API 单文件上限 100MB，但 base64 膨胀 ~33%，
+        # 且大文件上传极慢，限制 10MB 以保证用户体验。
+        max_size = 10 * 1024 * 1024
+        if len(file_bytes) > max_size:
+            size_mb = len(file_bytes) / (1024 * 1024)
+            raise UploadError(f"文件过大（{size_mb:.1f}MB），GitHub 上传限制 10MB")
+
+        payload = base64.b64encode(file_bytes).decode("ascii")
 
         remote_path = self.build_remote_path(src.name)
         api_url = f"{self.API_BASE}/repos/{self.owner}/{self.repo}/contents/{remote_path}"
@@ -192,14 +207,25 @@ class GitHubUploader(Uploader):
         except ImportError as exc:
             raise UploadError("缺少依赖 requests，请先安装") from exc
 
-        try:
-            resp = requests.put(api_url, json=body, headers=headers, timeout=self.request_timeout)
-        except Exception as exc:  # noqa: BLE001
-            raise UploadError(f"网络请求失败：{exc}") from exc
+        max_retries = 2
+        resp = None
+        for attempt in range(max_retries):
+            try:
+                resp = requests.put(api_url, json=body, headers=headers, timeout=self.request_timeout)
+            except Exception as exc:  # noqa: BLE001
+                raise UploadError(f"网络请求失败：{exc}") from exc
 
-        if resp.status_code in (200, 201):
-            raw_url = f"{self.RAW_BASE}/{self.owner}/{self.repo}/{self.branch}/{remote_path}"
-            return UploadResult(url=raw_url, name=src.name)
+            if resp.status_code in (200, 201):
+                raw_url = f"{self.RAW_BASE}/{self.owner}/{self.repo}/{self.branch}/{remote_path}"
+                return UploadResult(url=raw_url, name=src.name)
+
+            # 5xx 服务端错误：重试一次
+            if resp.status_code >= 500 and attempt < max_retries - 1:
+                debug_log(f"GitHub upload got {resp.status_code}, retrying in 2s...")
+                time.sleep(2)
+                continue
+
+            break
 
         # 友好错误映射
         message = self._format_error(resp)
@@ -220,6 +246,8 @@ class GitHubUploader(Uploader):
             return "GitHub 上传失败：仓库不存在或 Token 无权访问（404）"
         if code == 422:
             return f"GitHub 上传失败：文件已存在或参数错误（422）{(' ' + detail) if detail else ''}"
+        if 500 <= code < 600:
+            return f"GitHub 服务暂时不可用（{code}），请稍后重试{('：' + detail) if detail else ''}"
         return f"GitHub 上传失败：HTTP {code} {detail}".rstrip()
 
 
@@ -281,8 +309,3 @@ def format_markdown_link(result: UploadResult, alt_text: str = "") -> str:
     alt = alt_text or result.name or "image"
     return f"![{alt}]({result.url})"
 
-
-def format_html_link(result: UploadResult, alt_text: str = "") -> str:
-    """生成 HTML <img> 标签。"""
-    alt = alt_text or result.name or "image"
-    return f'<img src="{result.url}" alt="{alt}" />'

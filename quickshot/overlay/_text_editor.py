@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Dict
 
 from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QKeySequence, QPainter, QPen, QShortcut
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QSpinBox, QVBoxLayout
 
 from . import annotation_painter
 from ..theme import ACCENT_BASE, BORDER_REGULAR, qc
@@ -13,6 +14,107 @@ from ..utils import debug_log
 
 
 class TextEditorMixin:
+
+    def _init_text_editor_panel(self) -> None:
+        """初始化内联文本编辑面板（从 widget.__init__ 提取）。"""
+        from ..theme import text_panel_stylesheet
+
+        self.text_editor_panel = QFrame(self)
+        self.text_editor_panel.setObjectName("textEditorPanel")
+        self.text_editor_panel.hide()
+
+        panel_layout = QVBoxLayout()
+        panel_layout.setContentsMargins(10, 10, 10, 10)
+        panel_layout.setSpacing(8)
+
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(8)
+
+        panel_hint = QLabel("文字")
+        panel_hint.setObjectName("textPanelHint")
+        self.text_hint_label = QLabel("Ctrl+Enter 添加")
+        self.text_hint_label.setObjectName("textPanelSubHint")
+
+        self.text_editor = QPlainTextEdit(self.text_editor_panel)
+        self.text_editor.setObjectName("textEditor")
+        self.text_editor.setPlaceholderText("输入文字")
+        self.text_editor.setTabChangesFocus(True)
+        self.text_editor.setFixedHeight(72)
+        self.text_editor.installEventFilter(self)
+
+        options_row = QHBoxLayout()
+        options_row.setContentsMargins(0, 0, 0, 0)
+        options_row.setSpacing(8)
+
+        size_label = QLabel("字")
+        size_label.setObjectName("textPanelField")
+        self.text_size_spin = QSpinBox(self.text_editor_panel)
+        self.text_size_spin.setRange(12, 72)
+        self.text_size_spin.setSingleStep(2)
+        self.text_size_spin.setValue(max(12, min(72, int(self.text_font_size))))
+        self.text_size_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.text_size_spin.setFixedWidth(52)
+        self.text_size_spin.valueChanged.connect(self.on_text_size_changed)
+
+        color_label = QLabel("色")
+        color_label.setObjectName("textPanelField")
+
+        self.text_color_buttons: Dict[str, QPushButton] = {}
+        color_row = QHBoxLayout()
+        color_row.setContentsMargins(0, 0, 0, 0)
+        color_row.setSpacing(5)
+        for color_name, color_title in self.TEXT_COLOR_OPTIONS:
+            button = QPushButton(self.text_editor_panel)
+            button.setFixedSize(20, 20)
+            button.setToolTip(color_title)
+            button.clicked.connect(lambda _checked=False, c=color_name: self.select_text_color(c))
+            self.text_color_buttons[color_name] = button
+            color_row.addWidget(button)
+        color_row.addStretch(0)
+
+        options_row.addWidget(size_label)
+        options_row.addWidget(self.text_size_spin, 0)
+        options_row.addWidget(color_label)
+        options_row.addLayout(color_row, 0)
+        options_row.addStretch(1)
+
+        action_row = QHBoxLayout()
+        action_row.setContentsMargins(0, 0, 0, 0)
+        action_row.setSpacing(6)
+
+        self.text_cancel_btn = QPushButton("取消", self.text_editor_panel)
+        self.text_cancel_btn.clicked.connect(self.cancel_inline_text)
+        self.text_add_btn = QPushButton("添加", self.text_editor_panel)
+        self.text_add_btn.clicked.connect(self.commit_inline_text)
+        self.text_add_btn.setDefault(True)
+
+        action_row.addStretch(1)
+        action_row.addWidget(self.text_add_btn)
+        action_row.addWidget(self.text_cancel_btn)
+
+        top_row.addWidget(panel_hint)
+        top_row.addWidget(self.text_hint_label)
+        top_row.addStretch(1)
+
+        panel_layout.addLayout(top_row)
+        panel_layout.addWidget(self.text_editor)
+        panel_layout.addLayout(options_row)
+        panel_layout.addLayout(action_row)
+        self.text_editor_panel.setLayout(panel_layout)
+        self.text_editor_panel.setFixedWidth(320)
+        self.text_editor_panel.setStyleSheet(text_panel_stylesheet())
+        self.select_text_color(self.text_color_name)
+
+        self.text_commit_shortcut = QShortcut(QKeySequence("Ctrl+Return"), self.text_editor_panel)
+        self.text_commit_shortcut.activated.connect(self.commit_inline_text)
+        self.text_commit_shortcut.setEnabled(False)
+        self.text_commit_shortcut2 = QShortcut(QKeySequence("Ctrl+Enter"), self.text_editor_panel)
+        self.text_commit_shortcut2.activated.connect(self.commit_inline_text)
+        self.text_commit_shortcut2.setEnabled(False)
+        self.text_cancel_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self.text_editor_panel)
+        self.text_cancel_shortcut.activated.connect(self.cancel_inline_text)
+        self.text_cancel_shortcut.setEnabled(False)
 
     # ── 查询 ──
 

@@ -21,3 +21,7 @@ dist/
 # Local capture/debug artifacts
 dxcam_test.png
 wgc_hdr_capture_test*.png
+
+# Packaging artifacts
+*.egg-info/
+.eggs/

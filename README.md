@@ -171,6 +171,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest
 ```
 
+本地安装包验证：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1
+```
+
 ### 可选代码签名
 
 发布脚本支持用 Windows SignTool 对 `QuickShot.exe` 和安装包签名。没有证书时不要传 `-Sign`，现有构建流程不受影响。

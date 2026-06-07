@@ -20,6 +20,7 @@ This document tracks the next maintenance cycle after the v5.3.0 release.
 
 ### Installer Regression Coverage
 
+- Run `scripts\verify-local-installer.ps1` against locally built artifacts before uploading a release.
 - Reuse `scripts\verify-release-installer.ps1` for GitHub Release installer verification.
 - Cover fresh install and uninstall.
 - Add future coverage for reinstall and upgrade-style install.
@@ -66,6 +67,7 @@ If an existing QuickShot install is present and should be removed for a clean ve
 
 - Keep CI green on every push.
 - Keep the release script as the source of truth for local release validation.
+- Run local installer verification after each release build.
 - Run the GitHub Release installer verification before publishing any new release.
 
 ## Versioning Rule

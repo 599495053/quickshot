@@ -42,6 +42,7 @@ Replace these with the final v5.3.1 artifact results before publishing:
 - `python -m pip check`: `No broken requirements found.`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1`
 - Local installer verification:
   - SHA256 matches release manifest.
   - Silent current-user install succeeds.
@@ -71,6 +72,7 @@ Before publishing:
 - Run `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.1`.
 - Run `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`.
 - Run packaged smoke test.
+- Run `scripts\verify-local-installer.ps1` against the local build.
 - Manually verify region screenshot drag selection and current-window screenshot once on the release desktop.
 - Upload the final installer and release manifest.
 - Run `scripts\verify-release-installer.ps1` against the GitHub Release asset.

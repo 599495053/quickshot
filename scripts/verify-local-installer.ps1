@@ -5,6 +5,7 @@ param(
     [string]$InstallDir,
     [int]$LaunchSeconds = 6,
     [switch]$PrivacySelfTest,
+    [switch]$OverlaySelfTest,
     [switch]$RemoveExisting,
     [switch]$KeepArtifacts
 )
@@ -276,6 +277,9 @@ try {
     if ($PrivacySelfTest) {
         Invoke-QuickShotSelfTest $installedExe "privacy-ocr-fallback"
     }
+    if ($OverlaySelfTest) {
+        Invoke-QuickShotSelfTest $installedExe "overlay-edit-smoke"
+    }
 
     $uninstallerPath = Join-Path $InstallDir "unins000.exe"
     if (-not (Test-Path -LiteralPath $uninstallerPath)) {
@@ -317,6 +321,8 @@ try {
         LaunchSmokePassed = $true
         PrivacyOcrFallbackSelfTestRun = [bool]$PrivacySelfTest
         PrivacyOcrFallbackSelfTestPassed = [bool]$PrivacySelfTest
+        OverlayEditSmokeSelfTestRun = [bool]$OverlaySelfTest
+        OverlayEditSmokeSelfTestPassed = [bool]$OverlaySelfTest
         NewLogBytes = $newLog.Length
         UninstallClean = $true
     } | ConvertTo-Json -Depth 4

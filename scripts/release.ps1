@@ -334,6 +334,9 @@ if ($SmokeTest) {
     Invoke-Step "Self-test privacy OCR fallback" {
         Invoke-PackagedSelfTest $exeInfo.Path "privacy-ocr-fallback"
     }
+    Invoke-Step "Self-test overlay edit smoke" {
+        Invoke-PackagedSelfTest $exeInfo.Path "overlay-edit-smoke"
+    }
 }
 
 Invoke-Step "Write release manifest" {

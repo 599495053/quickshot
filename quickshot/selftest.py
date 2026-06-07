@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import sys
 import tempfile
+from contextlib import contextmanager
+from os import environ
 from pathlib import Path
+from typing import Iterator
 
 from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtGui import QImage
@@ -14,6 +17,7 @@ from . import ocr
 
 SELF_TEST_ARG = "--quickshot-self-test"
 PRIVACY_OCR_FALLBACK_TEST = "privacy-ocr-fallback"
+OVERLAY_EDIT_SMOKE_TEST = "overlay-edit-smoke"
 
 
 def _write_line(stream_name: str, text: str) -> None:
@@ -67,6 +71,20 @@ def _make_privacy_sample_qimage() -> QImage:
     return qimage
 
 
+@contextmanager
+def _temporary_appdata() -> Iterator[Path]:
+    previous = environ.get("APPDATA")
+    with tempfile.TemporaryDirectory(prefix="quickshot_selftest_appdata_") as temp_dir:
+        environ["APPDATA"] = temp_dir
+        try:
+            yield Path(temp_dir)
+        finally:
+            if previous is None:
+                environ.pop("APPDATA", None)
+            else:
+                environ["APPDATA"] = previous
+
+
 def run_privacy_ocr_fallback_self_test() -> None:
     if ocr.is_rapidocr_available():
         raise RuntimeError("RapidOCR is available; lightweight fallback path was not exercised.")
@@ -79,10 +97,115 @@ def run_privacy_ocr_fallback_self_test() -> None:
         raise RuntimeError(f"Windows OCR fallback returned invalid privacy rectangles: {rects!r}")
 
 
+def _ensure_qapplication():
+    from PyQt6.QtWidgets import QApplication
+
+    return QApplication.instance() or QApplication(["QuickShotSelfTest"])
+
+
+def _paint_overlay_once(overlay) -> None:
+    from PyQt6.QtGui import QColor, QPainter, QPixmap
+
+    canvas = QPixmap(overlay.width(), overlay.height())
+    canvas.fill(QColor(0, 0, 0))
+    painter = QPainter(canvas)
+    try:
+        overlay.paint_edit_mode(painter)
+    finally:
+        painter.end()
+
+    if canvas.isNull():
+        raise RuntimeError("Overlay edit smoke produced a null paint canvas.")
+
+
+def run_overlay_edit_smoke_self_test() -> None:
+    from PyQt6.QtCore import QPoint, QRect
+    from PyQt6.QtGui import QColor, QPainter, QPixmap
+
+    from .config import Config
+    from .history import CaptureHistoryStore
+    from .overlay.widget import FloatingSnipOverlay
+
+    app = _ensure_qapplication()
+
+    with _temporary_appdata(), tempfile.TemporaryDirectory(prefix="quickshot_overlay_selftest_") as temp_dir:
+        cfg = Config()
+        cfg.auto_copy = False
+        cfg.auto_history = False
+        cfg.show_notifications = False
+        cfg.save_dir = temp_dir
+        store = CaptureHistoryStore(cfg)
+
+        raw = QPixmap(900, 620)
+        raw.fill(QColor(48, 52, 60))
+        painter = QPainter(raw)
+        try:
+            painter.fillRect(QRect(80, 70, 300, 120), QColor(92, 125, 230))
+            painter.fillRect(QRect(430, 180, 320, 180), QColor(37, 162, 127))
+            painter.fillRect(QRect(180, 410, 520, 90), QColor(245, 159, 0))
+        finally:
+            painter.end()
+
+        display = raw.copy()
+        overlay = FloatingSnipOverlay(raw, display, QRect(0, 0, 900, 620), 1.0, 1.0, 0, 0, cfg, store)
+        try:
+            overlay.selection_rect = QRect(110, 95, 520, 360)
+            overlay.selection_physical_rect = QRect(110, 95, 520, 360)
+            overlay.base_edit_pixmap = raw.copy(overlay.selection_physical_rect)
+            overlay.edit_pixmap = overlay.base_edit_pixmap.copy()
+            overlay.mode = "edit"
+            overlay.resize(900, 620)
+            overlay.update_toolbar_layout()
+            if not overlay.toolbar_buttons:
+                raise RuntimeError("Overlay toolbar did not build any buttons.")
+
+            for tool in ("arrow", "rect", "pen", "highlight", "mosaic", "text"):
+                overlay.select_tool(tool)
+                _paint_overlay_once(overlay)
+
+            for tool in ("arrow", "rect", "pen", "highlight", "mosaic"):
+                overlay.select_tool(tool)
+                overlay.drag_start = QPoint(50, 50)
+                overlay.drag_end = QPoint(240, 160)
+                overlay.dragging_annotation = True
+                if tool in ("pen", "highlight"):
+                    overlay.drag_path = [QPoint(50, 50), QPoint(120, 100), QPoint(240, 160)]
+                _paint_overlay_once(overlay)
+                overlay.dragging_annotation = False
+                overlay.drag_path = []
+
+            overlay.select_tool("arrow")
+            overlay.push_history()
+            overlay.draw_arrow_on_pixmap(QPoint(55, 55), QPoint(260, 175))
+            if not overlay.annotations or overlay.annotations[-1].get("type") != "arrow":
+                raise RuntimeError("Overlay arrow annotation was not recorded.")
+
+            overlay.select_tool("number")
+            overlay.push_history()
+            overlay.draw_number_on_pixmap(QPoint(190, 135))
+            if overlay.annotations[-1].get("type") != "number":
+                raise RuntimeError("Overlay number annotation was not recorded.")
+
+            overlay.select_tool("arrow")
+            if overlay.style_panel_kind != "style":
+                raise RuntimeError("Overlay style panel did not open.")
+            _paint_overlay_once(overlay)
+
+            export_path = Path(temp_dir) / "overlay-selftest.png"
+            if not overlay.edit_pixmap.save(str(export_path), "PNG") or not export_path.exists():
+                raise RuntimeError("Overlay edit pixmap export failed.")
+        finally:
+            overlay.close()
+            store.flush()
+            app.processEvents()
+
+
 def run_self_test(name: str) -> int:
     try:
         if name == PRIVACY_OCR_FALLBACK_TEST:
             run_privacy_ocr_fallback_self_test()
+        elif name == OVERLAY_EDIT_SMOKE_TEST:
+            run_overlay_edit_smoke_self_test()
         else:
             raise RuntimeError(f"Unknown self-test: {name}")
     except Exception as exc:

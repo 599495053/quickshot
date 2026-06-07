@@ -36,6 +36,12 @@ class PackagedSelfTestTest(unittest.TestCase):
         with patch("quickshot.selftest.run_privacy_ocr_fallback_self_test"):
             self.assertEqual(selftest.run_self_test(selftest.PRIVACY_OCR_FALLBACK_TEST), 0)
 
+    def test_run_self_test_dispatches_overlay_edit_smoke(self) -> None:
+        with patch("quickshot.selftest.run_overlay_edit_smoke_self_test") as run_overlay:
+            self.assertEqual(selftest.run_self_test(selftest.OVERLAY_EDIT_SMOKE_TEST), 0)
+
+        run_overlay.assert_called_once_with()
+
     def test_run_self_test_returns_failure_status(self) -> None:
         self.assertEqual(selftest.run_self_test("missing-test"), 1)
 

@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Windows tests
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Check installed packages
+        shell: pwsh
+        run: |
+          python -m pip check
+
+      - name: Validate pyproject
+        shell: pwsh
+        run: |
+          python -c "import pathlib,tomllib; tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8')); print('pyproject ok')"
+
+      - name: Check version references
+        shell: pwsh
+        run: |
+          $version = python -c "import pathlib,tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])"
+          powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version $version -CheckOnly
+
+      - name: Run pyflakes
+        shell: pwsh
+        run: |
+          python -m pyflakes quickshot launcher.py build_config.py
+
+      - name: Compile Python files
+        shell: pwsh
+        run: |
+          python -m compileall -q quickshot launcher.py build_config.py
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          python -m pytest -q

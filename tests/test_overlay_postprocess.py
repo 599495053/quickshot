@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import QRect  # noqa: E402
-from PyQt6.QtGui import QColor, QPixmap  # noqa: E402
+from PyQt6.QtGui import QColor, QPainter, QPixmap  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from quickshot.config import Config  # noqa: E402
@@ -132,6 +132,33 @@ class ApplyWatermarkTest(unittest.TestCase):
         ov.undo()
         restored_pixel = ov.edit_pixmap.toImage().pixel(200, 150)
         self.assertEqual(original_pixel, restored_pixel)
+
+
+class ApplyBlurTest(unittest.TestCase):
+
+    def test_apply_blur_changes_high_contrast_region(self):
+        ov = _make_overlay()
+        pixmap = QPixmap(80, 40)
+        pixmap.fill(QColor(0, 0, 0))
+        painter = QPainter(pixmap)
+        try:
+            painter.fillRect(QRect(40, 0, 40, 40), QColor(255, 255, 255))
+        finally:
+            painter.end()
+
+        ov.base_edit_pixmap = pixmap.copy()
+        ov.edit_pixmap = pixmap.copy()
+        ov.invalidate_image_cache()
+
+        before = ov.edit_pixmap.toImage().pixelColor(39, 20)
+        ov.apply_blur(QRect(20, 0, 40, 40))
+        after = ov.edit_pixmap.toImage().pixelColor(39, 20)
+
+        self.assertEqual(ov.annotations[-1]["type"], "blur")
+        self.assertIn("patch", ov.annotations[-1])
+        self.assertNotEqual(before, after)
+        self.assertGreater(after.red(), before.red())
+        self.assertLess(after.red(), 255)
 
 
 class ExtendSelectionRectTest(unittest.TestCase):

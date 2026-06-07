@@ -45,13 +45,14 @@ If an existing QuickShot install is present and should be removed for a clean ve
 ### Package Size
 
 - Review PyInstaller warnings and included modules.
-- Check whether optional OCR, OpenCV, NumPy, or Qt assets can be trimmed safely.
+- Check whether optional OCR, NumPy, or Qt assets can be trimmed safely.
 - Compare artifact sizes before and after any exclusion changes.
 - Keep `email` bundled because `requests` and `urllib3` need standard-library `email.*` modules.
 - Use `docs\PACKAGE_SIZE_ANALYSIS.md` as the baseline and experiment order before changing package exclusions.
 - Completed the first three binary trims by excluding Pillow's AVIF extension, `Qt6Pdf.dll`, and `opengl32sw.dll`.
+- Replaced the OpenCV-backed blur implementation with Pillow blur and removed `opencv-python` from runtime dependencies.
 - Retest the `opengl32sw.dll` exclusion on remote desktop, VM, older GPU, and software-rendering fallback environments before publishing the next release.
-- The next meaningful size target is replacing the OpenCV-backed blur implementation.
+- The next meaningful size target is optional OCR packaging.
 
 ### User-Facing Polish
 

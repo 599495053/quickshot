@@ -5,11 +5,35 @@ from __future__ import annotations
 from typing import List
 
 from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
-from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtGui import QColor, QImage, QPainter, QPen
 
 from ..constants import HIGHLIGHT_ALPHA, HIGHLIGHT_WIDTH_MULTIPLIER, MOSAIC_BLOCK_SIZE
 from . import annotation_painter
 from ..theme import qc
+
+
+def _blur_radius_for_rect(rect: QRect) -> float:
+    ksize = max(3, min(51, (rect.width() + rect.height()) // 8))
+    if ksize % 2 == 0:
+        ksize += 1
+    return max(0.8, 0.3 * (((ksize - 1) * 0.5) - 1) + 0.8)
+
+
+def _blur_qimage(crop: QImage, rect: QRect) -> QImage:
+    from PIL import Image, ImageFilter
+
+    source = crop.convertToFormat(QImage.Format.Format_RGBA8888)
+    width = source.width()
+    height = source.height()
+    ptr = source.constBits()
+    ptr.setsize(source.sizeInBytes())
+    data = bytes(ptr)
+
+    image = Image.frombuffer("RGBA", (width, height), data, "raw", "RGBA", source.bytesPerLine(), 1)
+    blurred = image.filter(ImageFilter.GaussianBlur(radius=_blur_radius_for_rect(rect)))
+    result_data = blurred.tobytes("raw", "RGBA")
+    result = QImage(result_data, width, height, QImage.Format.Format_RGBA8888)
+    return result.copy()
 
 
 class DrawingMixin:
@@ -178,10 +202,6 @@ class DrawingMixin:
         self.update_selection_display_cache()
 
     def apply_blur(self, rect: QRect) -> None:
-        import cv2
-        import numpy as np
-        from PyQt6.QtGui import QImage
-
         rect = rect.intersected(QRect(0, 0, self.edit_pixmap.width(), self.edit_pixmap.height()))
         if rect.width() <= 0 or rect.height() <= 0:
             return
@@ -192,21 +212,11 @@ class DrawingMixin:
             return
 
         crop = image.copy(rect)
-        ptr = crop.bits()
-        ptr.setsize(crop.sizeInBytes())
-        arr = np.frombuffer(ptr, dtype=np.uint8).reshape(crop.height(), crop.width(), 4)
-
-        ksize = max(3, min(51, (rect.width() + rect.height()) // 8))
-        if ksize % 2 == 0:
-            ksize += 1
-        blurred = cv2.GaussianBlur(arr, (ksize, ksize), 0)
-
-        result = QImage(blurred.data, crop.width(), crop.height(), crop.bytesPerLine(), QImage.Format.Format_ARGB32)
-        result_copy = result.copy()
+        result = _blur_qimage(crop, rect)
 
         # 直接在 edit_pixmap 上绘制，避免创建新 QPixmap
         painter = QPainter(self.edit_pixmap)
-        painter.drawImage(rect.topLeft(), result_copy)
+        painter.drawImage(rect.topLeft(), result)
         painter.end()
 
         # 保存 patch 供 rebuild_edit_pixmap 重放时使用

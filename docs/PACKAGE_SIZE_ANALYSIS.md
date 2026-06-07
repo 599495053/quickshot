@@ -8,10 +8,10 @@ Measured from the current local build artifacts:
 
 | Artifact | Bytes | Size |
 | --- | ---: | ---: |
-| `dist\QuickShot.exe` | 96,386,837 | 91.92 MiB |
-| `installer_output\QuickShot-5.3.0-Setup.exe` | 97,642,080 | 93.12 MiB |
-| `build\QuickShot\QuickShot.pkg` | 96,059,157 | 91.61 MiB |
-| `build\QuickShot\PYZ-00.pyz` | 6,782,465 | 6.47 MiB |
+| `dist\QuickShot.exe` | 69,899,579 | 66.66 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 71,302,926 | 68.00 MiB |
+| `build\QuickShot\QuickShot.pkg` | 69,571,899 | 66.35 MiB |
+| `build\QuickShot\PYZ-00.pyz` | 6,782,178 | 6.47 MiB |
 | `build\QuickShot\base_library.zip` | 1,386,064 | 1.32 MiB |
 
 Toolchain and major package versions:
@@ -20,7 +20,6 @@ Toolchain and major package versions:
 | --- | --- |
 | PyInstaller | 6.20.0 |
 | PyQt6 | 6.11.0 |
-| opencv-python | 4.13.0.92 |
 | numpy | 2.4.6 |
 | Pillow | 12.2.0 |
 | rapidocr-onnxruntime | 1.2.3 |
@@ -117,15 +116,43 @@ Cumulative result from the original baseline:
 | `dist\QuickShot.exe` | 110,809,410 | 96,386,837 | 14,422,573 bytes / 13.75 MiB |
 | `installer_output\QuickShot-5.3.0-Setup.exe` | 112,000,513 | 97,642,080 | 14,358,433 bytes / 13.69 MiB |
 
+### OpenCV Blur Replacement
+
+Blur annotations now use Pillow's `ImageFilter.GaussianBlur` instead of OpenCV. `opencv-python` is removed from runtime dependencies, and `cv2` is explicitly excluded from the PyInstaller module graph as a guard against optional transitive imports.
+
+Result:
+
+| Metric | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 96,386,837 | 69,899,579 | 26,487,258 bytes / 25.26 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 97,642,080 | 71,302,926 | 26,339,154 bytes / 25.12 MiB |
+| Archive entries | 273 | 261 | 12 entries |
+
+Verification:
+
+- `python -m pyflakes quickshot launcher.py build_config.py`
+- `python -m compileall -q quickshot launcher.py build_config.py`
+- `python -m pytest -q`: `472 passed, 37 subtests passed`
+- `python -m pytest tests\test_overlay_postprocess.py -q`: `12 passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
+- `pyi-archive_viewer -l dist\QuickShot.exe` has no `cv2`, `opencv`, `opengl32sw.dll`, `Qt6Pdf.dll`, or `_avif` entries.
+
+Cumulative result from the original baseline:
+
+| Artifact | Original | Current | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 110,809,410 | 69,899,579 | 40,909,831 bytes / 39.01 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 112,000,513 | 71,302,926 | 40,697,587 bytes / 38.81 MiB |
+
 ## Archive Breakdown
 
-`pyi-archive_viewer -l dist\QuickShot.exe` reports 273 archive entries with 96,043,005 compressed bytes and 235,514,474 uncompressed bytes.
+`pyi-archive_viewer -l dist\QuickShot.exe` reports 261 archive entries with 69,556,291 compressed bytes and 160,669,294 uncompressed bytes.
 
 Largest compressed groups:
 
 | Group | Entries | Compressed | Uncompressed | Notes |
 | --- | ---: | ---: | ---: | --- |
-| `cv2` | 12 | 25.26 MiB | 71.38 MiB | Used by blur annotations in `quickshot\overlay\_drawing.py`. |
 | `PyQt6` | 127 | 17.75 MiB | 48.17 MiB | Main GUI runtime. Core, Gui, Widgets, Svg, and `qwindows.dll` are required. |
 | `rapidocr_onnxruntime` | 7 | 11.77 MiB | 13.08 MiB | OCR model files. Required for local OCR and privacy detection. |
 | `onnxruntime` | 3 | 11.49 MiB | 32.67 MiB | OCR inference runtime. Required while OCR is bundled. |
@@ -142,7 +169,6 @@ Largest individual files:
 
 | File | Compressed | Uncompressed | Initial judgment |
 | --- | ---: | ---: | --- |
-| `cv2\cv2.pyd` | 25.25 MiB | 71.35 MiB | Large but currently used. Requires a code replacement before removal. |
 | `rapidocr_onnxruntime\models\ch_PP-OCRv3_rec_infer.onnx` | 9.15 MiB | 10.20 MiB | Core OCR recognition model. |
 | `PYZ.pyz` | 6.47 MiB | 6.47 MiB | General Python code archive. |
 | `numpy.libs\libscipy_openblas64_*.dll` | 6.11 MiB | 19.47 MiB | Hard to remove while NumPy is used. |
@@ -158,8 +184,8 @@ Do not remove these without a feature change:
 
 - PyQt6 Core, Gui, Widgets, Svg, and the Windows platform plugin. The app is a PyQt6 desktop app and `quickshot\overlay\icons.py` uses `PyQt6.QtSvg`.
 - RapidOCR models and ONNX Runtime while local OCR/privacy detection remains a bundled feature.
-- NumPy while OCR image conversion, HDR capture paths, WGC frame conversion, and blur annotations use NumPy arrays.
-- `cv2\cv2.pyd` until blur annotations no longer call `cv2.GaussianBlur`.
+- NumPy while OCR image conversion, HDR capture paths, and WGC frame conversion use NumPy arrays.
+- Pillow while blur annotations and HDR tone-fix image conversion use Pillow image processing.
 - `email` from the standard library. `requests` and `urllib3` need `email.*` modules.
 - `requests`, `keyring`, `libssl`, and `libcrypto` while upload, translation, and secret storage workflows remain bundled.
 - `winrt` and `dxcam` while fast Windows capture and HDR capture paths are supported.
@@ -178,7 +204,6 @@ Do these as separate commits or feature branches so each size delta and regressi
 
 These can save more space, but require code changes:
 
-- Replace the OpenCV blur implementation in `quickshot\overlay\_drawing.py` with a Qt/Pillow/NumPy implementation or make blur optional. This is the largest single opportunity, with about 25 MiB compressed tied to `cv2\cv2.pyd`.
 - Make OCR an optional add-on or lazy external download. This can remove RapidOCR models plus ONNX Runtime from the default installer, roughly 23 MiB compressed, but it changes the out-of-box feature set.
 - Reduce NumPy/OpenBLAS only after replacing the NumPy-dependent OCR, HDR, WGC, and blur paths. This is broad and should not be attempted as a packaging-only exclusion.
 - Investigate why `Shapely.libs` is included. It is probably a RapidOCR dependency, and the current potential saving is small enough to treat as lower priority.
@@ -205,6 +230,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipI
 
 Recommended trial order:
 
-1. OpenCV blur replacement
-2. Optional OCR packaging
-3. NumPy/OpenBLAS reduction only after replacing NumPy-dependent code paths
+1. Optional OCR packaging
+2. NumPy/OpenBLAS reduction only after replacing NumPy-dependent code paths
+3. Low-priority Qt translation trimming

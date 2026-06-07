@@ -42,6 +42,7 @@ EXCLUDED_MODULES = [
     "onnxruntime.tools",
     "onnxruntime.training",
     "onnxruntime.transformers",
+    "cv2",
     "cv2.data",
     "cv2.samples",
 ]

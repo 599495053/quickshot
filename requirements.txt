@@ -3,7 +3,6 @@ mss>=10.2.0
 dxcam[winrt]>=0.3.0
 pyinstaller>=6.20.0
 rapidocr_onnxruntime>=1.2.3
-opencv-python>=4.13.0.92
 numpy>=2.4.6
 Pillow>=12.2.0
 deep-translator>=1.11.4

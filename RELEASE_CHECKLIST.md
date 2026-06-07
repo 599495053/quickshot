@@ -14,16 +14,19 @@ Last verified: 2026-06-07
 
 ## Build
 
+- [x] Automated release build:
+  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+  - Manifest: `installer_output\QuickShot-5.3.0-release.txt`
 - [x] Build executable:
   - Command: `powershell -ExecutionPolicy Bypass -File .\build.ps1 -SkipInstall -Clean`
   - Output: `dist\QuickShot.exe`
-  - Size: `110809414` bytes
-  - SHA256: `4DFDC269814FDF85A4FFAAC80D15EB77FE5F0935D7663BC5B4BEB61A83C50E3E`
+  - Size: `110809249` bytes
+  - SHA256: `7F3B7F942DD682006A4A5C00B0DAA99E0B2C59C234C5BB3FA71F174580132E01`
 - [x] Build installer:
   - Command: `& 'C:\Users\59949\AppData\Local\Programs\Inno Setup 6\ISCC.exe' QuickShot.iss`
   - Output: `installer_output\QuickShot-5.3.0-Setup.exe`
-  - Size: `111998458` bytes
-  - SHA256: `AC5A1DEC242EE2B917617F1A3BEED287B548BFE9296D66DD4F0C7DB0B5B4512A`
+  - Size: `111998470` bytes
+  - SHA256: `74D28168D88243C62DE4E6BB98B534171B258AEE03D243AAF61BCA575C84DDFF`
 
 ## Installer Behavior
 
@@ -37,6 +40,8 @@ Last verified: 2026-06-07
 
 ## Runtime Smoke Tests
 
+- [x] Automated packaged smoke test:
+  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
 - [x] Packaged app starts from `dist\QuickShot.exe`.
 - [x] Installed app starts from the install directory.
 - [x] Tray initializes successfully.

@@ -6,7 +6,7 @@ All notable changes to QuickShot are tracked here.
 
 ### Changed
 
-- Updated CI to `actions/checkout@v6`, `actions/setup-python@v6`, and the pinned `windows-2025` runner.
+- Updated CI to `actions/checkout@v6`, `actions/setup-python@v6`, and the pinned `windows-2025-vs2026` runner.
 
 ### Verified
 

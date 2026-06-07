@@ -24,6 +24,7 @@ This document tracks the next maintenance cycle after the v5.3.2 release.
 - Reuse `scripts\verify-release-installer.ps1` for GitHub Release installer verification.
 - Use `scripts\verify-upgrade-installer.ps1` for same-version reinstall and previous-to-current upgrade coverage.
 - Keep the packaged `privacy-ocr-fallback`, `overlay-edit-smoke`, and `capture-backend-smoke` self-tests in `release.ps1 -SmokeTest`; add `-PrivacySelfTest`, `-OverlaySelfTest`, and `-CaptureSelfTest` to installer verification runs for builds that include the hidden self-test entry point.
+- Run `scripts\verify-desktop-hotkeys.ps1 -StopExisting` on a local Windows desktop before release when validating tray startup and real global hotkeys.
 - Cover fresh install, same-version reinstall, previous-to-current upgrade, and uninstall.
 - Verify default tasks remain unchecked:
   - no desktop shortcut

@@ -230,6 +230,7 @@ class QuickShotApp(QObject):
 
     def on_region_hotkey(self) -> None:
         if self._hotkey_allowed():
+            debug_log("region hotkey triggered")
             if self.config.delay_seconds > 0:
                 self.tray.showMessage(
                     APP_NAME,
@@ -243,6 +244,7 @@ class QuickShotApp(QObject):
 
     def on_window_hotkey(self) -> None:
         if self._hotkey_allowed():
+            debug_log("window hotkey triggered")
             if self.config.delay_seconds > 0:
                 self.tray.showMessage(
                     APP_NAME,
@@ -335,6 +337,14 @@ class QuickShotApp(QObject):
                 safe_print(f"贴图管理：{self.config.pin_hotkey}")
             if self.config.ocr_hotkey:
                 safe_print(f"文字识别：{self.config.ocr_hotkey}")
+            debug_log(
+                "hotkeys registered: "
+                f"region={self.config.region_hotkey}; "
+                f"window={self.config.window_hotkey}; "
+                f"history={self.config.history_hotkey}; "
+                f"pin={self.config.pin_hotkey}; "
+                f"ocr={self.config.ocr_hotkey}"
+            )
         except Exception as exc:
             QMessageBox.warning(
                 None,
@@ -395,6 +405,7 @@ class QuickShotApp(QObject):
             self.config,
             self.history_store,
         )
+        overlay.closed.connect(lambda: debug_log("overlay closed"))
         overlay.closed.connect(lambda: setattr(self, "overlay", None))
         overlay.notify.connect(self.show_tip)
         overlay.history_updated.connect(self._on_history_updated)
@@ -419,6 +430,7 @@ class QuickShotApp(QObject):
             self._pending_auto_ocr = False
             overlay.auto_ocr = True
         overlay.show()
+        debug_log("region overlay shown")
 
     def start_window_snip(self) -> None:
         QTimer.singleShot(WINDOW_CAPTURE_DELAY_MS, self.capture_current_window)
@@ -426,6 +438,7 @@ class QuickShotApp(QObject):
     def capture_current_window(self) -> None:
         rect = get_foreground_window_rect()
         if rect is None:
+            debug_log("window capture no foreground rect")
             self.tray.showMessage(
                 APP_NAME,
                 "没有找到可截图的当前窗口。建议使用 Ctrl + Shift + W 触发。",
@@ -439,6 +452,7 @@ class QuickShotApp(QObject):
             return
         overlay.set_initial_capture_from_physical_abs(rect)
         overlay.show()
+        debug_log("window overlay shown")
 
     def show_settings(self, checked: bool = False) -> None:
         if self.settings_window is None:

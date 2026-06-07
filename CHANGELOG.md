@@ -8,10 +8,16 @@ All notable changes to QuickShot are tracked here.
 
 - Added packaged privacy OCR fallback, overlay edit smoke, and capture backend smoke self-tests for release builds, with opt-in coverage for local installer, GitHub Release installer, and upgrade/reinstall verification.
 - Added tests for the hidden packaged self-test entry point.
+- Added local desktop verification for tray startup and real global hotkey capture flows.
 
 ### Verified
 
+- `powershell` parser check for build and verification scripts.
+- `python -m pyflakes quickshot launcher.py build_config.py tests\test_selftest.py`
+- `python -m compileall -q quickshot launcher.py build_config.py tests\test_selftest.py`
 - `python -m pytest -q`: `486 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\build.ps1 -SkipInstall`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -ExePath .\dist\QuickShot.exe -StopExisting`
 
 ## v5.3.2 - 2026-06-08
 

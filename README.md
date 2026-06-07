@@ -199,6 +199,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 
   -ExpectedSha256 E0B9B948485783D9C031E1EB2100F9DE1476B19E73E0D0477A1582520CFE04FC
 ```
 
+本机桌面托盘/全局热键验证：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -StopExisting
+```
+
 ## 代码签名
 
 发布脚本支持使用 Windows SignTool 对 `QuickShot.exe` 和安装包签名。没有证书时不要传 `-Sign`，现有构建流程不受影响。
@@ -240,6 +246,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 | `scripts/verify-local-installer.ps1` | 本地安装包验证 |
 | `scripts/verify-upgrade-installer.ps1` | 升级和同版本重装验证 |
 | `scripts/verify-release-installer.ps1` | GitHub Release 安装包验证 |
+| `scripts/verify-desktop-hotkeys.ps1` | 本机桌面托盘和全局热键验证 |
 
 ## 发布状态
 

@@ -1,7 +1,7 @@
 # QuickShot Release Checklist
 
 Version: 5.3.0
-Last verified: 2026-06-07
+Last verified: 2026-06-08
 
 ## Quality Gates
 
@@ -23,13 +23,13 @@ Last verified: 2026-06-07
 - [x] Build executable:
   - Command: `powershell -ExecutionPolicy Bypass -File .\build.ps1 -SkipInstall -Clean`
   - Output: `dist\QuickShot.exe`
-  - Size: `110809249` bytes
-  - SHA256: `7F3B7F942DD682006A4A5C00B0DAA99E0B2C59C234C5BB3FA71F174580132E01`
+  - Size: `110809410` bytes
+  - SHA256: `DA467775690F52C1035856C1B2AB678CE5CE9FEF6D3378E41E16CCAA7462D1D7`
 - [x] Build installer:
   - Command: `& 'C:\Users\59949\AppData\Local\Programs\Inno Setup 6\ISCC.exe' QuickShot.iss`
   - Output: `installer_output\QuickShot-5.3.0-Setup.exe`
-  - Size: `111998470` bytes
-  - SHA256: `74D28168D88243C62DE4E6BB98B534171B258AEE03D243AAF61BCA575C84DDFF`
+  - Size: `112000513` bytes
+  - SHA256: `D5834B52DC1FEC2D354695500258210B9BE562FCE7D9FE8F7F136AC9B1D69A90`
 
 ## Installer Behavior
 
@@ -67,11 +67,12 @@ Last verified: 2026-06-07
 - `ISCC.exe` is installed at `C:\Users\59949\AppData\Local\Programs\Inno Setup 6\ISCC.exe`. It may not be visible in already-running terminals until PATH is refreshed.
 - Code signing is optional. When a certificate is available, run `scripts\release.ps1` with `-Sign` and either `-CertificateThumbprint <thumbprint>` or `-CertificateFile <path>`.
 - Keep `.pfx` and `.p12` certificate files out of Git. They are ignored by `.gitignore`.
+- Current release artifacts are unsigned because no code signing certificate is configured.
 
 ## Before Publishing
 
 - [ ] Confirm the current Git diff contains only intended release changes.
-- [ ] Decide whether this release should be signed. If yes, confirm `Get-AuthenticodeSignature dist\QuickShot.exe` and the installer both return `Valid`.
+- [x] Decide whether this release should be signed. Current release is unsigned; `Get-AuthenticodeSignature` returns `NotSigned` for both artifacts.
 - [ ] Decide whether to commit generated installer logs or keep them local only.
 - [ ] Run one final manual installer smoke test if the installer script changes again.
 - [ ] Publish `installer_output\QuickShot-5.3.0-Setup.exe` and its SHA256.

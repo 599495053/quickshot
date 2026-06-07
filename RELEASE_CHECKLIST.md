@@ -60,6 +60,22 @@ Last verified: 2026-06-08
 - [x] Capture history writes new PNG files.
 - [x] Debug log has no new `CRASH`, `Traceback`, `error`, or `failed` entries during the tested launch windows.
 
+## GitHub Release Verification
+
+- [x] GitHub Release exists:
+  - URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.0`
+- [x] Downloaded `QuickShot-5.3.0-Setup.exe` from the GitHub Release.
+- [x] Downloaded `QuickShot-5.3.0-release.txt` from the GitHub Release.
+- [x] Installer SHA256 matches the expected release hash:
+  - `D5834B52DC1FEC2D354695500258210B9BE562FCE7D9FE8F7F136AC9B1D69A90`
+- [x] Release manifest contains the same installer SHA256.
+- [x] Silent install from the downloaded installer succeeds.
+- [x] Default silent install does not create a desktop shortcut.
+- [x] Default silent install does not create a Windows startup entry.
+- [x] Installed app launches successfully from the install directory.
+- [x] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
+- [x] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
+
 ## Known Build Notes
 
 - PyInstaller may report optional missing modules from third-party packages. Current relevant optional entries include `pycparser.lextab`, `pycparser.yacctab`, and `cffi._pycparser`.
@@ -71,8 +87,8 @@ Last verified: 2026-06-08
 
 ## Before Publishing
 
-- [ ] Confirm the current Git diff contains only intended release changes.
+- [x] Confirm the current Git diff contains only intended release changes.
 - [x] Decide whether this release should be signed. Current release is unsigned; `Get-AuthenticodeSignature` returns `NotSigned` for both artifacts.
-- [ ] Decide whether to commit generated installer logs or keep them local only.
-- [ ] Run one final manual installer smoke test if the installer script changes again.
-- [ ] Publish `installer_output\QuickShot-5.3.0-Setup.exe` and its SHA256.
+- [x] Decide whether to commit generated installer logs or keep them local only. Generated build output remains local and ignored.
+- [x] Run one final manual installer smoke test if the installer script changes again. GitHub Release installer verification passed.
+- [x] Publish `installer_output\QuickShot-5.3.0-Setup.exe` and its SHA256.

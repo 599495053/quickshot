@@ -48,6 +48,7 @@ If an existing QuickShot install is present and should be removed for a clean ve
 - Check whether optional OCR, OpenCV, NumPy, or Qt assets can be trimmed safely.
 - Compare artifact sizes before and after any exclusion changes.
 - Keep `email` bundled because `requests` and `urllib3` need standard-library `email.*` modules.
+- Use `docs\PACKAGE_SIZE_ANALYSIS.md` as the baseline and experiment order before changing package exclusions.
 
 ### User-Facing Polish
 

@@ -65,10 +65,13 @@ Last verified: 2026-06-07
 - PyInstaller may report optional missing modules from third-party packages. Current relevant optional entries include `pycparser.lextab`, `pycparser.yacctab`, and `cffi._pycparser`.
 - `email` must not be excluded from the PyInstaller build because `requests` and `urllib3` use standard-library `email.*` modules.
 - `ISCC.exe` is installed at `C:\Users\59949\AppData\Local\Programs\Inno Setup 6\ISCC.exe`. It may not be visible in already-running terminals until PATH is refreshed.
+- Code signing is optional. When a certificate is available, run `scripts\release.ps1` with `-Sign` and either `-CertificateThumbprint <thumbprint>` or `-CertificateFile <path>`.
+- Keep `.pfx` and `.p12` certificate files out of Git. They are ignored by `.gitignore`.
 
 ## Before Publishing
 
 - [ ] Confirm the current Git diff contains only intended release changes.
+- [ ] Decide whether this release should be signed. If yes, confirm `Get-AuthenticodeSignature dist\QuickShot.exe` and the installer both return `Valid`.
 - [ ] Decide whether to commit generated installer logs or keep them local only.
 - [ ] Run one final manual installer smoke test if the installer script changes again.
 - [ ] Publish `installer_output\QuickShot-5.3.0-Setup.exe` and its SHA256.

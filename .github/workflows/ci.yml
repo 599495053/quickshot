@@ -57,6 +57,20 @@ jobs:
           $version = python -c "import pathlib,tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])"
           powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version $version -CheckOnly
 
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $scripts = @(".\build.ps1") + (Get-ChildItem .\scripts -Filter "*.ps1" | ForEach-Object { $_.FullName })
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List | Out-String | Write-Error
+              exit 1
+            }
+          }
+
       - name: Run pyflakes
         shell: pwsh
         run: |

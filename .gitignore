@@ -29,3 +29,7 @@ wgc_hdr_capture_test*.png
 # Build and installer output
 installer_output/
 nul
+
+# Code signing certificates
+*.pfx
+*.p12

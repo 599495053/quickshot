@@ -4,7 +4,13 @@ param(
     [switch]$SkipBuild,
     [switch]$SkipInstaller,
     [switch]$SmokeTest,
-    [string]$InnoSetupCompiler
+    [string]$InnoSetupCompiler,
+    [switch]$Sign,
+    [string]$SignToolPath,
+    [string]$CertificateThumbprint,
+    [string]$CertificateFile,
+    [string]$CertificatePasswordEnvVar = "QUICKSHOT_SIGNING_PASSWORD",
+    [string]$TimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -84,6 +90,79 @@ function Resolve-InnoSetupCompiler {
     }
 
     throw "ISCC.exe was not found. Install Inno Setup 6 or pass -InnoSetupCompiler <path>."
+}
+
+function Resolve-CodeSignTool {
+    param([string]$RequestedPath)
+
+    if ($RequestedPath) {
+        if (-not (Test-Path -LiteralPath $RequestedPath)) {
+            throw "SignTool not found: $RequestedPath"
+        }
+        return (Resolve-Path -LiteralPath $RequestedPath).Path
+    }
+
+    $command = Get-Command "signtool.exe" -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+
+    $kitRoots = @(
+        (Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin"),
+        (Join-Path $env:ProgramFiles "Windows Kits\10\bin")
+    )
+    foreach ($kitRoot in $kitRoots) {
+        if (-not $kitRoot -or -not (Test-Path -LiteralPath $kitRoot)) {
+            continue
+        }
+        $candidate = Get-ChildItem -LiteralPath $kitRoot -Recurse -Filter "signtool.exe" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "\\x64\\signtool\.exe$" } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+        if ($candidate) {
+            return $candidate.FullName
+        }
+    }
+
+    throw "signtool.exe was not found. Install the Windows SDK or pass -SignToolPath <path>."
+}
+
+function Invoke-CodeSign {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Cannot sign missing file: $Path"
+    }
+    if ($CertificateThumbprint -and $CertificateFile) {
+        throw "Use either -CertificateThumbprint or -CertificateFile, not both."
+    }
+    if (-not $CertificateThumbprint -and -not $CertificateFile) {
+        throw "Signing requires -CertificateThumbprint or -CertificateFile."
+    }
+
+    $signtool = Resolve-CodeSignTool $SignToolPath
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    $args = @("sign", "/fd", "SHA256", "/tr", $TimestampUrl, "/td", "SHA256")
+
+    if ($CertificateThumbprint) {
+        $args += @("/sha1", $CertificateThumbprint)
+    }
+    else {
+        $resolvedCertificate = (Resolve-Path -LiteralPath $CertificateFile).Path
+        $args += @("/f", $resolvedCertificate)
+        $password = [Environment]::GetEnvironmentVariable($CertificatePasswordEnvVar)
+        if ($password) {
+            $args += @("/p", $password)
+        }
+    }
+
+    $args += $resolvedPath
+    Invoke-Native $signtool $args
+
+    $signature = Get-AuthenticodeSignature -LiteralPath $resolvedPath
+    if ($signature.Status -ne "Valid") {
+        throw "Signature verification failed for ${resolvedPath}: $($signature.Status)"
+    }
 }
 
 function Get-ArtifactInfo {
@@ -184,6 +263,12 @@ if (-not $SkipBuild) {
     }
 }
 
+if ($Sign) {
+    Invoke-Step "Sign QuickShot.exe" {
+        Invoke-CodeSign "dist\QuickShot.exe"
+    }
+}
+
 $exeInfo = Get-ArtifactInfo "dist\QuickShot.exe"
 
 if (-not $SkipInstaller) {
@@ -194,6 +279,13 @@ if (-not $SkipInstaller) {
 }
 
 $installerPath = "installer_output\QuickShot-$version-Setup.exe"
+
+if ($Sign) {
+    Invoke-Step "Sign installer" {
+        Invoke-CodeSign $installerPath
+    }
+}
+
 $installerInfo = Get-ArtifactInfo $installerPath
 
 if ($SmokeTest) {

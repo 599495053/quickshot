@@ -165,6 +165,29 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest
 ```
 
+### 可选代码签名
+
+发布脚本支持用 Windows SignTool 对 `QuickShot.exe` 和安装包签名。没有证书时不要传 `-Sign`，现有构建流程不受影响。
+
+使用证书存储中的代码签名证书：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean -Sign -CertificateThumbprint <thumbprint>
+```
+
+使用 `.pfx` / `.p12` 证书文件：
+
+```powershell
+$env:QUICKSHOT_SIGNING_PASSWORD = "<certificate-password>"
+powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean -Sign -CertificateFile C:\path\to\certificate.pfx
+```
+
+可选参数：
+
+- `-SignToolPath <path>`：指定 `signtool.exe` 路径；默认会尝试从 PATH 和 Windows SDK 中查找。
+- `-TimestampUrl <url>`：指定 RFC 3161 时间戳服务；默认是 `http://timestamp.digicert.com`。
+- `-CertificatePasswordEnvVar <name>`：指定读取证书密码的环境变量名；默认是 `QUICKSHOT_SIGNING_PASSWORD`。
+
 ## 安装包
 
 安装包由 Inno Setup 6 构建，脚本为 `QuickShot.iss`。

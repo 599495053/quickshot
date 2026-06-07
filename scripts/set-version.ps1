@@ -57,8 +57,11 @@ Update-TextFile "QuickShot.iss" '^(AppVersion\s*=\s*).+$' "`${1}$Version" "Inno 
 Update-TextFile "QuickShot.iss" '^(OutputBaseFilename\s*=\s*)QuickShot-.+-Setup$' "`${1}QuickShot-$Version-Setup" "Inno output filename"
 Update-TextFile "README.md" "^(#\s+QuickShot\s+V)$VersionPattern" "`${1}$Version" "README title version"
 Update-TextFile "RELEASE_CHECKLIST.md" '^Version:\s*.+$' "Version: $Version" "release checklist version"
-Update-TextFile "RELEASE_CHECKLIST.md" "QuickShot-$VersionPattern-Setup" "QuickShot-$Version-Setup" "release checklist setup names"
-Update-TextFile "RELEASE_CHECKLIST.md" "QuickShot-$VersionPattern-release" "QuickShot-$Version-release" "release checklist manifest names"
+Update-TextFile "RELEASE_CHECKLIST.md" ('(Output:\s*`installer_output\\)QuickShot-' + $VersionPattern + '-Setup') "`${1}QuickShot-$Version-Setup" "release checklist installer output"
+Update-TextFile "RELEASE_CHECKLIST.md" ('(Downloaded\s+`)QuickShot-' + $VersionPattern + '-Setup') "`${1}QuickShot-$Version-Setup" "release checklist downloaded installer"
+Update-TextFile "RELEASE_CHECKLIST.md" ('(Publish\s+`installer_output\\)QuickShot-' + $VersionPattern + '-Setup') "`${1}QuickShot-$Version-Setup" "release checklist published installer"
+Update-TextFile "RELEASE_CHECKLIST.md" ('(Manifest:\s*`installer_output\\)QuickShot-' + $VersionPattern + '-release') "`${1}QuickShot-$Version-release" "release checklist manifest output"
+Update-TextFile "RELEASE_CHECKLIST.md" ('(Downloaded\s+`)QuickShot-' + $VersionPattern + '-release') "`${1}QuickShot-$Version-release" "release checklist downloaded manifest"
 
 Write-Host ""
 if ($CheckOnly) {

@@ -22,8 +22,8 @@ This document tracks the next maintenance cycle after the v5.3.1 release.
 
 - Run `scripts\verify-local-installer.ps1` against locally built artifacts before uploading a release.
 - Reuse `scripts\verify-release-installer.ps1` for GitHub Release installer verification.
-- Cover fresh install and uninstall.
-- Add future coverage for reinstall and upgrade-style install.
+- Use `scripts\verify-upgrade-installer.ps1` for same-version reinstall and previous-to-current upgrade coverage.
+- Cover fresh install, same-version reinstall, previous-to-current upgrade, and uninstall.
 - Verify default tasks remain unchecked:
   - no desktop shortcut
   - no Windows startup entry
@@ -42,6 +42,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 
 ```
 
 If an existing QuickShot install is present and should be removed for a clean verification run, add `-RemoveExisting`.
+
+Run upgrade/reinstall verification with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 `
+  -PreviousInstallerPath .\installer_output\QuickShot-5.3.0-Setup.exe `
+  -PreviousVersion 5.3.0
+```
 
 ### Package Size
 

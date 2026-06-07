@@ -177,6 +177,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipI
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1
 ```
 
+升级/重装验证：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1
+```
+
+如果本地保留了旧版安装包，可以同时验证旧版升级到当前版：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 `
+  -PreviousInstallerPath .\installer_output\QuickShot-5.3.0-Setup.exe `
+  -PreviousVersion 5.3.0
+```
+
 GitHub Release 下载版安装器验证：
 
 ```powershell
@@ -224,6 +238,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 | `QuickShot.iss` | Inno Setup 安装包配置 |
 | `scripts/release.ps1` | 发布构建脚本 |
 | `scripts/verify-local-installer.ps1` | 本地安装包验证 |
+| `scripts/verify-upgrade-installer.ps1` | 升级和同版本重装验证 |
 | `scripts/verify-release-installer.ps1` | GitHub Release 安装包验证 |
 
 ## 发布状态
@@ -233,6 +248,7 @@ v5.3.1 已完成以下验证：
 - 本地 release build 通过。
 - packaged smoke test 通过。
 - 本地安装包验证通过。
+- 5.3.0 -> 5.3.1 升级覆盖和 5.3.1 同版本重装验证通过。
 - 区域截图和当前窗口截图已在发布桌面手动验证。
 - GitHub Release 下载版安装器验证通过。
 - CI 通过。

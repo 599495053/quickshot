@@ -72,6 +72,18 @@ Last verified: 2026-06-08
 - [x] Installed app launch smoke passes.
 - [x] Silent uninstall removes installed files and uninstall entry.
 
+## Upgrade/Reinstall Verification
+
+- [x] Upgrade/reinstall verification passed:
+  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-5.3.0-Setup.exe -PreviousVersion 5.3.0`
+- [x] Previous-to-current upgrade succeeds: `5.3.0` -> `5.3.1`.
+- [x] Same-version reinstall succeeds: `5.3.1` -> `5.3.1`.
+- [x] Upgrade/reinstall keeps exactly one uninstall entry.
+- [x] Upgrade/reinstall preserves app configuration in the test AppData root.
+- [x] Default upgrade/reinstall creates no desktop shortcut and changes no Windows startup entry.
+- [x] Installed app launch smoke passes after upgrade/reinstall.
+- [x] Silent uninstall after upgrade/reinstall removes installed files and uninstall entry.
+
 ## GitHub Release Verification
 
 - [x] GitHub Release exists:

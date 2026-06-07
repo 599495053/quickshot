@@ -34,6 +34,7 @@ a = Analysis(
         'quickshot.screenshot',
         'quickshot.secrets',
         'quickshot.settings',
+        'quickshot.selftest',
         'quickshot.theme',
         'quickshot.translator',
         'quickshot.ui',

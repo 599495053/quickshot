@@ -23,6 +23,7 @@ This document tracks the next maintenance cycle after the v5.3.2 release.
 - Run `scripts\verify-local-installer.ps1` against locally built artifacts before uploading a release.
 - Reuse `scripts\verify-release-installer.ps1` for GitHub Release installer verification.
 - Use `scripts\verify-upgrade-installer.ps1` for same-version reinstall and previous-to-current upgrade coverage.
+- Keep the packaged `privacy-ocr-fallback` self-test in `release.ps1 -SmokeTest`; add `-PrivacySelfTest` to installer verification runs for builds that include the hidden self-test entry point.
 - Cover fresh install, same-version reinstall, previous-to-current upgrade, and uninstall.
 - Verify default tasks remain unchecked:
   - no desktop shortcut

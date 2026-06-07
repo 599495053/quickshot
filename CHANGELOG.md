@@ -2,6 +2,17 @@
 
 All notable changes to QuickShot are tracked here.
 
+## Unreleased
+
+### Added
+
+- Added a packaged privacy OCR fallback self-test for release builds, with opt-in coverage for local installer, GitHub Release installer, and upgrade/reinstall verification.
+- Added tests for the hidden packaged self-test entry point.
+
+### Verified
+
+- `python -m pytest -q`: `484 passed, 37 subtests passed`
+
 ## v5.3.2 - 2026-06-08
 
 ### Added

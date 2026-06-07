@@ -6,6 +6,7 @@ param(
     [string]$PreviousVersion,
     [string]$InstallDir,
     [int]$LaunchSeconds = 6,
+    [switch]$PrivacySelfTest,
     [switch]$RemoveExisting,
     [switch]$KeepArtifacts
 )
@@ -314,6 +315,30 @@ function Invoke-LaunchSmokeTest {
     }
 }
 
+function Invoke-QuickShotSelfTest {
+    param(
+        [Parameter(Mandatory = $true)][string]$ExePath,
+        [Parameter(Mandatory = $true)][string]$TestName,
+        [int]$TimeoutSeconds = 45
+    )
+
+    $process = Start-Process -FilePath $ExePath -ArgumentList @("--quickshot-self-test", $TestName) -PassThru -WindowStyle Hidden
+    try {
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            throw "QuickShot self-test '$TestName' timed out after $TimeoutSeconds seconds."
+        }
+        if ($process.ExitCode -ne 0) {
+            throw "QuickShot self-test '$TestName' failed with exit code $($process.ExitCode)."
+        }
+    }
+    finally {
+        if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Invoke-Install {
     param(
         [Parameter(Mandatory = $true)][string]$SetupPath,
@@ -373,6 +398,9 @@ function Invoke-Scenario {
         $targetExeHash = (Get-FileHash -LiteralPath $installedExe -Algorithm SHA256).Hash.ToUpperInvariant()
 
         $newLogBytes = Invoke-LaunchSmokeTest $installedExe $ScenarioAppData "$ScenarioName target launch"
+        if ($PrivacySelfTest) {
+            Invoke-QuickShotSelfTest $installedExe "privacy-ocr-fallback"
+        }
         Assert-TestConfigPreserved $configPath $ScenarioName
 
         if (-not (Test-Path -LiteralPath $uninstallerPath)) {
@@ -416,6 +444,8 @@ function Invoke-Scenario {
             DesktopShortcutCreatedByDefault = $false
             StartupEntryChangedByDefault = $false
             LaunchSmokePassed = $true
+            PrivacyOcrFallbackSelfTestRun = [bool]$PrivacySelfTest
+            PrivacyOcrFallbackSelfTestPassed = [bool]$PrivacySelfTest
             NewLogBytes = $newLogBytes
             UninstallClean = $true
         }

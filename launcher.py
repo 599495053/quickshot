@@ -40,6 +40,11 @@ def acquire_single_instance() -> bool:
 
 
 def run() -> None:
+    if len(sys.argv) >= 3 and sys.argv[1] == "--quickshot-self-test":
+        from quickshot.selftest import run_self_test
+
+        raise SystemExit(run_self_test(sys.argv[2]))
+
     if not acquire_single_instance():
         raise SystemExit(0)
     from quickshot.main import main

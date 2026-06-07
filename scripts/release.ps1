@@ -252,6 +252,31 @@ function Invoke-SmokeTest {
     }
 }
 
+function Invoke-PackagedSelfTest {
+    param(
+        [Parameter(Mandatory = $true)][string]$ExePath,
+        [Parameter(Mandatory = $true)][string]$TestName,
+        [int]$TimeoutSeconds = 45
+    )
+
+    $resolvedExePath = (Resolve-Path -LiteralPath $ExePath).Path
+    $process = Start-Process -FilePath $resolvedExePath -ArgumentList @("--quickshot-self-test", $TestName) -WindowStyle Hidden -PassThru
+    try {
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            throw "QuickShot self-test '$TestName' timed out after $TimeoutSeconds seconds."
+        }
+        if ($process.ExitCode -ne 0) {
+            throw "QuickShot self-test '$TestName' failed with exit code $($process.ExitCode)."
+        }
+    }
+    finally {
+        if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 $version = Invoke-Step "Validate version metadata" {
     Test-VersionConsistency
 }
@@ -305,6 +330,9 @@ $installerInfo = Get-ArtifactInfo $installerPath
 if ($SmokeTest) {
     Invoke-Step "Smoke test packaged app" {
         Invoke-SmokeTest $exeInfo.Path
+    }
+    Invoke-Step "Self-test privacy OCR fallback" {
+        Invoke-PackagedSelfTest $exeInfo.Path "privacy-ocr-fallback"
     }
 }
 

@@ -12,6 +12,7 @@ param(
     [string]$DownloadDir,
     [string]$InstallDir,
     [int]$LaunchSeconds = 6,
+    [switch]$PrivacySelfTest,
     [switch]$RemoveExisting,
     [switch]$KeepArtifacts
 )
@@ -42,6 +43,30 @@ function Invoke-InstallerProcess {
     $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
     if ($process.ExitCode -ne 0) {
         throw "$Label failed with exit code $($process.ExitCode)"
+    }
+}
+
+function Invoke-QuickShotSelfTest {
+    param(
+        [Parameter(Mandatory = $true)][string]$ExePath,
+        [Parameter(Mandatory = $true)][string]$TestName,
+        [int]$TimeoutSeconds = 45
+    )
+
+    $process = Start-Process -FilePath $ExePath -ArgumentList @("--quickshot-self-test", $TestName) -PassThru -WindowStyle Hidden
+    try {
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            throw "QuickShot self-test '$TestName' timed out after $TimeoutSeconds seconds."
+        }
+        if ($process.ExitCode -ne 0) {
+            throw "QuickShot self-test '$TestName' failed with exit code $($process.ExitCode)."
+        }
+    }
+    finally {
+        if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -267,6 +292,10 @@ try {
     }
 
     Stop-QuickShotProcesses
+    if ($PrivacySelfTest) {
+        Invoke-QuickShotSelfTest $installedExe "privacy-ocr-fallback"
+    }
+
     $uninstallerPath = Join-Path $InstallDir "unins000.exe"
     if (-not (Test-Path -LiteralPath $uninstallerPath)) {
         throw "Uninstaller not found: $uninstallerPath"
@@ -306,6 +335,8 @@ try {
         StartupEntryChangedByDefault = $false
         UninstallEntryCreated = $true
         LaunchSmokePassed = $true
+        PrivacyOcrFallbackSelfTestRun = [bool]$PrivacySelfTest
+        PrivacyOcrFallbackSelfTestPassed = [bool]$PrivacySelfTest
         NewLogBytes = $newLog.Length
         UninstallClean = $true
     } | ConvertTo-Json -Depth 4

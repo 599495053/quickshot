@@ -1,4 +1,4 @@
-"""共享测试 fixtures —— 为新 pytest 风格测试提供 QApplication、Overlay 等。"""
+"""Shared pytest fixtures for QApplication, overlay instances, and test config."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def history_store(qapp: QApplication, tmp_path: Path) -> CaptureHistoryStore:
 
 
 def make_overlay(**cfg_overrides) -> FloatingSnipOverlay:
-    """工厂函数，供 unittest.TestCase 的 setUp 调用。"""
+    """Create an overlay instance for unittest-style setUp methods."""
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)

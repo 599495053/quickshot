@@ -14,6 +14,9 @@ Last verified: 2026-06-07
 
 ## Build
 
+- [x] Version references synchronized:
+  - Check: `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.0 -CheckOnly`
+  - Update command for a new release: `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version <new-version>`
 - [x] Automated release build:
   - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
   - Manifest: `installer_output\QuickShot-5.3.0-release.txt`

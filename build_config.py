@@ -55,6 +55,7 @@ EXCLUDED_BINARY_PATTERNS = [
     "PIL/_avif*.pyd",
     "PyQt6/Qt6/bin/Qt6Pdf.dll",
     "PyQt6/Qt6/bin/opengl32sw.dll",
+    "PyQt6/Qt6/translations/*.qm",
 ]
 
 

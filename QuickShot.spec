@@ -55,6 +55,7 @@ a = Analysis(
     optimize=1,
 )
 a.binaries = filter_binaries(a.binaries)
+a.datas = filter_binaries(a.datas)
 pyz = PYZ(a.pure)
 
 exe = EXE(

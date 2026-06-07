@@ -8,9 +8,9 @@ Measured from the current local build artifacts:
 
 | Artifact | Bytes | Size |
 | --- | ---: | ---: |
-| `dist\QuickShot.exe` | 43,532,731 | 41.52 MiB |
-| `installer_output\QuickShot-5.3.1-Setup.exe` | 45,265,412 | 43.17 MiB |
-| `build\QuickShot\QuickShot.pkg` | 43,205,051 | 41.20 MiB |
+| `dist\QuickShot.exe` | 41,599,032 | 39.67 MiB |
+| `installer_output\QuickShot-5.3.1-Setup.exe` | 43,335,818 | 41.33 MiB |
+| `build\QuickShot\QuickShot.pkg` | 41,271,352 | 39.36 MiB |
 | `build\QuickShot\PYZ-00.pyz` | 6,542,715 | 6.24 MiB |
 | `build\QuickShot\base_library.zip` | 1,386,064 | 1.32 MiB |
 
@@ -27,7 +27,7 @@ Toolchain and major package versions:
 | keyring | 25.7.0 |
 | deep-translator | 1.11.4 |
 
-The current `QuickShot.spec` uses `optimize=1`, `upx=True`, app asset data collection, and the shared exclusions in `build_config.py`. RapidOCR and ONNX Runtime are optional add-ons and are not bundled in the default Windows package.
+The current `QuickShot.spec` uses `optimize=1`, `upx=True`, app asset data collection, and the shared exclusions in `build_config.py`. RapidOCR and ONNX Runtime are optional add-ons and are not bundled in the default Windows package. Unused Qt translation files are excluded from both PyInstaller binary and data entries.
 
 ## Completed Experiments
 
@@ -173,21 +173,52 @@ Cumulative result from the original baseline:
 | `dist\QuickShot.exe` | 110,809,410 | 43,532,731 | 67,276,679 bytes / 64.16 MiB |
 | `installer_output\QuickShot-5.3.1-Setup.exe` | 112,000,513 | 45,265,412 | 66,735,101 bytes / 63.64 MiB |
 
+### Qt Translation Files
+
+PyInstaller's PyQt6 hooks collect many `PyQt6\Qt6\translations\*.qm` files. QuickShot does not install a `QTranslator`, and the installer language files are handled separately by Inno Setup, so these Qt runtime translation files are excluded from both `a.binaries` and `a.datas`.
+
+Result:
+
+| Metric | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 43,532,731 | 41,599,032 | 1,933,699 bytes / 1.84 MiB |
+| `installer_output\QuickShot-5.3.1-Setup.exe` | 45,265,412 | 43,335,818 | 1,929,594 bytes / 1.84 MiB |
+| Archive entries | 243 | 147 | 96 entries |
+
+Verification:
+
+- `python -m pytest tests\test_build_config.py -q`: `2 passed`
+- `python -m pyflakes quickshot launcher.py build_config.py tests\test_build_config.py`
+- `python -m compileall -q quickshot launcher.py build_config.py tests\test_build_config.py`
+- `python -m pytest -q`: `477 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-5.3.0-Setup.exe -PreviousVersion 5.3.0`
+- `pyi-archive_viewer -l dist\QuickShot.exe` has no `PyQt6\Qt6\translations` or `.qm` entries.
+
+Cumulative result from the original baseline:
+
+| Artifact | Original | Current | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 110,809,410 | 41,599,032 | 69,210,378 bytes / 66.00 MiB |
+| `installer_output\QuickShot-5.3.1-Setup.exe` | 112,000,513 | 43,335,818 | 68,664,695 bytes / 65.48 MiB |
+
 ## Archive Breakdown
 
-`pyi-archive_viewer -l dist\QuickShot.exe` reports 243 archive entries with 43,190,755 compressed bytes and 107,663,671 uncompressed bytes.
+`pyi-archive_viewer -l dist\QuickShot.exe` reports 147 archive entries with 41,263,200 compressed bytes and 100,967,620 uncompressed bytes.
 
 Largest compressed groups:
 
 | Group | Entries | Compressed | Uncompressed | Notes |
 | --- | ---: | ---: | ---: | --- |
-| `PyQt6` | 127 | 17.75 MiB | 48.17 MiB | Main GUI runtime. Core, Gui, Widgets, Svg, and `qwindows.dll` are required. |
+| `PyQt6` | 31 | 15.92 MiB | 41.78 MiB | Main GUI runtime. Core, Gui, Widgets, Svg, and `qwindows.dll` are required; Qt translations are excluded. |
 | `numpy.libs` | 2 | 6.29 MiB | 20.02 MiB | Mainly OpenBLAS. Pulled by NumPy wheel. |
 | `PYZ.pyz` | 1 | 6.24 MiB | 6.24 MiB | Python module archive. |
-| Python/runtime DLLs | 17 | 5.99 MiB | 15.58 MiB | Python runtime plus common SSL/standard-library extension DLLs. |
+| Python/runtime DLLs | 16 | 5.99 MiB | 15.57 MiB | Python runtime plus common SSL/standard-library extension DLLs. |
 | `numpy` | 12 | 2.09 MiB | 5.79 MiB | HDR capture, WGC frame conversion, and optional RapidOCR image conversion. |
 | `PIL` | 5 | 1.29 MiB | 3.15 MiB | Used by HDR tone-fix image conversion; AVIF extension is excluded. |
-| Root modules/hooks | 23 | 0.67 MiB | 1.48 MiB | Launcher, PyInstaller runtime hooks, and root-level extension modules. |
+| Root modules/hooks | 71 | 1.04 MiB | 2.25 MiB | Launcher, PyInstaller runtime hooks, and root-level extension modules. |
 | `winrt` | 9 | 0.50 MiB | 1.49 MiB | Used by Windows Graphics Capture support. |
 
 Largest individual files:
@@ -217,13 +248,7 @@ Do not remove these without a feature change:
 
 ## Remaining Experiments
 
-The low-risk binary exclusions have been applied. Remaining work is either small or requires code changes:
-
-| Candidate | Potential saving | Why it may be safe | Validation focus |
-| --- | ---: | --- | --- |
-| Trim unused Qt translations | likely small | Many translation files are bundled, but each is small. | Installer language and app startup. Low priority. |
-
-Do these as separate commits or feature branches so each size delta and regression risk is easy to isolate.
+The low-risk packaging-only exclusions have been applied. Remaining package-size work requires feature-level code changes or a deliberate packaging split.
 
 ## Larger Projects
 
@@ -255,5 +280,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipI
 Recommended trial order:
 
 1. NumPy/OpenBLAS reduction only after replacing NumPy-dependent code paths
-2. Low-priority Qt translation trimming
-3. Optional RapidOCR-enabled installer flavor, only if needed
+2. Optional RapidOCR-enabled installer flavor, only if needed

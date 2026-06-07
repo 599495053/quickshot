@@ -559,10 +559,18 @@ def dialog_extras_stylesheet() -> str:
         padding: 10px 12px;
         background: {SURFACE_INPUT};
         selection-background-color: {ACCENT_SELECTION};
+        font-size: {FONT_SIZE_BODY}px;
+        line-height: 1.5;
     }}
     QTextEdit:focus {{
         border-color: {ACCENT_BASE};
         background: {SURFACE_CARD};
+    }}
+    QTextEdit[readOnly="true"] {{
+        background: {SURFACE_CARD};
+        color: {TEXT_PRIMARY};
+        font-size: {FONT_SIZE_SECTION}px;
+        line-height: 1.6;
     }}
     QToolButton {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 {SURFACE_BTN});

@@ -3,7 +3,6 @@ from typing import Dict, Optional
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
-    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -19,7 +18,6 @@ from .theme import (
     ACCENT_BASE,
     BORDER_BTN,
     RADIUS_MD,
-    TEXT_MUTED,
     dialog_extras_stylesheet,
 )
 from .ui import APP_STYLE, make_card, set_button_role
@@ -42,7 +40,7 @@ class OcrResultDialog(QDialog):
         self.text = text
         self.setWindowTitle("文字识别结果")
         self.setWindowIcon(load_app_icon())
-        self.resize(820, 620)
+        self.resize(900, 720)
 
         header_card = build_dialog_header(
             "文字识别结果",
@@ -84,7 +82,14 @@ class OcrResultDialog(QDialog):
         editor_layout.addWidget(editor_hint)
         editor_layout.addWidget(self.text_edit, 1)
 
-        # 翻译结果区域（默认隐藏）
+        editor_card.setLayout(editor_layout)
+
+        # 翻译结果区域（独立卡片，默认隐藏）
+        self.translate_card = make_card()
+        translate_layout = QVBoxLayout()
+        translate_layout.setContentsMargins(16, 16, 16, 16)
+        translate_layout.setSpacing(10)
+
         self.translate_title = QLabel("翻译结果")
         self.translate_title.setObjectName("sectionTitle")
         self.translate_title.hide()
@@ -93,17 +98,18 @@ class OcrResultDialog(QDialog):
         self.translate_edit.setAcceptRichText(False)
         self.translate_edit.setReadOnly(True)
         self.translate_edit.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.translate_edit.setMinimumHeight(120)
         self.translate_edit.hide()
 
         self._translate_btn_copy = set_button_role(QPushButton("复制译文"))
         self._translate_btn_copy.clicked.connect(self.copy_translation)
         self._translate_btn_copy.hide()
 
-        editor_layout.addWidget(self.translate_title)
-        editor_layout.addWidget(self.translate_edit, 1)
-        editor_layout.addWidget(self._translate_btn_copy)
-
-        editor_card.setLayout(editor_layout)
+        translate_layout.addWidget(self.translate_title)
+        translate_layout.addWidget(self.translate_edit, 1)
+        translate_layout.addWidget(self._translate_btn_copy)
+        self.translate_card.setLayout(translate_layout)
+        self.translate_card.hide()
 
         copy_btn = set_button_role(QPushButton("复制文本"), "primary")
         copy_btn.clicked.connect(self.copy_text)
@@ -163,6 +169,7 @@ class OcrResultDialog(QDialog):
         layout.addWidget(header_card)
         layout.addWidget(info_card)
         layout.addWidget(editor_card, 1)
+        layout.addWidget(self.translate_card)
         layout.addWidget(action_card)
         self.setLayout(layout)
         self.apply_style()
@@ -236,7 +243,7 @@ class OcrResultDialog(QDialog):
         chinese = extract_chinese(self.current_text())
         if chinese:
             self.text_edit.setPlainText(chinese)
-            self.title_label.setText(f"已提取中文文本")
+            self.title_label.setText("已提取中文文本")
         else:
             self.title_label.setText("未找到中文文本")
 
@@ -275,6 +282,7 @@ class OcrResultDialog(QDialog):
 
     def _on_translate_succeeded(self, result: str) -> None:
         self.translate_edit.setPlainText(result)
+        self.translate_card.show()
         self.translate_title.show()
         self.translate_edit.show()
         self._translate_btn_copy.show()

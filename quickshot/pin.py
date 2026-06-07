@@ -2,15 +2,22 @@ import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from PyQt6.QtCore import QPoint, QRect, QRectF, Qt
+from PyQt6.QtCore import QPointF, QPoint, QRect, QRectF, Qt
 from PyQt6.QtGui import QAction, QColor, QFont, QKeySequence, QPainter, QPen, QPixmap, QTransform
 from PyQt6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMenu, QMessageBox, QWidget
 
 from .config import Config
 from .theme import floating_bg, floating_text
-from .utils import APP_NAME, copy_pixmap_to_clipboard, load_app_icon
+from .utils import APP_NAME, copy_pixmap_to_clipboard, debug_log, load_app_icon
 
 PIN_WINDOWS: List["PinWindow"] = []
+
+
+def _safe_remove_pin(w: "PinWindow") -> None:
+    try:
+        PIN_WINDOWS.remove(w)
+    except ValueError:
+        pass
 
 
 def show_pin_window(pixmap: QPixmap, config: Config, pos: Optional[QPoint] = None, target_size: Optional[Tuple[int, int]] = None) -> Optional["PinWindow"]:
@@ -18,7 +25,7 @@ def show_pin_window(pixmap: QPixmap, config: Config, pos: Optional[QPoint] = Non
         return None
     pin = PinWindow(pixmap.copy(), config, target_size=target_size)
     PIN_WINDOWS.append(pin)
-    pin.destroyed.connect(lambda _obj=None, w=pin: PIN_WINDOWS.remove(w) if w in PIN_WINDOWS else None)
+    pin.destroyed.connect(lambda _obj=None, w=pin: _safe_remove_pin(w))
     if pos is not None:
         pin.move(pos)
     pin.show()
@@ -44,6 +51,24 @@ class PinWindow(QWidget):
         self.drag_offset = QPoint()
         self.hovered = False
         self.always_on_top = True
+
+        # ── 编辑模式状态 ──
+        self.edit_mode = False
+        self._base_pixmap = QPixmap()
+        self.annotations: list = []
+        self._edit_history: list = []
+        self._redo_stack: list = []
+        self.active_tool = "none"
+        self.stroke_color = "#ff4646"
+        self.stroke_width = 5
+        self._edit_dragging = False
+        self._edit_drag_start: Optional[QPoint] = None
+        self._edit_drag_end: Optional[QPoint] = None
+        self._edit_drag_path: list = []
+        self._edit_hover_btn = ""
+        self._edit_toolbar_rect = QRect()
+        self._edit_toolbar_buttons: dict = {}
+        self._icons = None  # lazy import to avoid circular dependency
 
         self.setWindowTitle(f"{APP_NAME} 贴图")
         self.setWindowIcon(load_app_icon())
@@ -198,6 +223,223 @@ class PinWindow(QWidget):
         self.pixmap = self.pixmap.transformed(QTransform().scale(1, -1))
         self.update()
 
+    # ── 编辑模式 ──
+
+    EDIT_TOOLS = [
+        ("arrow", "箭头"), ("rect", "矩形"), ("pen", "画笔"),
+        ("mosaic", "马赛克"),
+    ]
+
+    def enter_edit_mode(self) -> None:
+        if self.edit_mode:
+            return
+        self._base_pixmap = self.pixmap.copy()
+        self._edit_history.clear()
+        self._redo_stack.clear()
+        self.annotations.clear()
+        self.edit_mode = True
+        self.active_tool = "arrow"
+        self.setCursor(Qt.CursorShape.CrossCursor)
+        self.update()
+
+    def exit_edit_mode(self, apply: bool = True) -> None:
+        if not self.edit_mode:
+            return
+        if not apply:
+            self.pixmap = self._base_pixmap
+        self._base_pixmap = QPixmap()
+        self.edit_mode = False
+        self.active_tool = "none"
+        self._edit_dragging = False
+        self._edit_history.clear()
+        self._redo_stack.clear()
+        self.annotations.clear()
+        self.setCursor(Qt.CursorShape.OpenHandCursor if not self.locked else Qt.CursorShape.ArrowCursor)
+        self.update()
+
+    def _select_edit_tool(self, tool: str) -> None:
+        self.active_tool = tool if self.active_tool != tool else "none"
+        self.setCursor(Qt.CursorShape.CrossCursor if self.active_tool != "none" else Qt.CursorShape.ArrowCursor)
+        self.update()
+
+    def _widget_to_pixmap(self, pos: QPoint) -> QPoint:
+        """将窗口坐标转换为 pixmap 像素坐标。"""
+        if self.width() <= 0 or self.height() <= 0:
+            return pos
+        px = pos.x() * self.pixmap.width() / self.width()
+        py = pos.y() * self.pixmap.height() / self.height()
+        return QPoint(int(px), int(py))
+
+    def _update_edit_toolbar(self) -> None:
+        if not self.edit_mode:
+            self._edit_toolbar_rect = QRect()
+            self._edit_toolbar_buttons.clear()
+            return
+        btn_size = 32
+        pad = 6
+        spacing = 3
+        total_w = pad * 2 + len(self.EDIT_TOOLS) * btn_size + (len(self.EDIT_TOOLS) - 1) * spacing
+        x = max(0, self.width() // 2 - total_w // 2)
+        y = self.height() - btn_size - pad * 2 - 4
+        self._edit_toolbar_rect = QRect(x, y, total_w, btn_size + pad * 2)
+        bx = x + pad
+        for key, _label in self.EDIT_TOOLS:
+            self._edit_toolbar_buttons[key] = QRect(bx, y + pad, btn_size, btn_size)
+            bx += btn_size + spacing
+
+    def _edit_toolbar_button_at(self, pos: QPoint) -> str:
+        for key, rect in self._edit_toolbar_buttons.items():
+            if rect.contains(pos):
+                return key
+        return ""
+
+    def _push_edit_history(self) -> None:
+        self._edit_history.append((self.pixmap.copy(), [dict(a) for a in self.annotations]))
+        self._redo_stack.clear()
+
+    def undo_annotation(self) -> None:
+        if not self._edit_history:
+            return
+        self._redo_stack.append((self.pixmap.copy(), [dict(a) for a in self.annotations]))
+        pm, anns = self._edit_history.pop()
+        self.pixmap = pm
+        self.annotations = anns
+        self.update()
+
+    def redo_annotation(self) -> None:
+        if not self._redo_stack:
+            return
+        self._edit_history.append((self.pixmap.copy(), [dict(a) for a in self.annotations]))
+        pm, anns = self._redo_stack.pop()
+        self.pixmap = pm
+        self.annotations = anns
+        self.update()
+
+    def _commit_edit_annotation(self) -> None:
+        from .overlay import annotation_painter
+        start = self._edit_drag_start
+        end = self._edit_drag_end
+        if start is None or end is None:
+            return
+        # 窗口坐标 → pixmap 像素坐标
+        ps = self._widget_to_pixmap(start)
+        pe = self._widget_to_pixmap(end)
+        painter = QPainter(self.pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        color = QColor(self.stroke_color)
+        width = float(self.stroke_width)
+
+        if self.active_tool == "arrow" and (ps - pe).manhattanLength() >= 6:
+            annotation_painter.draw_arrow(painter, QPointF(ps), QPointF(pe), color, width, max(16, width * 4.4))
+            self.annotations.append({"type": "arrow", "x1": ps.x(), "y1": ps.y(), "x2": pe.x(), "y2": pe.y(), "color": self.stroke_color, "width": int(width)})
+        elif self.active_tool == "rect":
+            rect = QRect(ps, pe).normalized()
+            if rect.width() >= 6 and rect.height() >= 6:
+                annotation_painter.draw_rect_annotation(painter, QRectF(rect), color, width)
+                self.annotations.append({"type": "rect", "x": rect.x(), "y": rect.y(), "w": rect.width(), "h": rect.height(), "color": self.stroke_color, "width": int(width)})
+        elif self.active_tool == "pen" and len(self._edit_drag_path) >= 2:
+            pixmap_points = [self._widget_to_pixmap(p) for p in self._edit_drag_path]
+            points = [QPointF(p) for p in pixmap_points]
+            annotation_painter.draw_polyline(painter, points, color, width)
+            self.annotations.append({"type": "pen", "points": [(p.x(), p.y()) for p in pixmap_points], "color": self.stroke_color, "width": int(width)})
+        elif self.active_tool == "mosaic":
+            rect = QRect(ps, pe).normalized()
+            if rect.width() >= 8 and rect.height() >= 8:
+                painter.end()  # 先结束 painter，再修改 pixmap
+                self._apply_pin_mosaic(rect)
+                return
+        painter.end()
+
+    def _apply_pin_mosaic(self, rect: QRect) -> None:
+        from PyQt6.QtGui import QImage
+        try:
+            # 裁剪到 pixmap 边界内
+            safe_rect = rect.intersected(QRect(0, 0, self.pixmap.width(), self.pixmap.height()))
+            if safe_rect.width() < 4 or safe_rect.height() < 4:
+                return
+            image = self.pixmap.toImage().convertToFormat(QImage.Format.Format_ARGB32)
+            crop = image.copy(safe_rect)
+            if crop.isNull() or crop.width() == 0 or crop.height() == 0:
+                return
+            block = 14
+            sw = max(1, safe_rect.width() // block)
+            sh = max(1, safe_rect.height() // block)
+            small = crop.scaled(sw, sh, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.FastTransformation)
+            mosaic = small.scaled(safe_rect.size(), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.FastTransformation)
+            p = QPainter(image)
+            p.drawImage(safe_rect.topLeft(), mosaic)
+            p.end()
+            self.pixmap = QPixmap.fromImage(image)
+        except Exception as exc:
+            debug_log(f"pin mosaic failed: {exc}")
+
+    def _draw_edit_toolbar(self, painter: QPainter) -> None:
+        self._update_edit_toolbar()
+        if self._edit_toolbar_rect.isNull():
+            return
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(0, 0, 0, 140))
+        painter.drawRoundedRect(QRectF(self._edit_toolbar_rect), 8, 8)
+        for key, label in self.EDIT_TOOLS:
+            btn = self._edit_toolbar_buttons.get(key)
+            if btn is None:
+                continue
+            is_active = key == self.active_tool
+            is_hover = key == self._edit_hover_btn
+            rr = QRectF(btn).adjusted(2, 2, -2, -2)
+            if is_active:
+                painter.setBrush(QColor(59, 130, 246, 200))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawRoundedRect(rr, 6, 6)
+            elif is_hover:
+                painter.setBrush(QColor(255, 255, 255, 40))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawRoundedRect(rr, 6, 6)
+            # 图标或文字 fallback
+            icon_rect = btn.adjusted(6, 6, -6, -6)
+            if self._icons is None:
+                from .overlay.icons import IconCache
+                self._icons = IconCache()
+            self._icons.draw(painter, key, icon_rect, QColor(255, 255, 255))
+
+    def _draw_edit_preview(self, painter: QPainter) -> None:
+        from .overlay import annotation_painter
+        if not self._edit_drag_start or not self._edit_drag_end:
+            return
+        # 将窗口坐标转为 pixmap 坐标，再按 pixmap→窗口比例缩放绘制
+        # 这样预览大小与最终提交的标注一致
+        ps = self._widget_to_pixmap(self._edit_drag_start)
+        pe = self._widget_to_pixmap(self._edit_drag_end)
+        sx = self.width() / max(1, self.pixmap.width())
+        sy = self.height() / max(1, self.pixmap.height())
+
+        def _to_widget(p: QPoint) -> QPointF:
+            return QPointF(p.x() * sx, p.y() * sy)
+
+        painter.save()
+        color = QColor(self.stroke_color)
+        # 线宽也要按缩放比例
+        width = float(self.stroke_width) * min(sx, sy)
+        pen = QPen(color, width)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        ws, we = _to_widget(ps), _to_widget(pe)
+        if self.active_tool == "arrow":
+            annotation_painter.draw_arrow(painter, ws, we, color, width, max(16, width * 4.4))
+        elif self.active_tool == "rect":
+            rect = QRectF(ws, we).normalized()
+            annotation_painter.draw_rect_annotation(painter, rect, color, width)
+        elif self.active_tool == "pen" and len(self._edit_drag_path) >= 2:
+            points = [_to_widget(self._widget_to_pixmap(p)) for p in self._edit_drag_path]
+            annotation_painter.draw_polyline(painter, points, color, width)
+        elif self.active_tool == "mosaic":
+            rect = QRectF(ws, we).normalized()
+            painter.setBrush(QColor(128, 128, 128, 100))
+            painter.drawRect(rect)
+        painter.restore()
+
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -214,7 +456,11 @@ class PinWindow(QWidget):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
 
-        if self.hovered:
+        if self.edit_mode:
+            self._draw_edit_toolbar(painter)
+            if self._edit_dragging:
+                self._draw_edit_preview(painter)
+        elif self.hovered:
             self._draw_info_pill(painter)
 
     def _draw_info_pill(self, painter: QPainter) -> None:
@@ -257,6 +503,22 @@ class PinWindow(QWidget):
         super().leaveEvent(event)
 
     def mousePressEvent(self, event) -> None:
+        if self.edit_mode:
+            pos = event.position().toPoint()
+            btn = self._edit_toolbar_button_at(pos)
+            if btn:
+                self._select_edit_tool(btn)
+                return
+            if event.button() == Qt.MouseButton.LeftButton and self.active_tool != "none":
+                self._push_edit_history()
+                self._edit_drag_start = pos
+                self._edit_drag_end = pos
+                if self.active_tool == "pen":
+                    self._edit_drag_path = [pos]
+                self._edit_dragging = True
+                self.update()
+                return
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             if self.locked:
                 self.raise_()
@@ -271,6 +533,21 @@ class PinWindow(QWidget):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
+        if self.edit_mode and self._edit_dragging:
+            pos = event.position().toPoint()
+            self._edit_drag_end = pos
+            if self.active_tool == "pen":
+                if not self._edit_drag_path or (self._edit_drag_path[-1] - pos).manhattanLength() >= 2:
+                    self._edit_drag_path.append(pos)
+            self.update()
+            return
+        if self.edit_mode:
+            pos = event.position().toPoint()
+            btn = self._edit_toolbar_button_at(pos)
+            if btn != self._edit_hover_btn:
+                self._edit_hover_btn = btn
+                self.update()
+            return
         if self.dragging:
             self.move(event.globalPosition().toPoint() - self.drag_offset)
             event.accept()
@@ -278,6 +555,15 @@ class PinWindow(QWidget):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
+        if self.edit_mode and self._edit_dragging:
+            self._edit_drag_end = event.position().toPoint()
+            self._commit_edit_annotation()
+            self._edit_dragging = False
+            self._edit_drag_start = None
+            self._edit_drag_end = None
+            self._edit_drag_path = []
+            self.update()
+            return
         if event.button() == Qt.MouseButton.LeftButton and self.dragging:
             self.dragging = False
             self.setCursor(Qt.CursorShape.ArrowCursor if self.locked else Qt.CursorShape.OpenHandCursor)
@@ -287,6 +573,8 @@ class PinWindow(QWidget):
 
     def mouseDoubleClickEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
+            if self.edit_mode:
+                return
             self.close()
             event.accept()
             return
@@ -320,6 +608,29 @@ class PinWindow(QWidget):
 
     def contextMenuEvent(self, event) -> None:
         menu = QMenu(self)
+
+        if self.edit_mode:
+            exit_save = QAction("完成编辑 (Enter)", menu)
+            exit_save.triggered.connect(lambda: self.exit_edit_mode(True))
+            exit_cancel = QAction("取消编辑 (Esc)", menu)
+            exit_cancel.triggered.connect(lambda: self.exit_edit_mode(False))
+            undo_action = QAction("撤销 (Ctrl+Z)", menu)
+            undo_action.triggered.connect(self.undo_annotation)
+            redo_action = QAction("重做 (Ctrl+Y)", menu)
+            redo_action.triggered.connect(self.redo_annotation)
+            menu.addAction(exit_save)
+            menu.addAction(exit_cancel)
+            menu.addSeparator()
+            menu.addAction(undo_action)
+            menu.addAction(redo_action)
+            menu.exec(event.globalPos())
+            return
+
+        # 编辑入口
+        edit_action = QAction("编辑标注 (E)", menu)
+        edit_action.triggered.connect(self.enter_edit_mode)
+        menu.addAction(edit_action)
+        menu.addSeparator()
 
         # 状态切换
         rename_action = QAction("重命名 (R)", menu)
@@ -387,13 +698,57 @@ class PinWindow(QWidget):
                 if not filepath.lower().endswith(".png"):
                     filepath += ".png"
                 if not self.pixmap.save(filepath, "PNG"):
-                    QMessageBox.warning(self, "保存失败", "无法保存图片，请检查路径和权限。")
+                    QMessageBox.warning(
+                        self, "保存失败",
+                        "无法保存图片，请检查：\n"
+                        "1. 磁盘空间是否充足\n"
+                        "2. 是否有写入权限\n"
+                        "3. 文件是否被其他程序占用"
+                    )
+        except PermissionError:
+            QMessageBox.warning(
+                self, "保存失败",
+                "无法写入该目录，可能是权限不足。\n\n"
+                "建议：\n"
+                "1. 选择其他保存位置（如桌面）\n"
+                "2. 以管理员身份运行程序"
+            )
         except OSError as exc:
-            QMessageBox.warning(self, "保存失败", f"保存图片时出错：{exc}")
+            QMessageBox.warning(
+                self, "保存失败",
+                f"保存失败：{exc}\n\n请检查磁盘空间是否充足。"
+            )
 
     def keyPressEvent(self, event) -> None:
         key = event.key()
         modifiers = event.modifiers()
+
+        if self.edit_mode:
+            ctrl = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
+            if key == Qt.Key.Key_Escape:
+                self.exit_edit_mode(False)
+                return
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self.exit_edit_mode(True)
+                return
+            if ctrl and key == Qt.Key.Key_Z:
+                self.undo_annotation()
+                return
+            if ctrl and key == Qt.Key.Key_Y:
+                self.redo_annotation()
+                return
+            tool_map = {Qt.Key.Key_A: "arrow", Qt.Key.Key_R: "rect", Qt.Key.Key_B: "pen", Qt.Key.Key_M: "mosaic"}
+            tool = tool_map.get(key)
+            if tool:
+                self._select_edit_tool(tool)
+                return
+            return
+
+        # 进入编辑模式
+        if key == Qt.Key.Key_E:
+            self.enter_edit_mode()
+            return
+
         # 系统级快捷键优先
         if event.matches(QKeySequence.StandardKey.Copy):
             copy_pixmap_to_clipboard(self.pixmap)

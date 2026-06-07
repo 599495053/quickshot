@@ -1,14 +1,12 @@
 """历史库窗口：左侧条目列表 + 右侧预览/OCR 编辑/操作。"""
 
 import re
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from PyQt6.QtCore import QSize, QTimer, Qt
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QApplication,
     QComboBox,
     QFrame,
     QGridLayout,
@@ -17,7 +15,6 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
@@ -33,7 +30,7 @@ from .history import CaptureHistoryStore
 from .preview_scaler import AsyncPreviewScaler
 from .theme import manager_extras_stylesheet
 from .ui import APP_STYLE, make_card, set_button_role
-from .utils import APP_NAME, debug_log, load_app_icon
+from .utils import APP_NAME, load_app_icon
 
 
 class HistoryWindow(HistoryActions, QWidget):
@@ -327,7 +324,69 @@ class HistoryWindow(HistoryActions, QWidget):
         layout.addWidget(splitter, 1)
         self.setLayout(layout)
         self.apply_style()
+        self._setup_keyboard_shortcuts()
         self.reload_items()
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        """设置键盘快捷键。"""
+        from PyQt6.QtGui import QShortcut, QKeySequence
+
+        # Ctrl+C - 复制选中图片
+        copy_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
+        copy_shortcut.activated.connect(self.copy_current_image)
+
+        # Ctrl+O - 运行 OCR
+        ocr_shortcut = QShortcut(QKeySequence("Ctrl+O"), self)
+        ocr_shortcut.activated.connect(self.run_ocr_on_current)
+
+        # F2 - 添加标签（聚焦到标签输入框）
+        rename_shortcut = QShortcut(QKeySequence("F2"), self)
+        rename_shortcut.activated.connect(self.focus_tag_input)
+
+        # Space - 切换收藏状态
+        fav_shortcut = QShortcut(QKeySequence("Space"), self)
+        fav_shortcut.activated.connect(self.toggle_favorite_current)
+
+        # Delete - 删除选中（已有）
+        # Escape - 关闭窗口（已有）
+        # Ctrl+A - 全选（已有）
+        # Enter - 打开详情（已有）
+
+    def focus_tag_input(self) -> None:
+        """聚焦到标签输入框，方便用户添加标签。"""
+        # 如果有标签输入框，聚焦它；否则显示提示
+        if hasattr(self, 'tag_edit') and self.tag_edit:
+            self.tag_edit.setFocus()
+            self.tag_edit.selectAll()
+
+    def copy_current_image(self) -> None:
+        """复制当前选中的图片到剪贴板。"""
+        item = self.current_item()
+        if not item:
+            return
+        from PyQt6.QtGui import QPixmap
+        pixmap = QPixmap(str(self.store.image_path(item)))
+        if not pixmap.isNull():
+            from .utils import copy_pixmap_to_clipboard
+            copy_pixmap_to_clipboard(pixmap)
+
+    def run_ocr_on_current(self) -> None:
+        """对当前选中项运行 OCR。"""
+        item = self.current_item()
+        if not item:
+            return
+        self.run_ocr_on_item(item)
+
+    def toggle_favorite_current(self) -> None:
+        """切换当前项的收藏状态。"""
+        item = self.current_item()
+        if not item:
+            return
+        item_id = str(item.get("id", ""))
+        if item_id:
+            new_state = self.store.toggle_favorite(item_id)
+            self.favorite_btn.setText("已收藏" if new_state else "收藏")
+            self.update_status_label()
 
     def apply_style(self) -> None:
         self.setStyleSheet(APP_STYLE + manager_extras_stylesheet())

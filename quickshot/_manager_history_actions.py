@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from .pin import show_pin_window
@@ -299,7 +300,6 @@ class HistoryActions:
     # ── 键盘 ──
 
     def _handle_key_event(self, event) -> bool:
-        from PyQt6.QtCore import Qt
         if event.key() == Qt.Key.Key_Escape:
             self.close()
             return True
@@ -319,7 +319,6 @@ class HistoryActions:
         return False
 
     def keyPressEvent(self, event) -> None:
-        from PyQt6.QtCore import Qt
         from PyQt6.QtWidgets import QLineEdit, QPlainTextEdit
         focus = self.focusWidget()
         if isinstance(focus, (QLineEdit, QPlainTextEdit)):
@@ -329,7 +328,7 @@ class HistoryActions:
             super().keyPressEvent(event)
 
     def eventFilter(self, obj, event) -> bool:
-        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtCore import QEvent
         if obj is self.list_widget and event.type() == QEvent.Type.KeyPress:
             if self._handle_key_event(event):
                 return True

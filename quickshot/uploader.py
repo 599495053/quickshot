@@ -308,4 +308,3 @@ def format_markdown_link(result: UploadResult, alt_text: str = "") -> str:
     """生成 Markdown 图片链接 ![alt](url)。"""
     alt = alt_text or result.name or "image"
     return f"![{alt}]({result.url})"
-

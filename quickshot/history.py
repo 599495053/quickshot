@@ -5,19 +5,32 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from PyQt6.QtCore import QObject, QTimer
 from PyQt6.QtGui import QPixmap
 
 from .config import Config
+from .constants import HISTORY_SAVE_DEBOUNCE_MS, HISTORY_DEFAULT_LIMIT, HISTORY_MIN_LIMIT
 from .utils import debug_log
 
 
-class CaptureHistoryStore:
+class CaptureHistoryStore(QObject):
+    """历史记录存储，支持 debounce 批量保存以提升性能。"""
+
     def __init__(self, config: Config) -> None:
+        super().__init__()
         self.config = config
         self._existing_cache: Optional[List[Dict[str, object]]] = None
         # 全量 items 内存模型 + id → index 索引（懒加载，save_items 后重建）
         self._items_cache: Optional[List[Dict[str, object]]] = None
         self._id_index: Dict[str, int] = {}
+
+        # Debounce 保存机制：收集多次操作后批量写入
+        self._pending_save: bool = False
+        self._save_timer = QTimer(self)
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(HISTORY_SAVE_DEBOUNCE_MS)
+        self._save_timer.timeout.connect(self._flush_pending_save)
+        self._pending_items: Optional[List[Dict[str, object]]] = None
 
     def _invalidate_cache(self) -> None:
         self._existing_cache = None
@@ -33,6 +46,41 @@ class CaptureHistoryStore:
             for idx, item in enumerate(items)
             if item.get("id")
         }
+
+    def _flush_pending_save(self) -> None:
+        """实际执行延迟保存操作。"""
+        if self._pending_items is not None:
+            self._do_save_items(self._pending_items)
+            self._pending_items = None
+            self._pending_save = False
+
+    def flush(self) -> None:
+        """立即刷写所有待保存的历史记录（退出前调用）。"""
+        if self._save_timer.isActive():
+            self._save_timer.stop()
+        self._flush_pending_save()
+
+    def _do_save_items(self, items: List[Dict[str, object]]) -> None:
+        """内部保存方法，不触发 debounce。"""
+        try:
+            # 仅当 item 集合（按 ID）变化时才使 existing_cache 失效，
+            # metadata-only 操作（标签、收藏、OCR 文本）跳过磁盘 exists 检查重建。
+            old_ids = {str(it.get("id", "")) for it in (self._items_cache or [])}
+            new_ids = {str(it.get("id", "")) for it in items}
+            files_changed = old_ids != new_ids
+
+            history_dir = self.config.ensure_history_dir()
+            index_path = history_dir / "index.json"
+            tmp_path = history_dir / "index.json.tmp"
+            data = json.dumps(items, ensure_ascii=False, indent=2)
+            tmp_path.write_text(data, encoding="utf-8")
+            os.replace(str(tmp_path), str(index_path))
+            self._items_cache = list(items)
+            self._rebuild_index(self._items_cache)
+            if files_changed:
+                self._invalidate_cache()
+        except OSError as exc:
+            debug_log(f"save history failed: {exc}")
 
     def existing_items(self) -> List[Dict[str, object]]:
         if self._existing_cache is not None:
@@ -59,19 +107,30 @@ class CaptureHistoryStore:
         return list(items)
 
     def save_items(self, items: List[Dict[str, object]]) -> None:
-        try:
-            history_dir = self.config.ensure_history_dir()
-            index_path = history_dir / "index.json"
-            tmp_path = history_dir / "index.json.tmp"
-            data = json.dumps(items, ensure_ascii=False, indent=2)
-            tmp_path.write_text(data, encoding="utf-8")
-            os.replace(str(tmp_path), str(index_path))
-            # 用写入的列表作为新的 cache 真相
-            self._items_cache = list(items)
-            self._rebuild_index(self._items_cache)
-            self._invalidate_cache()
-        except OSError as exc:
-            debug_log(f"save history failed: {exc}")
+        """保存历史项，使用 debounce 机制批量写入（500ms 延迟）。
+
+        多次快速操作（如添加标签、切换收藏）会合并为一次磁盘写入，
+        显著提升批量操作性能。
+        """
+        # 取消之前的待处理保存
+        self._save_timer.stop()
+
+        # 更新内存中的缓存
+        self._items_cache = list(items)
+        self._rebuild_index(self._items_cache)
+        self._invalidate_cache()
+
+        # 设置新的待处理保存
+        self._pending_items = items
+        self._pending_save = True
+        self._save_timer.start()  # 500ms 后执行 _flush_pending_save
+
+    def save_items_immediate(self, items: List[Dict[str, object]]) -> None:
+        """立即保存，跳过 debounce（用于关键操作如退出时）。"""
+        self._save_timer.stop()
+        self._do_save_items(items)
+        self._pending_items = None
+        self._pending_save = False
 
     def add_capture(self, pixmap: QPixmap, source: str = "capture", ocr_text: str = "") -> Optional[Dict[str, object]]:
         if pixmap.isNull():
@@ -151,47 +210,69 @@ class CaptureHistoryStore:
             items[idx]["tags"] = tags
             self.save_items(items)
 
+    def _matches_time_range(self, item: Dict[str, object], time_range: str, now) -> bool:
+        """检查项是否匹配时间范围筛选。返回True表示匹配。"""
+        if not time_range or time_range == "all":
+            return True
+
+        created = str(item.get("created_at", ""))
+        try:
+            item_dt = datetime.datetime.fromisoformat(created.replace("Z", "+00:00").replace("+00:00", ""))
+        except (ValueError, TypeError):
+            return False
+
+        if time_range == "today":
+            return item_dt.date() == now.date()
+        elif time_range == "week":
+            week_start = now - datetime.timedelta(days=now.weekday())
+            return item_dt >= week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif time_range == "month":
+            return item_dt.year == now.year and item_dt.month == now.month
+        return True
+
+    def _matches_query(self, item: Dict[str, object], query: str) -> bool:
+        """检查项是否匹配关键词搜索。返回True表示匹配。"""
+        if not query:
+            return True
+
+        keyword = query.lower()
+        haystack = " ".join([
+            str(item.get("created_at", "")),
+            str(item.get("filename", "")),
+            str(item.get("ocr_text", "")),
+            " ".join(item.get("tags", [])),
+        ]).lower()
+        return keyword in haystack
+
     def search(self, query: str = "", source: str = "", tag: str = "", favorite_only: bool = False, time_range: str = "all") -> List[Dict[str, object]]:
         """搜索历史项，支持关键词、来源、标签、收藏、时间范围筛选。"""
-        import datetime as _dt
         items = self.existing_items()
-        now = _dt.datetime.now()
+        now = datetime.datetime.now()
         matched = []
+
         for item in items:
+            # 来源筛选
             if source and source != "all" and item.get("source") != source:
                 continue
+
+            # 收藏筛选
             if favorite_only and not item.get("favorite", False):
                 continue
+
+            # 标签筛选
             if tag and tag not in item.get("tags", []):
                 continue
+
             # 时间范围筛选
-            if time_range and time_range != "all":
-                created = str(item.get("created_at", ""))
-                try:
-                    item_dt = _dt.datetime.fromisoformat(created.replace("Z", "+00:00").replace("+00:00", ""))
-                except (ValueError, TypeError):
-                    continue
-                if time_range == "today":
-                    if item_dt.date() != now.date():
-                        continue
-                elif time_range == "week":
-                    week_start = now - _dt.timedelta(days=now.weekday())
-                    if item_dt < week_start.replace(hour=0, minute=0, second=0, microsecond=0):
-                        continue
-                elif time_range == "month":
-                    if item_dt.year != now.year or item_dt.month != now.month:
-                        continue
-            if query:
-                keyword = query.lower()
-                haystack = " ".join([
-                    str(item.get("created_at", "")),
-                    str(item.get("filename", "")),
-                    str(item.get("ocr_text", "")),
-                    " ".join(item.get("tags", [])),
-                ]).lower()
-                if keyword not in haystack:
-                    continue
+            if not self._matches_time_range(item, time_range, now):
+                continue
+
+            # 关键词搜索
+            if not self._matches_query(item, query):
+                continue
+
             matched.append(item)
+
         return matched
 
     def update_capture(
@@ -266,11 +347,12 @@ class CaptureHistoryStore:
                 removed += 1
             except Exception as exc:
                 debug_log(f"clear history image failed: {exc}")
-        self.save_items([])
+        # 清空操作使用立即保存，确保数据不丢失
+        self.save_items_immediate([])
         return removed
 
     def prune_items(self, items: List[Dict[str, object]]) -> None:
-        limit = max(20, int(getattr(self.config, "history_limit", 200)))
+        limit = max(HISTORY_MIN_LIMIT, int(getattr(self.config, "history_limit", HISTORY_DEFAULT_LIMIT)))
         overflow = items[limit:]
         del items[limit:]
         for item in overflow:

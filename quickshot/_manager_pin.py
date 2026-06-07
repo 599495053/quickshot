@@ -125,19 +125,19 @@ class PinManagerWindow(QWidget):
 
         focus_btn = set_button_role(QPushButton("显示"), "primary")
         focus_btn.clicked.connect(self.focus_current)
-        copy_btn = QPushButton("复制")
+        copy_btn = set_button_role(QPushButton("复制"))
         copy_btn.clicked.connect(self.copy_current)
-        rename_btn = QPushButton("重命名")
+        rename_btn = set_button_role(QPushButton("重命名"))
         rename_btn.clicked.connect(self.rename_current)
-        toggle_top_btn = QPushButton("置顶")
+        toggle_top_btn = set_button_role(QPushButton("置顶"))
         toggle_top_btn.clicked.connect(self.toggle_current_top)
-        lock_btn = QPushButton("锁定")
+        lock_btn = set_button_role(QPushButton("锁定"))
         lock_btn.clicked.connect(self.toggle_current_lock)
-        opacity_up_btn = QPushButton("加深")
+        opacity_up_btn = set_button_role(QPushButton("加深"))
         opacity_up_btn.clicked.connect(lambda: self.adjust_current_opacity(10))
-        opacity_down_btn = QPushButton("减淡")
+        opacity_down_btn = set_button_role(QPushButton("减淡"))
         opacity_down_btn.clicked.connect(lambda: self.adjust_current_opacity(-10))
-        select_all_btn = QPushButton("全选")
+        select_all_btn = set_button_role(QPushButton("全选"))
         select_all_btn.clicked.connect(self.select_all_items)
         close_btn = set_button_role(QPushButton("关闭"), "destructive")
         close_btn.clicked.connect(self.close_current)
@@ -145,7 +145,7 @@ class PinManagerWindow(QWidget):
         close_sel_btn.clicked.connect(self.close_selected)
         close_all_btn = set_button_role(QPushButton("关闭全部"), "destructive")
         close_all_btn.clicked.connect(self.close_all)
-        refresh_btn = QPushButton("刷新")
+        refresh_btn = set_button_role(QPushButton("刷新"))
         refresh_btn.clicked.connect(self.reload_items)
 
         grid = QGridLayout()
@@ -193,7 +193,39 @@ class PinManagerWindow(QWidget):
         layout.addWidget(splitter, 1)
         self.setLayout(layout)
         self.apply_style()
+        self._setup_keyboard_shortcuts()
         self.reload_items()
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        """设置键盘快捷键。"""
+        from PyQt6.QtGui import QShortcut, QKeySequence
+
+        # [ / ] - 调整透明度（加深/减淡）
+        opacity_up = QShortcut(QKeySequence("["), self)
+        opacity_up.activated.connect(lambda: self.adjust_current_opacity(10))
+
+        opacity_down = QShortcut(QKeySequence("]"), self)
+        opacity_down.activated.connect(lambda: self.adjust_current_opacity(-10))
+
+        # L - 锁定/解锁
+        lock_shortcut = QShortcut(QKeySequence("L"), self)
+        lock_shortcut.activated.connect(self.toggle_current_lock)
+
+        # T - 切换置顶
+        top_shortcut = QShortcut(QKeySequence("T"), self)
+        top_shortcut.activated.connect(self.toggle_current_top)
+
+        # Ctrl+C - 复制图片
+        copy_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
+        copy_shortcut.activated.connect(self.copy_current)
+
+        # F2 - 重命名
+        rename_shortcut = QShortcut(QKeySequence("F2"), self)
+        rename_shortcut.activated.connect(self.rename_current)
+
+        # Delete - 关闭选中（已有）
+        # Escape - 关闭窗口（已有）
+        # Ctrl+A - 全选（已有）
 
     def apply_style(self) -> None:
         self.setStyleSheet(APP_STYLE + manager_extras_stylesheet())

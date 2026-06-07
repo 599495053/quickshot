@@ -1,5 +1,5 @@
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFrame, QPushButton, QWidget
+from PyQt6.QtWidgets import QFrame, QPushButton
 
 from .theme import app_stylesheet
 

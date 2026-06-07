@@ -27,7 +27,6 @@ APP_NAME = "QuickShot"
 REG_NAME = "QuickShot"
 REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 APP_VERSION = "5.3.0"
-CUSTOM_FOR_NAME = "张嘉文"
 
 
 def get_resource_path(*parts: str) -> Path:

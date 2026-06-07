@@ -12,8 +12,6 @@ license = "MIT"
 dependencies = [
     "PyQt6>=6.11.0",
     "mss>=10.2.0",
-    "dxcam[winrt]>=0.3.0",
-    "numpy>=2.4.6",
     "Pillow>=12.2.0",
     "deep-translator>=1.11.4",
     "keyring>=25.0.0",
@@ -21,8 +19,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+hdr = [
+    "dxcam[winrt]>=0.3.0",
+    "numpy>=2.4.6",
+]
 ocr = [
     "rapidocr_onnxruntime>=1.2.3",
+    "numpy>=2.4.6",
 ]
 dev = [
     "pytest>=8.0.0",

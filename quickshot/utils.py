@@ -1,6 +1,7 @@
 """QuickShot 通用工具函数与常量。"""
 
 import datetime
+import importlib
 import os
 import subprocess
 import sys
@@ -173,7 +174,7 @@ def pixmap_from_rgb_array(frame, sdr_white_scale: float = 0.0) -> QPixmap:
 def pixmap_from_sc_rgb_frame(frame, sdr_white_scale: float = 0.0) -> QPixmap:
     """Convert a linear scRGB float capture to an SDR sRGB pixmap."""
     try:
-        import numpy as np
+        np = importlib.import_module("numpy")
     except Exception as exc:
         debug_log(f"HDR float frame conversion unavailable: {exc}")
         return QPixmap()

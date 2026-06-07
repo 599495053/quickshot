@@ -26,6 +26,16 @@ EXCLUDED_MODULES = [
     "lib2to3",
     "setuptools",
     "pip",
+    # Optional HDR/advanced capture dependencies. The default installer uses
+    # mss and falls back cleanly when these source-only extras are unavailable.
+    "dxcam",
+    "dxcam._libs",
+    "dxcam.core",
+    "dxcam.processor",
+    "numpy",
+    "numpy.libs",
+    "winrt",
+    "winrt.windows",
     # 注意：不能排除 distutils。keyring/pywin32-ctypes 的 PyInstaller hook
     # 会尝试 alias distutils，若被 ExcludedModule 拦截会导致打包失败。
     "numpy.testing",
@@ -51,7 +61,12 @@ EXCLUDED_MODULES = [
 
 EXCLUDED_BINARY_PATTERNS = [
     "cv2/opencv_videoio_ffmpeg*.dll",
+    "dxcam/*.pyd",
+    "dxcam/**/*.pyd",
+    "numpy/*.pyd",
+    "numpy/**/*.pyd",
     "numpy/_core/_multiarray_tests*.pyd",
+    "numpy.libs/*",
     "PIL/_avif*.pyd",
     "PyQt6/Qt6/bin/Qt6Pdf.dll",
     "PyQt6/Qt6/bin/opengl32sw.dll",

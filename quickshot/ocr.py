@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import importlib
 from importlib.util import find_spec
 import threading
 from pathlib import Path
@@ -262,7 +263,7 @@ def shutdown_ocr_executor() -> None:
         _OCR_EXECUTOR.shutdown(wait=False, cancel_futures=True)
 
 def _qimage_to_numpy(image: QImage):
-    import numpy as np
+    np = importlib.import_module("numpy")
     if image.format() != QImage.Format.Format_RGB888:
         image = image.convertToFormat(QImage.Format.Format_RGB888)
     width = image.width()

@@ -280,7 +280,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
                 break
         self.grid_color_combo.currentIndexChanged.connect(self.on_grid_color_changed)
 
-        self.hdr_accurate_check = QCheckBox("HDR 截图优先色彩准确（会出现 Windows 录制边框）")
+        self.hdr_accurate_check = QCheckBox("HDR 截图优先色彩准确（需可选 HDR 组件，会出现 Windows 录制边框）")
         self.hdr_accurate_check.setChecked(self.config.hdr_color_accurate)
         self.hdr_accurate_check.stateChanged.connect(self.on_hdr_color_accurate_changed)
 

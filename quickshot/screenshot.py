@@ -1,5 +1,7 @@
 import ctypes
+import importlib
 import sys
+from importlib.util import find_spec
 from typing import Optional, Tuple
 
 from PyQt6.QtCore import QRect
@@ -83,9 +85,11 @@ def schedule_capture_prewarm() -> None:
         return
     _CAPTURE_PREWARMED = True
     try:
-        import importlib
+        importlib.import_module("mss")
+        if find_spec("dxcam") is None or find_spec("numpy") is None:
+            debug_log("optional dxcam/numpy capture prewarm skipped")
+            return
 
-        importlib.import_module("numpy")
         importlib.import_module("dxcam")
         d3d11 = importlib.import_module("dxcam._libs.d3d11")
         for name in (
@@ -203,19 +207,24 @@ def _grab_virtual_screen_with_wgc_hdr() -> Optional[Tuple[QPixmap, int, int]]:
     try:
         import time
 
-        import dxcam
-        import numpy as np
-        from dxcam._libs.d3d11 import (
-            D3D11_CPU_ACCESS_READ,
-            D3D11_TEXTURE2D_DESC,
-            D3D11_USAGE_STAGING,
-            ID3D11Texture2D,
-        )
-        from dxcam._libs.dxgi import DXGI_MAPPED_RECT, IDXGIDevice, IDXGISurface
-        from winrt.windows.graphics.capture import Direct3D11CaptureFramePool
-        from winrt.windows.graphics.capture import interop as capture_interop
-        from winrt.windows.graphics.directx import DirectXPixelFormat
-        from winrt.windows.graphics.directx.direct3d11 import interop as d3d11_interop
+        dxcam = importlib.import_module("dxcam")
+        np = importlib.import_module("numpy")
+        d3d11 = importlib.import_module("dxcam._libs.d3d11")
+        dxgi = importlib.import_module("dxcam._libs.dxgi")
+        capture = importlib.import_module("winrt.windows.graphics.capture")
+        capture_interop = importlib.import_module("winrt.windows.graphics.capture.interop")
+        directx = importlib.import_module("winrt.windows.graphics.directx")
+        d3d11_interop = importlib.import_module("winrt.windows.graphics.directx.direct3d11.interop")
+
+        D3D11_CPU_ACCESS_READ = d3d11.D3D11_CPU_ACCESS_READ
+        D3D11_TEXTURE2D_DESC = d3d11.D3D11_TEXTURE2D_DESC
+        D3D11_USAGE_STAGING = d3d11.D3D11_USAGE_STAGING
+        ID3D11Texture2D = d3d11.ID3D11Texture2D
+        DXGI_MAPPED_RECT = dxgi.DXGI_MAPPED_RECT
+        IDXGIDevice = dxgi.IDXGIDevice
+        IDXGISurface = dxgi.IDXGISurface
+        Direct3D11CaptureFramePool = capture.Direct3D11CaptureFramePool
+        DirectXPixelFormat = directx.DirectXPixelFormat
     except Exception as exc:
         debug_log(f"WGC HDR capture unavailable: {exc}")
         return None
@@ -351,7 +360,7 @@ _DXCAM_BACKEND = None
 def _grab_virtual_screen_with_dxcam(prefer_dxgi: bool = False, hdr_desktop: bool = False, sdr_white_scale: float = 0.0) -> Optional[Tuple[QPixmap, int, int]]:
     global _DXCAM_CAMERA, _DXCAM_BACKEND
     try:
-        import dxcam
+        dxcam = importlib.import_module("dxcam")
     except Exception as exc:
         debug_log(f"dxcam unavailable: {exc}")
         return None

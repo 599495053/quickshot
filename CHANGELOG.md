@@ -9,15 +9,29 @@ All notable changes to QuickShot are tracked here.
 - Added packaged privacy OCR fallback, overlay edit smoke, and capture backend smoke self-tests for release builds, with opt-in coverage for local installer, GitHub Release installer, and upgrade/reinstall verification.
 - Added tests for the hidden packaged self-test entry point.
 - Added local desktop verification for tray startup and real global hotkey capture flows.
+- Added optional `hdr` extra for dxcam/NumPy/WinRT HDR capture support in source and custom builds.
+
+### Changed
+
+- Removed NumPy, OpenBLAS, dxcam, and WinRT capture dependencies from the default runtime package.
+- Default packaged builds now rely on the lightweight `mss` capture backend and fall back cleanly when optional HDR capture dependencies are unavailable.
 
 ### Verified
 
 - `powershell` parser check for build and verification scripts.
-- `python -m pyflakes quickshot launcher.py build_config.py tests\test_selftest.py`
-- `python -m compileall -q quickshot launcher.py build_config.py tests\test_selftest.py`
-- `python -m pytest -q`: `486 passed, 37 subtests passed`
-- `powershell -ExecutionPolicy Bypass -File .\build.ps1 -SkipInstall`
+- `python -m pyflakes quickshot launcher.py build_config.py tests\test_build_config.py tests\test_selftest.py`
+- `python -m compileall -q quickshot launcher.py build_config.py tests\test_build_config.py tests\test_selftest.py`
+- `python -m pytest -q`: `488 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- `pyi-archive_viewer -l dist\QuickShot.exe`: no `numpy`, `numpy.libs`, `openblas`, `dxcam`, `winrt`, `rapidocr`, `onnxruntime`, `cv2`, `opencv`, `Qt6Pdf`, `opengl32sw`, or `_avif` entries.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -ExePath .\dist\QuickShot.exe -StopExisting`
+
+### Package Size
+
+- `dist\QuickShot.exe`: `31,624,497` bytes / `30.16 MiB`.
+- `installer_output\QuickShot-5.3.2-Setup.exe`: `33,405,382` bytes / `31.86 MiB`.
+- Saved `9.52 MiB` from the previous executable baseline and `9.47 MiB` from the previous installer baseline.
 
 ## v5.3.2 - 2026-06-08
 

@@ -21,6 +21,7 @@ E0B9B948485783D9C031E1EB2100F9DE1476B19E73E0D0477A1582520CFE04FC
 - 当前发布版未配置代码签名证书，Windows 可能显示安全提示。确认来源是本仓库 Release 后继续安装即可。
 - 默认安装不会创建桌面快捷方式，也不会添加开机启动项。
 - 默认包保留 Windows 系统 OCR；智能隐私打码会在缺少 RapidOCR 时自动回退到系统 OCR。
+- 默认包不捆绑 NumPy、OpenBLAS、dxcam 或 WinRT HDR 捕获组件；普通截图走轻量 `mss` 后端。
 
 ## 快速上手
 
@@ -70,7 +71,7 @@ E0B9B948485783D9C031E1EB2100F9DE1476B19E73E0D0477A1582520CFE04FC
 ### 截图
 
 - 高清区域截图和当前窗口截图。
-- DPI 缩放适配和 HDR 捕获修正。
+- DPI 缩放适配和轻量 HDR 色调修正；安装可选 HDR 组件后可启用更精确的 HDR 捕获。
 - 延迟截图，0-10 秒可配置。
 - 选区自动吸附窗口边缘。
 - 支持键盘微调选区位置和尺寸。
@@ -110,6 +111,14 @@ E0B9B948485783D9C031E1EB2100F9DE1476B19E73E0D0477A1582520CFE04FC
 pip install -e .[ocr]
 ```
 
+## 可选 HDR 捕获组件
+
+默认发布包使用 `mss` 截图后端，不再捆绑 NumPy/OpenBLAS、dxcam 和 WinRT HDR 捕获组件。需要源码/自定义环境里的高级 HDR 捕获路径时，可以安装：
+
+```powershell
+pip install -e .[hdr]
+```
+
 ## 从源码运行
 
 推荐 Python 3.10 及以上。
@@ -137,7 +146,7 @@ python -m pytest -q
 
 当前验证规模：
 
-- `486 passed`
+- `488 passed`
 - `37 subtests passed`
 
 ## 打包与发布

@@ -8,10 +8,10 @@ Measured from the current local build artifacts:
 
 | Artifact | Bytes | Size |
 | --- | ---: | ---: |
-| `dist\QuickShot.exe` | 69,899,579 | 66.66 MiB |
-| `installer_output\QuickShot-5.3.0-Setup.exe` | 71,302,926 | 68.00 MiB |
-| `build\QuickShot\QuickShot.pkg` | 69,571,899 | 66.35 MiB |
-| `build\QuickShot\PYZ-00.pyz` | 6,782,178 | 6.47 MiB |
+| `dist\QuickShot.exe` | 43,531,582 | 41.51 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 45,264,565 | 43.17 MiB |
+| `build\QuickShot\QuickShot.pkg` | 43,203,902 | 41.20 MiB |
+| `build\QuickShot\PYZ-00.pyz` | 6,542,715 | 6.24 MiB |
 | `build\QuickShot\base_library.zip` | 1,386,064 | 1.32 MiB |
 
 Toolchain and major package versions:
@@ -22,14 +22,12 @@ Toolchain and major package versions:
 | PyQt6 | 6.11.0 |
 | numpy | 2.4.6 |
 | Pillow | 12.2.0 |
-| rapidocr-onnxruntime | 1.2.3 |
-| onnxruntime | 1.26.0 |
 | dxcam | 0.3.0 |
 | requests | 2.34.2 |
 | keyring | 25.7.0 |
 | deep-translator | 1.11.4 |
 
-The current `QuickShot.spec` already uses `optimize=1`, `upx=True`, targeted RapidOCR model data collection, and the shared exclusions in `build_config.py`.
+The current `QuickShot.spec` uses `optimize=1`, `upx=True`, app asset data collection, and the shared exclusions in `build_config.py`. RapidOCR and ONNX Runtime are optional add-ons and are not bundled in the default Windows package.
 
 ## Completed Experiments
 
@@ -145,46 +143,73 @@ Cumulative result from the original baseline:
 | `dist\QuickShot.exe` | 110,809,410 | 69,899,579 | 40,909,831 bytes / 39.01 MiB |
 | `installer_output\QuickShot-5.3.0-Setup.exe` | 112,000,513 | 71,302,926 | 40,697,587 bytes / 38.81 MiB |
 
+### Optional RapidOCR Packaging
+
+RapidOCR and ONNX Runtime are now optional OCR add-ons instead of default runtime dependencies. The default package keeps Windows system OCR available, while local RapidOCR and smart privacy auto-detection can be enabled in source/custom builds with `pip install -e .[ocr]`. When the add-on is unavailable, smart privacy masking reports a clear optional-component message.
+
+Result:
+
+| Metric | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 69,899,579 | 43,531,582 | 26,367,997 bytes / 25.15 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 71,302,926 | 45,264,565 | 26,038,361 bytes / 24.83 MiB |
+| Archive entries | 261 | 243 | 18 entries |
+
+Verification:
+
+- `python -m pyflakes quickshot launcher.py build_config.py`
+- `python -m compileall -q quickshot launcher.py build_config.py`
+- `python -m pytest tests\test_ocr_utils.py -q`: `50 passed`
+- `python -m pytest -q`: `475 passed, 37 subtests passed`
+- `python -m pip check`: `No broken requirements found.`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
+- `pyi-archive_viewer -l dist\QuickShot.exe` has no `rapidocr_onnxruntime`, `onnxruntime`, `.onnx`, `Shapely`, `pyclipper`, `cv2`, `opencv`, `opengl32sw.dll`, `Qt6Pdf.dll`, or `_avif` entries.
+
+Cumulative result from the original baseline:
+
+| Artifact | Original | Current | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 110,809,410 | 43,531,582 | 67,277,828 bytes / 64.16 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 112,000,513 | 45,264,565 | 66,735,948 bytes / 63.64 MiB |
+
 ## Archive Breakdown
 
-`pyi-archive_viewer -l dist\QuickShot.exe` reports 261 archive entries with 69,556,291 compressed bytes and 160,669,294 uncompressed bytes.
+`pyi-archive_viewer -l dist\QuickShot.exe` reports 243 archive entries with 43,189,606 compressed bytes and 107,663,671 uncompressed bytes.
 
 Largest compressed groups:
 
 | Group | Entries | Compressed | Uncompressed | Notes |
 | --- | ---: | ---: | ---: | --- |
 | `PyQt6` | 127 | 17.75 MiB | 48.17 MiB | Main GUI runtime. Core, Gui, Widgets, Svg, and `qwindows.dll` are required. |
-| `rapidocr_onnxruntime` | 7 | 11.77 MiB | 13.08 MiB | OCR model files. Required for local OCR and privacy detection. |
-| `onnxruntime` | 3 | 11.49 MiB | 32.67 MiB | OCR inference runtime. Required while OCR is bundled. |
-| `PYZ.pyz` | 1 | 6.47 MiB | 6.47 MiB | Python module archive. |
 | `numpy.libs` | 2 | 6.29 MiB | 20.02 MiB | Mainly OpenBLAS. Pulled by NumPy wheel. |
-| Python DLLs | 2 | 2.63 MiB | 6.53 MiB | Python runtime. |
-| `numpy` | 12 | 2.09 MiB | 5.79 MiB | OCR image conversion, HDR capture, and blur support. |
-| `libcrypto-3.dll` | 1 | 1.77 MiB | 4.99 MiB | Needed by network/security dependencies. |
+| `PYZ.pyz` | 1 | 6.24 MiB | 6.24 MiB | Python module archive. |
+| Python/runtime DLLs | 17 | 5.99 MiB | 15.58 MiB | Python runtime plus common SSL/standard-library extension DLLs. |
+| `numpy` | 12 | 2.09 MiB | 5.79 MiB | HDR capture, WGC frame conversion, and optional RapidOCR image conversion. |
 | `PIL` | 5 | 1.29 MiB | 3.15 MiB | Used by HDR tone-fix image conversion; AVIF extension is excluded. |
-| `Shapely.libs` | 3 | 1.21 MiB | 3.41 MiB | Likely RapidOCR geometry dependency; investigate before excluding. |
+| Root modules/hooks | 23 | 0.67 MiB | 1.48 MiB | Launcher, PyInstaller runtime hooks, and root-level extension modules. |
 | `winrt` | 9 | 0.50 MiB | 1.49 MiB | Used by Windows Graphics Capture support. |
 
 Largest individual files:
 
 | File | Compressed | Uncompressed | Initial judgment |
 | --- | ---: | ---: | --- |
-| `rapidocr_onnxruntime\models\ch_PP-OCRv3_rec_infer.onnx` | 9.15 MiB | 10.20 MiB | Core OCR recognition model. |
-| `PYZ.pyz` | 6.47 MiB | 6.47 MiB | General Python code archive. |
+| `PYZ.pyz` | 6.24 MiB | 6.24 MiB | General Python code archive. |
 | `numpy.libs\libscipy_openblas64_*.dll` | 6.11 MiB | 19.47 MiB | Hard to remove while NumPy is used. |
-| `onnxruntime\capi\onnxruntime_pybind11_state.pyd` | 5.88 MiB | 16.65 MiB | OCR runtime. |
-| `onnxruntime\capi\onnxruntime.dll` | 5.60 MiB | 16.01 MiB | OCR runtime. |
 | `PyQt6\Qt6\bin\Qt6Gui.dll` | 4.06 MiB | 9.15 MiB | Required. |
 | `PyQt6\Qt6\bin\Qt6Core.dll` | 3.53 MiB | 9.99 MiB | Required. |
 | `PyQt6\Qt6\bin\Qt6Widgets.dll` | 2.84 MiB | 6.29 MiB | Required. |
+| `python314.dll` | 2.60 MiB | 6.46 MiB | Required Python runtime. |
+| `libcrypto-3.dll` | 1.77 MiB | 4.99 MiB | Needed by network/security dependencies. |
+| `PyQt6\QtWidgets.pyd` | 1.20 MiB | 4.84 MiB | Required PyQt6 bindings. |
 
 ## Keep Bundled
 
 Do not remove these without a feature change:
 
 - PyQt6 Core, Gui, Widgets, Svg, and the Windows platform plugin. The app is a PyQt6 desktop app and `quickshot\overlay\icons.py` uses `PyQt6.QtSvg`.
-- RapidOCR models and ONNX Runtime while local OCR/privacy detection remains a bundled feature.
-- NumPy while OCR image conversion, HDR capture paths, and WGC frame conversion use NumPy arrays.
+- Windows OCR support assets. The default package still provides OCR through the Windows system OCR path.
+- NumPy while HDR capture paths, WGC frame conversion, and optional RapidOCR image conversion use NumPy arrays.
 - Pillow while blur annotations and HDR tone-fix image conversion use Pillow image processing.
 - `email` from the standard library. `requests` and `urllib3` need `email.*` modules.
 - `requests`, `keyring`, `libssl`, and `libcrypto` while upload, translation, and secret storage workflows remain bundled.
@@ -204,9 +229,8 @@ Do these as separate commits or feature branches so each size delta and regressi
 
 These can save more space, but require code changes:
 
-- Make OCR an optional add-on or lazy external download. This can remove RapidOCR models plus ONNX Runtime from the default installer, roughly 23 MiB compressed, but it changes the out-of-box feature set.
-- Reduce NumPy/OpenBLAS only after replacing the NumPy-dependent OCR, HDR, WGC, and blur paths. This is broad and should not be attempted as a packaging-only exclusion.
-- Investigate why `Shapely.libs` is included. It is probably a RapidOCR dependency, and the current potential saving is small enough to treat as lower priority.
+- Reduce NumPy/OpenBLAS only after replacing the NumPy-dependent HDR, WGC, and optional RapidOCR conversion paths. This is broad and should not be attempted as a packaging-only exclusion.
+- Consider a separate RapidOCR-enabled installer flavor only if users need smart privacy auto-detection out of the box. Keep the default installer light unless that feature becomes core.
 
 ## Experiment Procedure
 
@@ -225,11 +249,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipI
 ```
 
 4. Compare `dist\QuickShot.exe`, `build\QuickShot\QuickShot.pkg`, and installer size.
-5. Manually smoke-test region capture, window capture, overlay editing, blur annotation, OCR, privacy detection, pin window, export, and GitHub upload if credentials are configured.
+5. Manually smoke-test region capture, window capture, overlay editing, blur annotation, Windows OCR, optional RapidOCR/privacy detection when the add-on is installed, pin window, export, and GitHub upload if credentials are configured.
 6. For a published release, run `scripts\verify-release-installer.ps1` against the GitHub Release asset before marking the release verified.
 
 Recommended trial order:
 
-1. Optional OCR packaging
-2. NumPy/OpenBLAS reduction only after replacing NumPy-dependent code paths
-3. Low-priority Qt translation trimming
+1. NumPy/OpenBLAS reduction only after replacing NumPy-dependent code paths
+2. Low-priority Qt translation trimming
+3. Optional RapidOCR-enabled installer flavor, only if needed

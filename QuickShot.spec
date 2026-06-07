@@ -7,19 +7,13 @@ spec_dir = Path(globals().get('SPECPATH', Path.cwd())).resolve()
 sys.path.insert(0, str(spec_dir))
 
 from build_config import EXCLUDED_MODULES, filter_binaries
-from PyInstaller.utils.hooks import collect_data_files
 
-
-rapidocr_datas = collect_data_files(
-    'rapidocr_onnxruntime',
-    includes=['models/*.onnx', '*.yaml', '*.txt', '**/*.py', '**/*.yaml'],
-)
 
 a = Analysis(
     ['launcher.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets', 'assets'), *rapidocr_datas],
+    datas=[('assets', 'assets')],
     hiddenimports=[
         'winreg',
         'quickshot',
@@ -52,16 +46,6 @@ a = Analysis(
         'keyring.backends.fail',
         'keyring.backends.null',
         'requests',
-        'rapidocr_onnxruntime',
-        'rapidocr_onnxruntime.ch_ppocr_v2_cls',
-        'rapidocr_onnxruntime.ch_ppocr_v2_cls.utils',
-        'rapidocr_onnxruntime.ch_ppocr_v3_det',
-        'rapidocr_onnxruntime.ch_ppocr_v3_det.text_detect',
-        'rapidocr_onnxruntime.ch_ppocr_v3_det.utils',
-        'rapidocr_onnxruntime.ch_ppocr_v3_rec',
-        'rapidocr_onnxruntime.ch_ppocr_v3_rec.utils',
-        'rapidocr_onnxruntime.utils',
-        'rapidocr_onnxruntime.rapid_ocr_api',
     ],
     hookspath=[],
     hooksconfig={},

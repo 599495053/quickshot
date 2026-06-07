@@ -16,6 +16,12 @@ python launcher.py
 python -m quickshot
 ```
 
+如需在源码环境启用本地 RapidOCR 引擎和智能隐私自动识别：
+
+```powershell
+pip install -e .[ocr]
+```
+
 ## 快捷键
 
 ### 全局快捷键
@@ -61,12 +67,12 @@ python -m quickshot
 
 - 箭头、矩形、椭圆、虚线框、画笔、高亮
 - 文字、序号、马赛克、模糊打码、取色器
-- 智能隐私打码，支持手机号、身份证、邮箱、银行卡等常见文本
+- 智能隐私打码，安装 RapidOCR 可选组件后支持手机号、身份证、邮箱、银行卡等常见文本
 - 标注颜色、线宽和样式预设
 
 ### OCR 与翻译
 
-- RapidOCR 和 Windows 系统 OCR 双引擎
+- 默认使用 Windows 系统 OCR；源码和定制构建可安装 RapidOCR 可选组件启用本地 OCR 引擎
 - OCR 结果清洗、复制、导出 CSV、导出 Markdown 表格
 - 提取数字、提取中文
 - 翻译 OCR 结果
@@ -107,7 +113,7 @@ python -m pytest -q
 
 当前测试规模：
 
-- `471 passed`
+- `475 passed`
 - `37 subtests passed`
 
 ## 打包
@@ -204,7 +210,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 1. 启动 `dist\QuickShot.exe`，确认托盘图标正常出现。
 2. 按 `Ctrl+Shift+A` 框选区域，确认可以复制、保存、完成和取消。
 3. 测试箭头、矩形、画笔、高亮、文字、马赛克、模糊、取色器。
-4. 测试 OCR 识别、复制结果、翻译结果和结果窗口。
+4. 测试 OCR 识别、复制结果、翻译结果和结果窗口；安装 RapidOCR 可选组件时再测试智能隐私打码。
 5. 测试历史库的搜索、复制、导出、删除和重新编辑。
 6. 测试贴图的缩放、翻转、透明度、锁定、置顶和关闭。
 7. 测试设置页保存、导入、导出和全局快捷键变更。

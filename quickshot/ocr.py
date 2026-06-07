@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from importlib.util import find_spec
 import threading
 from pathlib import Path
 from typing import Optional, Union
@@ -52,6 +53,7 @@ __all__ = [
     "PrivacyBlurJob",
     "create_ocr_job",
     "create_privacy_blur_job",
+    "is_rapidocr_available",
     "recognize_text",
     "recognize_text_with_rapidocr",
     "recognize_text_with_windows_ocr",
@@ -122,6 +124,10 @@ _PREWARM_FUTURE = None
 _PREWARM_LOCK = threading.Lock()
 _ACTIVE_OCR_JOBS = set()
 _ACTIVE_OCR_JOBS_LOCK = threading.Lock()  # 保护 _ACTIVE_OCR_JOBS 集合的线程安全
+RAPIDOCR_OPTIONAL_MESSAGE = (
+    "智能隐私打码需要 RapidOCR 可选组件；当前轻量构建未内置。"
+    "可继续使用系统 OCR 识文，或使用手动马赛克/模糊打码。"
+)
 
 
 def _get_ocr_executor():
@@ -132,6 +138,13 @@ def _get_ocr_executor():
                 from concurrent.futures import ThreadPoolExecutor
                 _OCR_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="quickshot-ocr")
     return _OCR_EXECUTOR
+
+
+def is_rapidocr_available() -> bool:
+    try:
+        return find_spec("rapidocr_onnxruntime") is not None
+    except (ImportError, ValueError):
+        return False
 
 
 class _OcrWorker(QObject):
@@ -200,6 +213,8 @@ class OcrJob(QObject):
 
 def rapidocr_engine():
     global _RAPID_OCR_ENGINE
+    if not is_rapidocr_available():
+        raise RuntimeError(RAPIDOCR_OPTIONAL_MESSAGE)
     if _RAPID_OCR_ENGINE is None:
         with _RAPID_OCR_LOCK:
             if _RAPID_OCR_ENGINE is None:
@@ -209,6 +224,9 @@ def rapidocr_engine():
 
 
 def prewarm_rapidocr() -> bool:
+    if not is_rapidocr_available():
+        debug_log("RapidOCR prewarm skipped: optional component unavailable")
+        return False
     try:
         rapidocr_engine()
         debug_log("RapidOCR prewarm completed")
@@ -220,6 +238,8 @@ def prewarm_rapidocr() -> bool:
 
 def schedule_rapidocr_prewarm() -> None:
     global _PREWARM_FUTURE
+    if not is_rapidocr_available():
+        return
     with _PREWARM_LOCK:
         if _PREWARM_FUTURE is not None and not _PREWARM_FUTURE.done():
             return
@@ -263,6 +283,8 @@ def _is_null_image(image: Union[QPixmap, QImage]) -> bool:
 def recognize_text_with_rapidocr(source_image: Union[QPixmap, QImage]) -> str:
     if _is_null_image(source_image):
         return ""
+    if not is_rapidocr_available():
+        raise RuntimeError(RAPIDOCR_OPTIONAL_MESSAGE)
     image = prepare_ocr_image(source_image)
     result, _elapsed = rapidocr_engine()(_qimage_to_numpy(image))
     return clean_ocr_text(format_rapidocr_result(result))
@@ -293,6 +315,8 @@ def detect_privacy_info(image: Union[QPixmap, QImage]) -> list:
     """检测图片中的隐私信息，返回需要打码的区域列表 [(x, y, w, h), ...]。"""
     if _is_null_image(image):
         return []
+    if not is_rapidocr_available():
+        raise RuntimeError(RAPIDOCR_OPTIONAL_MESSAGE)
 
     try:
         orig_w, orig_h = image.width(), image.height()
@@ -318,8 +342,8 @@ def detect_privacy_info(image: Union[QPixmap, QImage]) -> list:
     except ImportError as e:
         raise RuntimeError(
             f"未安装 RapidOCR 库：{e}\n\n"
-            f"请运行以下命令安装：\n"
-            f"pip install rapidocr-onnxruntime"
+            f"源码环境可运行以下命令安装 OCR 可选组件：\n"
+            f"pip install -e .[ocr]"
         ) from e
     except Exception as e:
         debug_log(f"detect_privacy_info failed: {e}")
@@ -478,7 +502,7 @@ def recognize_text_with_windows_ocr(source_image: Union[QPixmap, QImage]) -> str
             "请确保:\n"
             "1. Windows 10 1809 或更高版本\n"
             "2. 已安装 PowerShell 5.1+\n\n"
-            "或在设置中切换到 RapidOCR 引擎"
+            "源码或定制构建也可安装 RapidOCR 可选组件"
         )
 
     with tempfile.TemporaryDirectory(prefix="quickshot_ocr_") as tmp_dir:
@@ -534,7 +558,7 @@ def recognize_text_with_windows_ocr(source_image: Union[QPixmap, QImage]) -> str
         raise RuntimeError(
             f"文字识别失败。\n\n"
             f"错误详情: {detail[:200] if detail else '未知错误'}\n\n"
-            f"建议: 尝试使用 RapidOCR 引擎或联系技术支持"
+            f"建议: 检查 Windows OCR 语言组件，或在源码/定制构建中安装 RapidOCR 可选组件"
         )
 
     encoded_text = completed.stdout.strip()

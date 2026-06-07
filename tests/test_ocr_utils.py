@@ -12,6 +12,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -19,6 +20,7 @@ if str(ROOT) not in sys.path:
 
 from quickshot.ocr import (
     clean_ocr_text,
+    detect_privacy_info,
     deep_clean_ocr_text,
     extract_numbers,
     extract_chinese,
@@ -27,6 +29,7 @@ from quickshot.ocr import (
     normalize_ocr_symbols,
     should_join_with_space,
 )
+from PyQt6.QtGui import QImage
 
 
 class NormalizeOcrSymbolsTest(unittest.TestCase):
@@ -295,6 +298,33 @@ class OcrEngineRegistryTest(unittest.TestCase):
         r1 = get_default_registry()
         r2 = get_default_registry()
         self.assertIs(r1, r2)
+
+
+class RapidOcrOptionalTest(unittest.TestCase):
+    def test_rapidocr_engine_availability_uses_optional_component_probe(self):
+        from quickshot.ocr_engine import RapidOcrEngine
+
+        with patch("quickshot.ocr.is_rapidocr_available", return_value=False):
+            self.assertFalse(RapidOcrEngine().is_available())
+
+    def test_privacy_detection_reports_missing_optional_component(self):
+        image = QImage(16, 16, QImage.Format.Format_RGB32)
+        with patch("quickshot.ocr.is_rapidocr_available", return_value=False):
+            with self.assertRaises(RuntimeError) as ctx:
+                detect_privacy_info(image)
+        self.assertIn("RapidOCR", str(ctx.exception))
+
+    def test_prewarm_skips_when_optional_component_is_missing(self):
+        import quickshot.ocr as ocr
+
+        previous = ocr._PREWARM_FUTURE
+        try:
+            ocr._PREWARM_FUTURE = None
+            with patch("quickshot.ocr.is_rapidocr_available", return_value=False):
+                ocr.schedule_rapidocr_prewarm()
+            self.assertIsNone(ocr._PREWARM_FUTURE)
+        finally:
+            ocr._PREWARM_FUTURE = previous
 
 
 if __name__ == "__main__":

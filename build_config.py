@@ -36,6 +36,8 @@ EXCLUDED_MODULES = [
     "numpy.random.tests",
     "numpy.f2py",
     "numpy.distutils",
+    "rapidocr_onnxruntime",
+    "onnxruntime",
     "onnxruntime.backend",
     "onnxruntime.datasets",
     "onnxruntime.quantization",

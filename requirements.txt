@@ -2,7 +2,6 @@ PyQt6>=6.11.0
 mss>=10.2.0
 dxcam[winrt]>=0.3.0
 pyinstaller>=6.20.0
-rapidocr_onnxruntime>=1.2.3
 numpy>=2.4.6
 Pillow>=12.2.0
 deep-translator>=1.11.4
@@ -12,3 +11,7 @@ requests>=2.32.0
 # Development dependencies
 pytest>=8.0.0
 pyflakes>=3.2.0
+
+# Optional OCR add-on for local RapidOCR/privacy masking.
+# Prefer `pip install -e .[ocr]` from source, or uncomment below:
+# rapidocr_onnxruntime>=1.2.3

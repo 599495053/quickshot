@@ -18,6 +18,7 @@ from . import ocr
 SELF_TEST_ARG = "--quickshot-self-test"
 PRIVACY_OCR_FALLBACK_TEST = "privacy-ocr-fallback"
 OVERLAY_EDIT_SMOKE_TEST = "overlay-edit-smoke"
+CAPTURE_BACKEND_SMOKE_TEST = "capture-backend-smoke"
 
 
 def _write_line(stream_name: str, text: str) -> None:
@@ -118,13 +119,114 @@ def _paint_overlay_once(overlay) -> None:
         raise RuntimeError("Overlay edit smoke produced a null paint canvas.")
 
 
-def run_overlay_edit_smoke_self_test() -> None:
+def _exercise_overlay_edit_path(
+    raw,
+    display,
+    logical_geometry,
+    scale_x: float,
+    scale_y: float,
+    physical_left: int,
+    physical_top: int,
+    cfg,
+    store,
+    temp_dir: str,
+) -> None:
     from PyQt6.QtCore import QPoint, QRect
+
+    from .overlay.widget import FloatingSnipOverlay
+
+    if raw.isNull() or display.isNull():
+        raise RuntimeError("Overlay edit smoke received a null pixmap.")
+    if logical_geometry.width() < 16 or logical_geometry.height() < 16:
+        raise RuntimeError(f"Overlay edit smoke received invalid geometry: {logical_geometry}.")
+    if scale_x <= 0 or scale_y <= 0:
+        raise RuntimeError(f"Overlay edit smoke received invalid scale: {scale_x}, {scale_y}.")
+
+    overlay = FloatingSnipOverlay(
+        raw,
+        display,
+        logical_geometry,
+        scale_x,
+        scale_y,
+        physical_left,
+        physical_top,
+        cfg,
+        store,
+    )
+    try:
+        widget_rect = overlay.rect()
+        selection_w = max(16, min(520, widget_rect.width() - 20))
+        selection_h = max(16, min(360, widget_rect.height() - 20))
+        selection_x = widget_rect.left() + max(0, (widget_rect.width() - selection_w) // 2)
+        selection_y = widget_rect.top() + max(0, (widget_rect.height() - selection_h) // 2)
+        selection = QRect(selection_x, selection_y, selection_w, selection_h).intersected(widget_rect)
+        physical = overlay.logical_to_physical_rect(selection)
+        if physical.width() < 8 or physical.height() < 8:
+            raise RuntimeError(f"Overlay edit smoke produced invalid physical selection: {physical}.")
+
+        overlay.selection_rect = selection
+        overlay.selection_physical_rect = physical
+        overlay.base_edit_pixmap = raw.copy(physical)
+        overlay.base_edit_pixmap.setDevicePixelRatio(1.0)
+        overlay.edit_pixmap = overlay.base_edit_pixmap.copy()
+        overlay.edit_pixmap.setDevicePixelRatio(1.0)
+        overlay.mode = "edit"
+        overlay.resize(logical_geometry.size())
+        overlay.update_toolbar_layout()
+        if not overlay.toolbar_buttons:
+            raise RuntimeError("Overlay toolbar did not build any buttons.")
+
+        for tool in ("arrow", "rect", "pen", "highlight", "mosaic", "text"):
+            overlay.select_tool(tool)
+            _paint_overlay_once(overlay)
+
+        draw_end_x = min(max(60, overlay.edit_pixmap.width() - 20), 240)
+        draw_end_y = min(max(60, overlay.edit_pixmap.height() - 20), 160)
+        for tool in ("arrow", "rect", "pen", "highlight", "mosaic"):
+            overlay.select_tool(tool)
+            overlay.drag_start = QPoint(20, 20)
+            overlay.drag_end = QPoint(draw_end_x, draw_end_y)
+            overlay.dragging_annotation = True
+            if tool in ("pen", "highlight"):
+                overlay.drag_path = [
+                    QPoint(20, 20),
+                    QPoint(max(30, draw_end_x // 2), max(30, draw_end_y // 2)),
+                    QPoint(draw_end_x, draw_end_y),
+                ]
+            _paint_overlay_once(overlay)
+            overlay.dragging_annotation = False
+            overlay.drag_path = []
+
+        overlay.select_tool("arrow")
+        overlay.push_history()
+        overlay.draw_arrow_on_pixmap(QPoint(24, 24), QPoint(draw_end_x, draw_end_y))
+        if not overlay.annotations or overlay.annotations[-1].get("type") != "arrow":
+            raise RuntimeError("Overlay arrow annotation was not recorded.")
+
+        overlay.select_tool("number")
+        overlay.push_history()
+        overlay.draw_number_on_pixmap(QPoint(max(30, draw_end_x // 2), max(30, draw_end_y // 2)))
+        if overlay.annotations[-1].get("type") != "number":
+            raise RuntimeError("Overlay number annotation was not recorded.")
+
+        overlay.select_tool("arrow")
+        if overlay.style_panel_kind != "style":
+            raise RuntimeError("Overlay style panel did not open.")
+        _paint_overlay_once(overlay)
+
+        export_path = Path(temp_dir) / "overlay-selftest.png"
+        if not overlay.edit_pixmap.save(str(export_path), "PNG") or not export_path.exists():
+            raise RuntimeError("Overlay edit pixmap export failed.")
+    finally:
+        overlay.close()
+
+
+def run_overlay_edit_smoke_self_test() -> None:
+    from PyQt6.QtCore import QRect
     from PyQt6.QtGui import QColor, QPainter, QPixmap
 
     from .config import Config
     from .history import CaptureHistoryStore
-    from .overlay.widget import FloatingSnipOverlay
 
     app = _ensure_qapplication()
 
@@ -146,58 +248,51 @@ def run_overlay_edit_smoke_self_test() -> None:
         finally:
             painter.end()
 
-        display = raw.copy()
-        overlay = FloatingSnipOverlay(raw, display, QRect(0, 0, 900, 620), 1.0, 1.0, 0, 0, cfg, store)
-        try:
-            overlay.selection_rect = QRect(110, 95, 520, 360)
-            overlay.selection_physical_rect = QRect(110, 95, 520, 360)
-            overlay.base_edit_pixmap = raw.copy(overlay.selection_physical_rect)
-            overlay.edit_pixmap = overlay.base_edit_pixmap.copy()
-            overlay.mode = "edit"
-            overlay.resize(900, 620)
-            overlay.update_toolbar_layout()
-            if not overlay.toolbar_buttons:
-                raise RuntimeError("Overlay toolbar did not build any buttons.")
+        _exercise_overlay_edit_path(raw, raw.copy(), QRect(0, 0, 900, 620), 1.0, 1.0, 0, 0, cfg, store, temp_dir)
+        store.flush()
+        app.processEvents()
 
-            for tool in ("arrow", "rect", "pen", "highlight", "mosaic", "text"):
-                overlay.select_tool(tool)
-                _paint_overlay_once(overlay)
 
-            for tool in ("arrow", "rect", "pen", "highlight", "mosaic"):
-                overlay.select_tool(tool)
-                overlay.drag_start = QPoint(50, 50)
-                overlay.drag_end = QPoint(240, 160)
-                overlay.dragging_annotation = True
-                if tool in ("pen", "highlight"):
-                    overlay.drag_path = [QPoint(50, 50), QPoint(120, 100), QPoint(240, 160)]
-                _paint_overlay_once(overlay)
-                overlay.dragging_annotation = False
-                overlay.drag_path = []
+def run_capture_backend_smoke_self_test() -> None:
+    from .config import Config
+    from .history import CaptureHistoryStore
+    from .screenshot import grab_virtual_screen
 
-            overlay.select_tool("arrow")
-            overlay.push_history()
-            overlay.draw_arrow_on_pixmap(QPoint(55, 55), QPoint(260, 175))
-            if not overlay.annotations or overlay.annotations[-1].get("type") != "arrow":
-                raise RuntimeError("Overlay arrow annotation was not recorded.")
+    app = _ensure_qapplication()
 
-            overlay.select_tool("number")
-            overlay.push_history()
-            overlay.draw_number_on_pixmap(QPoint(190, 135))
-            if overlay.annotations[-1].get("type") != "number":
-                raise RuntimeError("Overlay number annotation was not recorded.")
+    with _temporary_appdata(), tempfile.TemporaryDirectory(prefix="quickshot_capture_selftest_") as temp_dir:
+        cfg = Config()
+        cfg.auto_copy = False
+        cfg.auto_history = False
+        cfg.show_notifications = False
+        cfg.hdr_color_accurate = False
+        cfg.save_dir = temp_dir
+        store = CaptureHistoryStore(cfg)
 
-            overlay.select_tool("arrow")
-            if overlay.style_panel_kind != "style":
-                raise RuntimeError("Overlay style panel did not open.")
-            _paint_overlay_once(overlay)
+        raw, display, logical_geometry, scale_x, scale_y, physical_left, physical_top = grab_virtual_screen(False)
+        if raw.isNull() or display.isNull():
+            raise RuntimeError("Screen capture backend returned a null pixmap.")
+        if raw.width() < 16 or raw.height() < 16:
+            raise RuntimeError(f"Screen capture backend returned an implausible size: {raw.width()}x{raw.height()}.")
+        if logical_geometry.width() < 16 or logical_geometry.height() < 16:
+            raise RuntimeError(f"Screen capture backend returned invalid logical geometry: {logical_geometry}.")
+        if scale_x <= 0 or scale_y <= 0:
+            raise RuntimeError(f"Screen capture backend returned invalid scale: {scale_x}, {scale_y}.")
 
-            export_path = Path(temp_dir) / "overlay-selftest.png"
-            if not overlay.edit_pixmap.save(str(export_path), "PNG") or not export_path.exists():
-                raise RuntimeError("Overlay edit pixmap export failed.")
-        finally:
-            overlay.close()
-            store.flush()
-            app.processEvents()
+        _exercise_overlay_edit_path(
+            raw,
+            display,
+            logical_geometry,
+            scale_x,
+            scale_y,
+            physical_left,
+            physical_top,
+            cfg,
+            store,
+            temp_dir,
+        )
+        store.flush()
+        app.processEvents()
 
 
 def run_self_test(name: str) -> int:
@@ -206,6 +301,8 @@ def run_self_test(name: str) -> int:
             run_privacy_ocr_fallback_self_test()
         elif name == OVERLAY_EDIT_SMOKE_TEST:
             run_overlay_edit_smoke_self_test()
+        elif name == CAPTURE_BACKEND_SMOKE_TEST:
+            run_capture_backend_smoke_self_test()
         else:
             raise RuntimeError(f"Unknown self-test: {name}")
     except Exception as exc:

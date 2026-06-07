@@ -137,7 +137,7 @@ python -m pytest -q
 
 当前验证规模：
 
-- `485 passed`
+- `486 passed`
 - `37 subtests passed`
 
 ## 打包与发布

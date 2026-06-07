@@ -337,6 +337,9 @@ if ($SmokeTest) {
     Invoke-Step "Self-test overlay edit smoke" {
         Invoke-PackagedSelfTest $exeInfo.Path "overlay-edit-smoke"
     }
+    Invoke-Step "Self-test capture backend smoke" {
+        Invoke-PackagedSelfTest $exeInfo.Path "capture-backend-smoke"
+    }
 }
 
 Invoke-Step "Write release manifest" {

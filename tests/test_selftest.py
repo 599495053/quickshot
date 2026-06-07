@@ -42,6 +42,12 @@ class PackagedSelfTestTest(unittest.TestCase):
 
         run_overlay.assert_called_once_with()
 
+    def test_run_self_test_dispatches_capture_backend_smoke(self) -> None:
+        with patch("quickshot.selftest.run_capture_backend_smoke_self_test") as run_capture:
+            self.assertEqual(selftest.run_self_test(selftest.CAPTURE_BACKEND_SMOKE_TEST), 0)
+
+        run_capture.assert_called_once_with()
+
     def test_run_self_test_returns_failure_status(self) -> None:
         self.assertEqual(selftest.run_self_test("missing-test"), 1)
 

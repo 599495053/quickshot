@@ -8,6 +8,7 @@ param(
     [int]$LaunchSeconds = 6,
     [switch]$PrivacySelfTest,
     [switch]$OverlaySelfTest,
+    [switch]$CaptureSelfTest,
     [switch]$RemoveExisting,
     [switch]$KeepArtifacts
 )
@@ -405,6 +406,9 @@ function Invoke-Scenario {
         if ($OverlaySelfTest) {
             Invoke-QuickShotSelfTest $installedExe "overlay-edit-smoke"
         }
+        if ($CaptureSelfTest) {
+            Invoke-QuickShotSelfTest $installedExe "capture-backend-smoke"
+        }
         Assert-TestConfigPreserved $configPath $ScenarioName
 
         if (-not (Test-Path -LiteralPath $uninstallerPath)) {
@@ -452,6 +456,8 @@ function Invoke-Scenario {
             PrivacyOcrFallbackSelfTestPassed = [bool]$PrivacySelfTest
             OverlayEditSmokeSelfTestRun = [bool]$OverlaySelfTest
             OverlayEditSmokeSelfTestPassed = [bool]$OverlaySelfTest
+            CaptureBackendSmokeSelfTestRun = [bool]$CaptureSelfTest
+            CaptureBackendSmokeSelfTestPassed = [bool]$CaptureSelfTest
             NewLogBytes = $newLogBytes
             UninstallClean = $true
         }

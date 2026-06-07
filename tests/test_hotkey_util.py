@@ -13,7 +13,12 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from quickshot.hotkey_util import parse_hotkey_string, format_hotkey_string, validate_hotkey  # noqa: E402
+from quickshot.hotkey_util import (  # noqa: E402
+    format_hotkey_string,
+    get_vk_poll_codes,
+    parse_hotkey_string,
+    validate_hotkey,
+)
 
 
 class ParseHotkeyStringTest(unittest.TestCase):
@@ -90,6 +95,15 @@ class ValidateHotkeyTest(unittest.TestCase):
     def test_no_modifier(self) -> None:
         ok, err = validate_hotkey("A")
         self.assertFalse(ok)
+
+
+class PollHotkeyCodesTest(unittest.TestCase):
+
+    def test_modifier_codes_are_grouped_by_modifier(self) -> None:
+        groups, vk = get_vk_poll_codes("Ctrl+Shift+A")
+        self.assertEqual(vk, 0x41)
+        self.assertIn([0x11, 0xA2, 0xA3], groups)
+        self.assertIn([0x10, 0xA0, 0xA1], groups)
 
 
 if __name__ == "__main__":

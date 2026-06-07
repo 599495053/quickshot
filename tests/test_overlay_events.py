@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from quickshot.config import Config  # noqa: E402
 from quickshot.history import CaptureHistoryStore  # noqa: E402
+from quickshot.overlay._events import build_tool_key_map  # noqa: E402
 from quickshot.overlay.widget import FloatingSnipOverlay  # noqa: E402
 
 
@@ -261,6 +262,21 @@ class KeyPressEventTest(unittest.TestCase):
         ov.recognize_current_text = MagicMock()
         ov._handle_key_press(self._make_key_event(Qt.Key.Key_O))
         self.assertFalse(ov.ocr_region_mode)
+
+
+class BuildToolKeyMapTest(unittest.TestCase):
+
+    def test_conflicting_custom_key_preserves_default_owner(self):
+        cfg = type("Cfg", (), {"edit_tool_hotkeys": {"arrow": "R"}})()
+        mapping = build_tool_key_map(cfg)
+        self.assertEqual(mapping.get(Qt.Key.Key_A), "arrow")
+        self.assertEqual(mapping.get(Qt.Key.Key_R), "rect")
+
+    def test_non_conflicting_custom_key_moves_tool(self):
+        cfg = type("Cfg", (), {"edit_tool_hotkeys": {"arrow": "C"}})()
+        mapping = build_tool_key_map(cfg)
+        self.assertNotIn(Qt.Key.Key_A, mapping)
+        self.assertEqual(mapping.get(Qt.Key.Key_C), "arrow")
 
 
 # ── 工具栏动作 ──

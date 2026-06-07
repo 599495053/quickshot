@@ -12,6 +12,14 @@ from .hotkey_util import validate_hotkey
 class SettingsHandlers:
     """SettingsWindow 的回调方法 mixin。"""
 
+    @staticmethod
+    def _set_combo_data(combo, value) -> None:
+        """将 QComboBox 设置为 itemData 匹配 value 的项。"""
+        for i in range(combo.count()):
+            if combo.itemData(i) == value:
+                combo.setCurrentIndex(i)
+                return
+
     # ── 通用设置回调 ──
 
     def choose_save_dir(self) -> None:
@@ -48,6 +56,14 @@ class SettingsHandlers:
 
     def on_hdr_color_accurate_changed(self, state: int) -> None:
         self.config.hdr_color_accurate = state == self.Qt_CHECKED
+        self._schedule_save()
+
+    def on_snap_changed(self, state: int) -> None:
+        self.config.snap_to_windows = state == self.Qt_CHECKED
+        self._schedule_save()
+
+    def on_snap_threshold_changed(self, value: int) -> None:
+        self.config.snap_threshold_px = value
         self._schedule_save()
 
     def on_watermark_changed(self, text: str) -> None:
@@ -238,7 +254,8 @@ class SettingsHandlers:
     def _check_hotkey_conflict(self, combo: str, exclude: str = "") -> bool:
         """检查快捷键是否与已有快捷键冲突，返回 True 表示有冲突。"""
         used = [self.config.region_hotkey, self.config.window_hotkey,
-                self.config.history_hotkey, self.config.pin_hotkey]
+                self.config.history_hotkey, self.config.pin_hotkey,
+                self.config.ocr_hotkey]
         if exclude:
             used = [h for h in used if h != exclude]
         return combo in used
@@ -306,7 +323,7 @@ class SettingsHandlers:
             QMessageBox.information(self, "历史库已整理", f"已按新上限清理 {removed} 张旧截图。")
 
     def on_startup_changed(self, state: int) -> None:
-        from .main import StartupManager
+        from .config import StartupManager
         try:
             StartupManager.set_enabled(state == self.Qt_CHECKED)
         except Exception as exc:
@@ -367,29 +384,25 @@ class SettingsHandlers:
         self.workflow_ocr_check.setChecked(self.config.workflow_auto_ocr)
         self.workflow_upload_check.setChecked(self.config.workflow_auto_upload)
         self.workflow_md_check.setChecked(self.config.workflow_copy_markdown)
-        for i in range(self.uploader_combo.count()):
-            if self.uploader_combo.itemData(i) == self.config.workflow_uploader:
-                self.uploader_combo.setCurrentIndex(i)
-                break
+        self._set_combo_data(self.uploader_combo, self.config.workflow_uploader)
         self.github_owner_edit.setText(self.config.github_owner)
         self.github_repo_edit.setText(self.config.github_repo)
         self.github_branch_edit.setText(self.config.github_branch)
         self.github_prefix_edit.setText(self.config.github_path_prefix)
         self.notification_check.setChecked(self.config.show_notifications)
         self.hdr_accurate_check.setChecked(self.config.hdr_color_accurate)
+        self.snap_check.setChecked(self.config.snap_to_windows)
+        self.snap_threshold_spin.setValue(self.config.snap_threshold_px)
         self.history_check.setChecked(self.config.auto_history)
         self.history_limit_spin.setValue(self.config.history_limit)
         self.watermark_edit.setText(self.config.watermark_text)
-        for i in range(self.watermark_color_combo.count()):
-            if self.watermark_color_combo.itemData(i) == self.config.watermark_color:
-                self.watermark_color_combo.setCurrentIndex(i)
-                break
-        for i in range(self.grid_color_combo.count()):
-            if self.grid_color_combo.itemData(i) == self.config.grid_color:
-                self.grid_color_combo.setCurrentIndex(i)
-                break
+        self._set_combo_data(self.watermark_color_combo, self.config.watermark_color)
+        self._set_combo_data(self.grid_color_combo, self.config.grid_color)
         self.region_hotkey_edit.set_hotkey(self.config.region_hotkey)
         self.window_hotkey_edit.set_hotkey(self.config.window_hotkey)
+        self.history_hotkey_edit.set_hotkey(self.config.history_hotkey)
+        self.pin_hotkey_edit.set_hotkey(self.config.pin_hotkey)
+        self.ocr_hotkey_edit.set_hotkey(self.config.ocr_hotkey)
         self.hotkeys_changed.emit()
         self.update_help_text()
         QMessageBox.information(self, "导入成功", "设置已导入并生效。")

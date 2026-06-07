@@ -41,12 +41,12 @@ class Config:
     指定转换函数。新增字段只需在此处加一行，load/save/export/import 自动覆盖。
     """
 
-    # 默认样式预设（类级别常量，不参与 dataclass，不加类型注解）
-    DEFAULT_PRESETS = [
+    # 默认样式预设（不可变元组，防止意外修改；用 list() 转换后赋给字段）
+    _DEFAULT_PRESETS = (
         {"name": "红色标注", "color": "#ff4646", "width": 5},
         {"name": "蓝色细线", "color": "#1488ff", "width": 3},
         {"name": "绿色粗线", "color": "#18a058", "width": 8},
-    ]
+    )
 
     # ── 可序列化配置字段 ──
 
@@ -78,7 +78,13 @@ class Config:
     github_repo: str = ""
     github_branch: str = field(default="main", metadata={"loader": _str_or_default("main")})
     github_path_prefix: str = field(default="screenshots", metadata={"loader": _str_or_default("screenshots")})
-    annotation_presets: List[dict] = field(default_factory=lambda: list(Config.DEFAULT_PRESETS))
+    annotation_presets: List[dict] = field(default_factory=lambda: [dict(p) for p in Config._DEFAULT_PRESETS])
+    # 选区吸附
+    snap_to_windows: bool = True
+    snap_threshold_px: int = field(default=10, metadata={"loader": _clamp_int(3, 30)})
+    # 编辑模式工具快捷键（tool_name -> key_name，如 "arrow" -> "A"）
+    # 空值或缺失的工具使用默认映射
+    edit_tool_hotkeys: Dict[str, str] = field(default_factory=dict)
 
     # ── 运行时字段（不序列化）──
 
@@ -96,7 +102,7 @@ class Config:
     def _serializable_fields(self):
         """返回参与序列化的字段（排除运行时字段和 DEFAULT_PRESETS）。"""
         for f in fields(self):
-            if f.name in _RUNTIME_FIELDS or f.name == "DEFAULT_PRESETS":
+            if f.name in _RUNTIME_FIELDS:
                 continue
             yield f
 

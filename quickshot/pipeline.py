@@ -185,7 +185,10 @@ class Pipeline:
         return ctx
 
 
-def build_default_pipeline(registry: UploaderRegistry) -> Pipeline:
+def build_default_pipeline(
+    registry: UploaderRegistry,
+    clipboard_writer: Callable[[str], None] = copy_text_to_clipboard,
+) -> Pipeline:
     """构建默认工作流：上传 → 复制 Markdown。
 
     注意：OCR 不在这里。OCR 是慢操作，会阻塞主线程几百毫秒到几秒，必须异步执行。
@@ -193,7 +196,7 @@ def build_default_pipeline(registry: UploaderRegistry) -> Pipeline:
     """
     return Pipeline([
         UploadStep(registry),
-        CopyMarkdownStep(),
+        CopyMarkdownStep(clipboard_writer=clipboard_writer),
     ])
 
 
@@ -208,7 +211,11 @@ def should_run_post_capture(config: Config) -> bool:
     )
 
 
-def run_post_capture_pipeline(image_path: str, config: Config) -> PipelineContext:
+def run_post_capture_pipeline(
+    image_path: str,
+    config: Config,
+    clipboard_writer: Callable[[str], None] = copy_text_to_clipboard,
+) -> PipelineContext:
     """便利入口：用默认注册表和默认 Pipeline 处理一次截图后流程。
 
     若 workflow_* 全部关闭，则直接返回空 Context 不构造 Pipeline。
@@ -219,6 +226,6 @@ def run_post_capture_pipeline(image_path: str, config: Config) -> PipelineContex
     # 延迟导入：避免主路径在不需要时引入注册表构造开销
     from .uploader import build_default_registry
     registry = build_default_registry(config=config)
-    pipeline = build_default_pipeline(registry)
+    pipeline = build_default_pipeline(registry, clipboard_writer=clipboard_writer)
     pipeline.run(ctx, config)
     return ctx

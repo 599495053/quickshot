@@ -83,19 +83,27 @@ def schedule_capture_prewarm() -> None:
         return
     _CAPTURE_PREWARMED = True
     try:
-        import numpy  # noqa: F401
-        import dxcam  # noqa: F401
-        from dxcam._libs.d3d11 import (  # noqa: F401
-            D3D11_CPU_ACCESS_READ,
-            D3D11_TEXTURE2D_DESC,
-            D3D11_USAGE_STAGING,
-            ID3D11Texture2D,
-        )
-        from dxcam._libs.dxgi import DXGI_MAPPED_RECT, IDXGIDevice, IDXGISurface  # noqa: F401
-        from winrt.windows.graphics.capture import Direct3D11CaptureFramePool  # noqa: F401
-        from winrt.windows.graphics.capture import interop as capture_interop  # noqa: F401
-        from winrt.windows.graphics.directx import DirectXPixelFormat  # noqa: F401
-        from winrt.windows.graphics.directx.direct3d11 import interop as d3d11_interop  # noqa: F401
+        import importlib
+
+        importlib.import_module("numpy")
+        importlib.import_module("dxcam")
+        d3d11 = importlib.import_module("dxcam._libs.d3d11")
+        for name in (
+            "D3D11_CPU_ACCESS_READ",
+            "D3D11_TEXTURE2D_DESC",
+            "D3D11_USAGE_STAGING",
+            "ID3D11Texture2D",
+        ):
+            getattr(d3d11, name)
+        dxgi = importlib.import_module("dxcam._libs.dxgi")
+        for name in ("DXGI_MAPPED_RECT", "IDXGIDevice", "IDXGISurface"):
+            getattr(dxgi, name)
+        capture = importlib.import_module("winrt.windows.graphics.capture")
+        getattr(capture, "Direct3D11CaptureFramePool")
+        importlib.import_module("winrt.windows.graphics.capture.interop")
+        directx = importlib.import_module("winrt.windows.graphics.directx")
+        getattr(directx, "DirectXPixelFormat")
+        importlib.import_module("winrt.windows.graphics.directx.direct3d11.interop")
         debug_log("capture imports prewarmed (main thread)")
     except Exception as exc:
         debug_log(f"capture prewarm failed: {exc}")

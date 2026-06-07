@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import sys
 import traceback
 from typing import Dict, List, Optional, Tuple
 
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QWidget
 
 from ..config import Config
+from ..constants import DOUBLE_CLICK_GUARD_MS, HANDLE_MARGIN, TEXT_FONT_SIZE_DEFAULT
 from ..history import CaptureHistoryStore
 from ..ocr import OcrJob
 from ..theme import (
@@ -49,6 +49,7 @@ class FloatingSnipOverlay(
 
     closed = pyqtSignal()
     notify = pyqtSignal(str)
+    clipboard_text_requested = pyqtSignal(str)
     history_updated = pyqtSignal()
     TEXT_COLOR_OPTIONS = [
         ("#ffffff", "白"),
@@ -60,7 +61,7 @@ class FloatingSnipOverlay(
     ]
 
     # 双击防误触最小间隔（毫秒）
-    DOUBLE_CLICK_GUARD_MS = 400
+    DOUBLE_CLICK_GUARD_MS = DOUBLE_CLICK_GUARD_MS
     # 最近区域复用：类级别存储上次选区
     _last_selection_rect: Optional[QRect] = None
     _last_selection_physical_rect: Optional[QRect] = None
@@ -130,7 +131,7 @@ class FloatingSnipOverlay(
         self.hover_style_option = ""
         self.last_message_rect = QRect()
         self.message = "拖动鼠标选择截图区域   Esc 取消"
-        self.text_font_size = 28
+        self.text_font_size = TEXT_FONT_SIZE_DEFAULT
         self.text_color_name = "#ffffff"
         self.text_panel_color_name = self.text_color_name
         self._text_metrics_cache: Dict[int, object] = {}
@@ -155,12 +156,16 @@ class FloatingSnipOverlay(
         self.adjust_origin_rect = QRect()
         self.adjust_cleared_annotations = False
         self.adjust_changed = False
-        self.handle_margin = 9
+        self.handle_margin = HANDLE_MARGIN
         self.ocr_job: Optional[OcrJob] = None
         self.number_counter = 1
         self.ocr_region_mode = False
 
         self._edit_entered_at = 0
+
+        # QPixmap.toImage() 缓存：避免频繁转换导致性能瓶颈
+        self._cached_edit_image: Optional[QImage] = None
+        self._last_pixmap_id: int = 0
 
         self.setWindowTitle(APP_NAME)
         self.setWindowFlags(
@@ -171,13 +176,14 @@ class FloatingSnipOverlay(
         self.setGeometry(self.logical_geometry)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.setCursor(Qt.CursorShape.CrossCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
 
         self._frame_update_timer = QTimer(self)
         self._frame_update_timer.setSingleShot(True)
         self._frame_update_timer.setInterval(0)
         self._frame_update_timer.timeout.connect(self._flush_frame_update)
+        self.clipboard_text_requested.connect(self._copy_text_to_clipboard)
 
         self._init_text_editor_panel()
 
@@ -238,48 +244,12 @@ class FloatingSnipOverlay(
         self.raise_()
         self.activateWindow()
         if self.mode == "select":
-            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self.setCursor(Qt.CursorShape.CrossCursor)
         try:
             self.grabKeyboard()
         except Exception as exc:
             debug_log(f"grabKeyboard failed: {exc}")
-        self._disable_dwm_shadow()
 
-    def _disable_dwm_shadow(self) -> None:
-        """移除 Windows DWM 给 frameless 窗口添加的系统边框/阴影。"""
-        if not sys.platform.startswith("win"):
-            return
-        try:
-            import ctypes
-            hwnd = int(self.winId())
-            DWMWA_NCRENDERING_POLICY = 2
-            DWMNCRP_DISABLED = 2
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_NCRENDERING_POLICY,
-                ctypes.byref(ctypes.c_int(DWMNCRP_DISABLED)),
-                ctypes.sizeof(ctypes.c_int),
-            )
-            # 将 frame 扩展到客户区，消除 DWM 边框
-            MARGIN = ctypes.c_int(-1)
-            ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(
-                hwnd, ctypes.byref(MARGIN),
-            )
-        except Exception as exc:
-            debug_log(f"_disable_dwm_shadow failed: {exc}")
-
-    def nativeEvent(self, event_type, message):
-        """拦截 WM_NCCALCSIZE 移除非客户区，消除系统边框。"""
-        if sys.platform.startswith("win") and event_type == b"windows_generic_MSG":
-            try:
-                import ctypes
-                from ctypes import wintypes
-                msg = ctypes.cast(int(message), ctypes.POINTER(wintypes.MSG)).contents
-                WM_NCCALCSIZE = 0x0083
-                if msg.message == WM_NCCALCSIZE:
-                    return True, 0
-            except Exception:
-                pass
-        return super().nativeEvent(event_type, message)
 
     def closeEvent(self, event) -> None:
         self.detach_ocr_job()
@@ -412,6 +382,35 @@ class FloatingSnipOverlay(
     def annotation_points_to_widget(self, item: Dict[str, object]) -> List[QPointF]:
         return self.coords.annotation_points_to_widget(item, self.selection_rect, self.edit_pixmap.size())
 
+    def _get_cached_edit_image(self) -> Optional[QImage]:
+        """获取缓存的 QImage，避免频繁的 QPixmap.toImage() 转换。
+
+        QPixmap.toImage() 是 O(n) 操作，对于高分辨率截图（如 4K）会拷贝数百 MB 数据。
+        通过缓存 QImage 版本，可以将重复调用从 O(n) 降为 O(1)。
+
+        Returns:
+            QImage: 缓存的图像，如果 edit_pixmap 为空则返回 None
+        """
+        if self.edit_pixmap.isNull():
+            self._cached_edit_image = None
+            self._last_pixmap_id = 0
+            return None
+
+        current_id = self.edit_pixmap.cacheKey()
+        if self._cached_edit_image is None or self._last_pixmap_id != current_id:
+            # 缓存失效，重新转换
+            self._cached_edit_image = self.edit_pixmap.toImage().convertToFormat(
+                QImage.Format.Format_ARGB32
+            )
+            self._last_pixmap_id = current_id
+
+        return self._cached_edit_image
+
+    def invalidate_image_cache(self) -> None:
+        """使图像缓存失效，在 edit_pixmap 变化后调用。"""
+        self._cached_edit_image = None
+        self._last_pixmap_id = 0
+
     # ── 事件薄壳委托 ──
 
     def mousePressEvent(self, event) -> None:
@@ -468,12 +467,10 @@ class FloatingSnipOverlay(
             self.draw_center_hint(painter, "拖动鼠标选择截图区域   Esc 取消")
             return
 
-        physical_rect = self.logical_to_physical_rect(rect)
         self.draw_dim_outside(painter, rect)
         self.draw_snap_guides(painter)
         self.draw_selection_border(painter, rect)
         self.draw_handles(painter, rect)
-        self.draw_size_label(painter, rect, physical_rect.width(), physical_rect.height())
 
     def paint_edit_mode(self, painter: QPainter) -> None:
         if self.selection_rect.isNull() or self.edit_pixmap.isNull():
@@ -490,7 +487,6 @@ class FloatingSnipOverlay(
             self.draw_grid(painter)
         self.draw_selection_border(painter, self.selection_rect)
         self.draw_handles(painter, self.selection_rect)
-        self.draw_size_label(painter, self.selection_rect, self.edit_pixmap.width(), self.edit_pixmap.height())
 
         if self.dragging_annotation and self.drag_start is not None and self.drag_end is not None:
             strategy = TOOL_STRATEGIES.get(self.active_tool)
@@ -589,10 +585,16 @@ class FloatingSnipOverlay(
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawEllipse(QRectF(mx, my, mag_size, mag_size))
 
-        # 绘制颜色预览方块
+        # 绘制颜色预览方块 - 使用缓存的 QImage 提升性能
         ix, iy = int(image_pos.x()), int(image_pos.y())
         if 0 <= ix < self.edit_pixmap.width() and 0 <= iy < self.edit_pixmap.height():
-            color = self.edit_pixmap.toImage().pixelColor(ix, iy)
+            # 优化：使用缓存的 QImage，避免每次取色都进行完整转换（O(n) → O(1)）
+            cached_image = self._get_cached_edit_image()
+            if cached_image is not None:
+                color = cached_image.pixelColor(ix, iy)
+            else:
+                # 降级方案：直接访问 pixmap（较慢但安全）
+                color = self.edit_pixmap.toImage().pixelColor(ix, iy)
             preview_size = 24
             px = mx + mag_size - preview_size - 4
             py = my + 4

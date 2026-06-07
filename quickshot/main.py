@@ -1,7 +1,9 @@
 import ctypes
 import os
 import sys
+import threading
 import time
+import traceback as _traceback
 
 
 _STDIO_SINKS = []
@@ -53,15 +55,13 @@ from PyQt6.QtWidgets import (
 )
 
 from .config import Config
+from .constants import HOTKEY_DEBOUNCE_SECONDS, HOTKEY_POLL_INTERVAL_MS, TRAY_MESSAGE_DURATION_MS, WINDOW_CAPTURE_DELAY_MS
 from .history import CaptureHistoryStore
-from .hotkey import HotkeyBridge, NativeHotkeyWindow
+from .hotkey import NativeHotkeyWindow
 from .ocr import schedule_rapidocr_prewarm, shutdown_ocr_executor
 from .overlay import FloatingSnipOverlay
 from .screenshot import get_foreground_window_rect, grab_virtual_screen, schedule_capture_prewarm
 from .utils import APP_NAME, debug_log, load_app_icon, safe_print
-
-import threading
-import traceback as _traceback
 
 
 def _global_exception_hook(exc_type, exc_value, exc_tb) -> None:
@@ -113,7 +113,6 @@ class QuickShotApp(QObject):
         self.app.setQuitOnLastWindowClosed(False)
         self.config = Config()
         self.history_store = CaptureHistoryStore(self.config)
-        self.bridge = HotkeyBridge()
         self.hotkey_window = NativeHotkeyWindow()
         self.hotkey_window.region_hotkey.connect(self.on_region_hotkey)
         self.hotkey_window.window_hotkey.connect(self.on_window_hotkey)
@@ -125,6 +124,7 @@ class QuickShotApp(QObject):
         self.history_window = None
         self.pin_manager_window = None
         self._ocr_prewarmed = False
+        self._pending_auto_ocr = False
         self._quitting = False
         self._last_hotkey_time = 0.0
         self._fallback_region_pressed = False
@@ -133,6 +133,7 @@ class QuickShotApp(QObject):
         self._poll_region_vk = 0
         self._poll_window_mods: list = []
         self._poll_window_vk = 0
+        self._poll_error_count = 0
         self._update_fallback_poll_keys()
         self.hotkey_poll_timer = QTimer(self)
         self.hotkey_poll_timer.timeout.connect(self.poll_fallback_hotkeys)
@@ -148,12 +149,12 @@ class QuickShotApp(QObject):
         self.register_hotkeys()
         self.start_fallback_hotkey_polling()
         # OCR 预热延后到首次截图，省常驻内存；截图后端 DLL 在启动后空闲时后台 import，消除首次截图冷启动延迟
-        QTimer.singleShot(1500, schedule_capture_prewarm)
+        QTimer.singleShot(300, self._prewarm_capture_and_ocr)
         self.tray.showMessage(
             APP_NAME,
             f"已启动：{self.config.region_hotkey} 区域截图",
             QSystemTrayIcon.MessageIcon.Information,
-            1800,
+            TRAY_MESSAGE_DURATION_MS,
         )
         debug_log("QuickShotApp init done")
 
@@ -222,7 +223,7 @@ class QuickShotApp(QObject):
 
     def _hotkey_allowed(self) -> bool:
         now = time.monotonic()
-        if now - self._last_hotkey_time < 0.35:
+        if now - self._last_hotkey_time < HOTKEY_DEBOUNCE_SECONDS:
             return False
         self._last_hotkey_time = now
         return True
@@ -271,7 +272,7 @@ class QuickShotApp(QObject):
         """源码运行时的备用快捷键轮询。"""
         if not sys.platform.startswith("win"):
             return
-        self.hotkey_poll_timer.start(45)
+        self.hotkey_poll_timer.start(HOTKEY_POLL_INTERVAL_MS)
 
     def _update_fallback_poll_keys(self) -> None:
         from .hotkey_util import get_vk_poll_codes
@@ -279,6 +280,12 @@ class QuickShotApp(QObject):
         window = get_vk_poll_codes(self.config.window_hotkey)
         self._poll_region_mods, self._poll_region_vk = region if region else ([], 0)
         self._poll_window_mods, self._poll_window_vk = window if window else ([], 0)
+
+    @staticmethod
+    def _modifier_groups_pressed(down, modifier_groups: list) -> bool:
+        if not modifier_groups:
+            return False
+        return all(any(down(vk) for vk in group) for group in modifier_groups)
 
     def poll_fallback_hotkeys(self) -> None:
         if not sys.platform.startswith("win") or self._quitting:
@@ -288,8 +295,8 @@ class QuickShotApp(QObject):
             user32 = ctypes.windll.user32
             down = lambda vk: bool(user32.GetAsyncKeyState(vk) & 0x8000)
 
-            region_mods_ok = all(down(vk) for vk in self._poll_region_mods) if self._poll_region_mods else False
-            window_mods_ok = all(down(vk) for vk in self._poll_window_mods) if self._poll_window_mods else False
+            region_mods_ok = self._modifier_groups_pressed(down, self._poll_region_mods)
+            window_mods_ok = self._modifier_groups_pressed(down, self._poll_window_mods)
 
             region_pressed = region_mods_ok and self._poll_region_vk > 0 and down(self._poll_region_vk)
             window_pressed = window_mods_ok and self._poll_window_vk > 0 and down(self._poll_window_vk)
@@ -301,9 +308,14 @@ class QuickShotApp(QObject):
 
             self._fallback_region_pressed = region_pressed
             self._fallback_window_pressed = window_pressed
-        except Exception:
-            # 45ms 高频轮询：故意不记录避免日志爆炸；调试时改 debug_log
-            pass
+            self._poll_error_count = 0
+        except Exception as exc:
+            self._poll_error_count += 1
+            if self._poll_error_count == 1:
+                debug_log(f"poll_fallback_hotkeys error (will suppress after 1st): {exc}")
+            elif self._poll_error_count >= 200:
+                debug_log(f"poll_fallback_hotkeys: {self._poll_error_count} consecutive errors, last: {exc}")
+                self._poll_error_count = 1
 
     def register_hotkeys(self) -> None:
         try:
@@ -389,8 +401,15 @@ class QuickShotApp(QObject):
         self.overlay = overlay
         return overlay
 
+    def _prewarm_capture_and_ocr(self) -> None:
+        """后台预热截图 + OCR 模块，消除首次截图冷启动延迟。"""
+        schedule_capture_prewarm()
+        if not self._ocr_prewarmed:
+            self._ocr_prewarmed = True
+            schedule_rapidocr_prewarm()
+
     def start_region_snip(self) -> None:
-        QTimer.singleShot(80, self.show_region_overlay)
+        QTimer.singleShot(30, self.show_region_overlay)
 
     def show_region_overlay(self) -> None:
         overlay = self.create_overlay()
@@ -402,7 +421,7 @@ class QuickShotApp(QObject):
         overlay.show()
 
     def start_window_snip(self) -> None:
-        QTimer.singleShot(350, self.capture_current_window)
+        QTimer.singleShot(WINDOW_CAPTURE_DELAY_MS, self.capture_current_window)
 
     def capture_current_window(self) -> None:
         rect = get_foreground_window_rect()
@@ -524,6 +543,10 @@ class QuickShotApp(QObject):
             return
         self._quitting = True
         try:
+            self.history_store.flush()
+        except Exception as exc:
+            debug_log(f"history_store flush failed: {exc}")
+        try:
             self.hotkey_poll_timer.stop()
         except Exception as exc:
             debug_log(f"hotkey_poll_timer stop failed: {exc}")
@@ -550,7 +573,6 @@ def main() -> None:
     debug_log("main start")
     app = QApplication(sys.argv)
     install_exception_hooks()
-    app.setQuitOnLastWindowClosed(False)
     app.setApplicationName(APP_NAME)
     app.aboutToQuit.connect(lambda: debug_log("aboutToQuit signal"))
 

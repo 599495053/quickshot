@@ -312,5 +312,81 @@ class MosaicCacheTest(unittest.TestCase):
         self.assertEqual(pixmap.width(), 100)
 
 
+class FrameUpdateCoalescingTest(unittest.TestCase):
+    """高频拖拽重绘应合并到下一帧。"""
+
+    def test_request_frame_update_unites_dirty_rects(self):
+        from quickshot.config import Config
+        from quickshot.overlay.widget import FloatingSnipOverlay
+
+        raw = QPixmap(400, 300)
+        raw.fill(QColor(60, 60, 60))
+        overlay = FloatingSnipOverlay(
+            raw,
+            raw.copy(),
+            QRect(0, 0, 400, 300),
+            1.0,
+            1.0,
+            0,
+            0,
+            Config(),
+            None,
+        )
+        overlay.request_frame_update(QRect(10, 10, 20, 20))
+        overlay.request_frame_update(QRect(40, 40, 20, 20))
+
+        self.assertTrue(overlay._frame_update_timer.isActive())
+        self.assertEqual(overlay._pending_frame_update_rect, QRect(10, 10, 50, 50))
+        self.assertFalse(overlay._pending_full_frame_update)
+
+    def test_full_frame_update_overrides_dirty_rects(self):
+        from quickshot.config import Config
+        from quickshot.overlay.widget import FloatingSnipOverlay
+
+        raw = QPixmap(400, 300)
+        raw.fill(QColor(60, 60, 60))
+        overlay = FloatingSnipOverlay(
+            raw,
+            raw.copy(),
+            QRect(0, 0, 400, 300),
+            1.0,
+            1.0,
+            0,
+            0,
+            Config(),
+            None,
+        )
+        overlay.request_frame_update(QRect(10, 10, 20, 20))
+        overlay.request_frame_update()
+
+        self.assertTrue(overlay._pending_full_frame_update)
+        self.assertTrue(overlay._pending_frame_update_rect.isNull())
+
+    def test_selection_frame_dirty_includes_full_width_edge_bands(self):
+        from quickshot.config import Config
+        from quickshot.overlay.widget import FloatingSnipOverlay
+
+        raw = QPixmap(400, 300)
+        raw.fill(QColor(60, 60, 60))
+        overlay = FloatingSnipOverlay(
+            raw,
+            raw.copy(),
+            QRect(0, 0, 400, 300),
+            1.0,
+            1.0,
+            0,
+            0,
+            Config(),
+            None,
+        )
+        dirty = overlay.selection_frame_dirty_rect(
+            QRect(80, 80, 120, 90),
+            QRect(140, 120, 120, 90),
+        )
+
+        self.assertEqual(dirty.left(), 0)
+        self.assertEqual(dirty.right(), overlay.width() - 1)
+
+
 if __name__ == "__main__":
     unittest.main()

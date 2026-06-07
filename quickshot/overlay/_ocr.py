@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QRect, Qt
 from PyQt6.QtWidgets import QApplication
 
 from ..dialogs import OcrResultDialog
@@ -11,6 +11,11 @@ from ..utils import copy_text_to_clipboard, debug_log
 
 
 class OcrMixin:
+
+    def _clear_ocr_dialog_ref(self) -> None:
+        """OCR 对话框关闭后清除引用。"""
+        if hasattr(self, "_ocr_dialog"):
+            self._ocr_dialog = None
 
     def ocr_running(self) -> bool:
         return self.ocr_job is not None and self.ocr_job.is_running()
@@ -159,6 +164,17 @@ class OcrMixin:
         return True
 
     def apply_ocr_result(self, result: OcrResult) -> None:
+        try:
+            self._apply_ocr_result_impl(result)
+        except Exception as exc:
+            from ..utils import debug_log
+            import traceback
+            debug_log(f'apply_ocr_result CRASH: {exc}')
+            debug_log(traceback.format_exc())
+            self.message = f'识文失败: {exc}'
+            self.update()
+
+    def _apply_ocr_result_impl(self, result: OcrResult) -> None:
         text = result.text.strip()
         if not text:
             self.message = result.note or "未识别到文字"
@@ -181,22 +197,18 @@ class OcrMixin:
         self.maybe_notify(f"{result.engine_label} 识别完成")
         self.update()
 
-        try:
-            self.releaseKeyboard()
-        except Exception as exc:
-            debug_log(f"releaseKeyboard for OCR dialog failed: {exc}")
         dialog = OcrResultDialog(
             text,
-            self,
+            None,
             engine_label=result.engine_label,
             elapsed_seconds=result.elapsed_seconds,
             note=result.note,
         )
         dialog.setWindowTitle(f"{result.engine_label} 识别结果")
         dialog.title_label.setText(f"{result.engine_label} 识别结果已复制，可校对后再复制")
-        dialog.exec()
-        try:
-            if self.isVisible():
-                self.grabKeyboard()
-        except Exception as exc:
-            debug_log(f"regrabKeyboard after OCR dialog failed: {exc}")
+        # 非模态：允许用户继续操作截图，对话框关闭时自动释放引用
+        self._ocr_dialog = dialog
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        dialog.destroyed.connect(lambda: self._clear_ocr_dialog_ref())
+        dialog.show()
+        self.close()

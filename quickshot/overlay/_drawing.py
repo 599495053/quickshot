@@ -7,6 +7,7 @@ from typing import List
 from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
 from PyQt6.QtGui import QColor, QPainter, QPen
 
+from ..constants import HIGHLIGHT_ALPHA, HIGHLIGHT_WIDTH_MULTIPLIER, MOSAIC_BLOCK_SIZE
 from . import annotation_painter
 from ..theme import qc
 
@@ -127,36 +128,47 @@ class DrawingMixin:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
         color = QColor(self.stroke_color_name)
-        color.setAlpha(96)
-        annotation_painter.draw_polyline(painter, [QPointF(point.x(), point.y()) for point in points], color, float(max(12, self.stroke_width * 2)))
+        color.setAlpha(HIGHLIGHT_ALPHA)
+        width = float(max(12, self.stroke_width * HIGHLIGHT_WIDTH_MULTIPLIER))
+        annotation_painter.draw_polyline(painter, [QPointF(point.x(), point.y()) for point in points], color, width)
         painter.end()
         self.annotations.append({
             "type": "highlight",
             "points": [(int(point.x()), int(point.y())) for point in points],
             "color": self.stroke_color_name,
-            "width": int(max(12, self.stroke_width * 2)),
+            "width": int(width),
         })
         self.update_selection_display_cache()
 
     def apply_mosaic(self, rect: QRect) -> None:
-        from PyQt6.QtGui import QImage, QPixmap
         rect = rect.intersected(QRect(0, 0, self.edit_pixmap.width(), self.edit_pixmap.height()))
         if rect.width() <= 0 or rect.height() <= 0:
             return
-        image = self.edit_pixmap.toImage().convertToFormat(QImage.Format.Format_ARGB32)
+
+        # 优化：使用缓存的 QImage，避免频繁的 toImage() 转换（O(n) → O(1)）
+        image = self._get_cached_edit_image()
+        if image is None:
+            return
+
         crop = image.copy(rect)
-        block = 14
+        block = MOSAIC_BLOCK_SIZE
         small_w = max(1, rect.width() // block)
         small_h = max(1, rect.height() // block)
         small = crop.scaled(small_w, small_h, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.FastTransformation)
         mosaic = small.scaled(rect.width(), rect.height(), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.FastTransformation)
-        painter = QPainter(image)
+
+        # 直接在 edit_pixmap 上绘制，避免创建新 QPixmap
+        painter = QPainter(self.edit_pixmap)
         painter.drawImage(rect.topLeft(), mosaic)
         painter.end()
-        self.edit_pixmap = QPixmap.fromImage(image)
-        self.edit_pixmap.setDevicePixelRatio(1.0)
+
+        # 保存 patch 供 rebuild_edit_pixmap 重放时使用
         patch = self.edit_pixmap.copy(rect)
-        patch.setDevicePixelRatio(1.0)
+
+        # 使缓存失效，下次调用时会重新生成
+        self.invalidate_image_cache()
+        self.selection_snapshot_required = True
+
         self.annotations.append({
             "type": "mosaic",
             "x": int(rect.x()), "y": int(rect.y()),
@@ -168,28 +180,42 @@ class DrawingMixin:
     def apply_blur(self, rect: QRect) -> None:
         import cv2
         import numpy as np
-        from PyQt6.QtGui import QImage, QPixmap
+        from PyQt6.QtGui import QImage
+
         rect = rect.intersected(QRect(0, 0, self.edit_pixmap.width(), self.edit_pixmap.height()))
         if rect.width() <= 0 or rect.height() <= 0:
             return
-        image = self.edit_pixmap.toImage().convertToFormat(QImage.Format.Format_ARGB32)
+
+        # 优化：使用缓存的 QImage，避免频繁的 toImage() 转换（O(n) → O(1)）
+        image = self._get_cached_edit_image()
+        if image is None:
+            return
+
         crop = image.copy(rect)
         ptr = crop.bits()
         ptr.setsize(crop.sizeInBytes())
         arr = np.frombuffer(ptr, dtype=np.uint8).reshape(crop.height(), crop.width(), 4)
+
         ksize = max(3, min(51, (rect.width() + rect.height()) // 8))
         if ksize % 2 == 0:
             ksize += 1
         blurred = cv2.GaussianBlur(arr, (ksize, ksize), 0)
+
         result = QImage(blurred.data, crop.width(), crop.height(), crop.bytesPerLine(), QImage.Format.Format_ARGB32)
         result_copy = result.copy()
-        painter = QPainter(image)
+
+        # 直接在 edit_pixmap 上绘制，避免创建新 QPixmap
+        painter = QPainter(self.edit_pixmap)
         painter.drawImage(rect.topLeft(), result_copy)
         painter.end()
-        self.edit_pixmap = QPixmap.fromImage(image)
-        self.edit_pixmap.setDevicePixelRatio(1.0)
+
+        # 保存 patch 供 rebuild_edit_pixmap 重放时使用
         patch = self.edit_pixmap.copy(rect)
-        patch.setDevicePixelRatio(1.0)
+
+        # 使缓存失效，下次调用时会重新生成
+        self.invalidate_image_cache()
+        self.selection_snapshot_required = True
+
         self.annotations.append({
             "type": "blur",
             "x": int(rect.x()), "y": int(rect.y()),
@@ -237,8 +263,8 @@ class DrawingMixin:
         color = QColor(self.stroke_color_name)
         width = float(self.stroke_width)
         if self.active_tool == "highlight":
-            color.setAlpha(96)
-            width = max(12.0, width * 2.0)
+            color.setAlpha(HIGHLIGHT_ALPHA)
+            width = max(12.0, width * HIGHLIGHT_WIDTH_MULTIPLIER)
         annotation_painter.draw_polyline(painter, points, color, self.scaled_stroke_width(width))
 
     def draw_mosaic_preview(self, painter: QPainter, start, end) -> None:

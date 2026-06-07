@@ -156,21 +156,21 @@ def format_hotkey_string(modifiers: int, vk: int) -> str:
     return "+".join(parts)
 
 
-def get_vk_poll_codes(text: str) -> Optional[Tuple[List[int], int]]:
+def get_vk_poll_codes(text: str) -> Optional[Tuple[List[List[int]], int]]:
     """获取用于 GetAsyncKeyState 轮询的 VK 码列表。
 
-    返回 ([所有修饰键 VK 码...], 按键 VK 码)。
-    例如 'Ctrl+Shift+A' → ([0x11, 0xA2, 0xA3, 0x10, 0xA0, 0xA1], 0x41)
+    返回 ([[某个修饰键的所有 VK 变体], ...], 按键 VK 码)。
+    例如 'Ctrl+Shift+A' → ([[0x11, 0xA2, 0xA3], [0x10, 0xA0, 0xA1]], 0x41)
     """
     parsed = parse_hotkey_string(text)
     if parsed is None:
         return None
     mod_flags, vk = parsed
-    poll_mods: List[int] = []
+    poll_mods: List[List[int]] = []
     for name in ("Ctrl", "Shift", "Alt", "Win"):
         flag = MODIFIER_MAP[name][0]
         if mod_flags & flag:
-            poll_mods.extend(MODIFIER_MAP[name][1])
+            poll_mods.append(MODIFIER_MAP[name][1])
     return (poll_mods, vk)
 
 

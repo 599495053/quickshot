@@ -37,6 +37,11 @@ def _apply_fill(painter: QPainter, color: QColor, fill: str) -> None:
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
 
+def _calc_shape_inset(width: float, rect: QRectF) -> float:
+    """计算形状绘制时的内缩量，防止线宽溢出矩形边界。"""
+    return min(width / 2.0, max(0.0, rect.width() / 2.0 - 1.0), max(0.0, rect.height() / 2.0 - 1.0))
+
+
 def draw_arrow(
     painter: QPainter,
     start: QPointF,
@@ -80,7 +85,7 @@ def draw_rect_annotation(
     pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
     painter.setPen(pen)
     _apply_fill(painter, color, fill)
-    inset = min(width / 2.0, max(0.0, rect.width() / 2.0 - 1.0), max(0.0, rect.height() / 2.0 - 1.0))
+    inset = _calc_shape_inset(width, rect)
     painter.drawRoundedRect(rect.adjusted(inset, inset, -inset, -inset), 4.0, 4.0)
     painter.restore()
 
@@ -99,7 +104,7 @@ def draw_ellipse_annotation(
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     painter.setPen(pen)
     _apply_fill(painter, color, fill)
-    inset = min(width / 2.0, max(0.0, rect.width() / 2.0 - 1.0), max(0.0, rect.height() / 2.0 - 1.0))
+    inset = _calc_shape_inset(width, rect)
     painter.drawEllipse(rect.adjusted(inset, inset, -inset, -inset))
     painter.restore()
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from PyQt6.QtCore import QPoint, QRect, Qt
 from PyQt6.QtGui import QPainter, QPixmap
 
@@ -42,7 +44,7 @@ class SelectionMixin:
         self._reset_text_state()
         self.number_counter = 1
         self.setCursor(Qt.CursorShape.ArrowCursor)
-        self._edit_entered_at = __import__("time").monotonic()
+        self._edit_entered_at = time.monotonic()
         self.rebuild_edit_pixmap()
 
         if self.config.auto_copy:
@@ -179,6 +181,8 @@ class SelectionMixin:
             self.edit_pixmap = QPixmap()
             self.selection_display_pixmap = QPixmap()
             self.selection_snapshot_required = False
+            # 使缓存失效
+            self.invalidate_image_cache()
             return
 
         pixmap = self.base_edit_pixmap.copy()
@@ -190,6 +194,10 @@ class SelectionMixin:
         painter.end()
         self.edit_pixmap = pixmap
         self.edit_pixmap.setDevicePixelRatio(1.0)
+
+        # 使缓存失效，因为 edit_pixmap 已更新
+        self.invalidate_image_cache()
+
         self.update_selection_display_cache()
 
     def resized_rect_from_handle(self, handle: str, pos: QPoint) -> QRect:
@@ -242,6 +250,7 @@ class SelectionMixin:
         if new_rect == self.selection_rect:
             return
 
+        old_rect = QRect(self.selection_rect)
         dirty = self.edit_repaint_rect()
         if not self.adjust_changed and (self.annotations or self.history):
             self.history.clear()
@@ -250,11 +259,12 @@ class SelectionMixin:
         self.adjust_changed = True
         self.selection_rect = QRect(new_rect)
 
-        dirty = dirty.united(self.edit_repaint_rect()).adjusted(-12, -12, 12, 12).intersected(self.rect())
+        frame_dirty = self.selection_frame_dirty_rect(old_rect, self.selection_rect)
+        dirty = dirty.united(self.edit_repaint_rect()).united(frame_dirty).adjusted(-12, -12, 12, 12).intersected(self.rect())
         if dirty.isNull():
-            self.update()
+            self.request_frame_update()
         else:
-            self.update(dirty)
+            self.request_frame_update(dirty)
 
     def finish_selection_adjust(self) -> None:
         self.adjusting_selection = False

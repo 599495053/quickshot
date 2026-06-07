@@ -39,6 +39,11 @@ class NativeHotkeyWindow(QWidget):
 
     def register(self, region_hotkey: str = "Ctrl+Shift+A", window_hotkey: str = "Ctrl+Shift+W",
                  history_hotkey: str = "", pin_hotkey: str = "", ocr_hotkey: str = "") -> bool:
+        """注册全局热键。
+
+        Returns:
+            bool: 注册成功返回 True，失败返回 False（可能已被其他程序占用）
+        """
         if not sys.platform.startswith("win"):
             return False
         from .hotkey_util import parse_hotkey_string
@@ -50,12 +55,39 @@ class NativeHotkeyWindow(QWidget):
         self.unregister()
         r_mod, r_vk = region_parsed
         w_mod, w_vk = window_parsed
+
+        # 尝试注册核心热键
         ok_region = user32.RegisterHotKey(self._hwnd, self.HOTKEY_REGION_ID, r_mod, r_vk)
         ok_window = user32.RegisterHotKey(self._hwnd, self.HOTKEY_WINDOW_ID, w_mod, w_vk)
+
         if not ok_region or not ok_window:
+            # 注册失败，清理并返回
             self.unregister()
+
+            # 构建友好的错误提示
+            failed_keys = []
+            if not ok_region:
+                failed_keys.append(f"区域截图: {region_hotkey}")
+            if not ok_window:
+                failed_keys.append(f"窗口截图: {window_hotkey}")
+
+            error_msg = (
+                f"快捷键注册失败：\n\n"
+                f"{', '.join(failed_keys)}\n\n"
+                f"可能已被其他程序占用。\n"
+                f"建议在设置中更换为其他组合键。"
+            )
+
+            # 显示警告对话框
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                None,
+                "热键注册失败",
+                error_msg
+            )
             return False
-        # 可选快捷键：历史记录、贴图、OCR
+
+        # 可选快捷键：历史记录、贴图、OCR（失败不影响主功能）
         history_parsed = parse_hotkey_string(history_hotkey) if history_hotkey else None
         pin_parsed = parse_hotkey_string(pin_hotkey) if pin_hotkey else None
         ocr_parsed = parse_hotkey_string(ocr_hotkey) if ocr_hotkey else None
@@ -68,6 +100,7 @@ class NativeHotkeyWindow(QWidget):
         if ocr_parsed is not None:
             o_mod, o_vk = ocr_parsed
             user32.RegisterHotKey(self._hwnd, self.HOTKEY_OCR_ID, o_mod, o_vk)
+
         self._registered = True
         return True
 

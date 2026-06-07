@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 import time
-import traceback
-from typing import Dict, Optional
+from typing import Dict
 
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt
-from PyQt6.QtGui import QColor, QPainter, QPixmap
-from PyQt6.QtWidgets import QApplication
 
 from ._toolbar import DRAW_TOOLS
 from ._tool_strategies import TOOL_STRATEGIES, ToolContext
-from ..utils import debug_log
 
 
 # ── 命令分发表 ──
@@ -54,8 +50,8 @@ _CTRL_KEY_COMMANDS = {
     Qt.Key.Key_Y: "redo",
 }
 
-# 无修饰符键 -> 工具名映射
-_TOOL_KEY_MAP = {
+# 无修饰符键 -> 工具名映射（默认值，可被 config.edit_tool_hotkeys 覆盖）
+_DEFAULT_TOOL_KEY_MAP = {
     Qt.Key.Key_A: "arrow",
     Qt.Key.Key_R: "rect",
     Qt.Key.Key_B: "pen",
@@ -68,6 +64,52 @@ _TOOL_KEY_MAP = {
     Qt.Key.Key_L: "blur",
     Qt.Key.Key_I: "picker",
 }
+
+# 工具名 -> 默认键名（用于 settings UI 展示和反向查找）
+TOOL_DEFAULT_KEYS = {v: k for k, v in _DEFAULT_TOOL_KEY_MAP.items()}
+
+# 键名字符串 -> Qt.Key 映射（用于从 config 字符串还原 Qt 键码）
+_NAME_TO_QT_KEY: Dict[str, int] = {
+    "A": Qt.Key.Key_A, "B": Qt.Key.Key_B, "C": Qt.Key.Key_C,
+    "D": Qt.Key.Key_D, "E": Qt.Key.Key_E, "F": Qt.Key.Key_F,
+    "G": Qt.Key.Key_G, "H": Qt.Key.Key_H, "I": Qt.Key.Key_I,
+    "J": Qt.Key.Key_J, "K": Qt.Key.Key_K, "L": Qt.Key.Key_L,
+    "M": Qt.Key.Key_M, "N": Qt.Key.Key_N, "O": Qt.Key.Key_O,
+    "P": Qt.Key.Key_P, "Q": Qt.Key.Key_Q, "R": Qt.Key.Key_R,
+    "S": Qt.Key.Key_S, "T": Qt.Key.Key_T, "U": Qt.Key.Key_U,
+    "V": Qt.Key.Key_V, "W": Qt.Key.Key_W, "X": Qt.Key.Key_X,
+    "Y": Qt.Key.Key_Y, "Z": Qt.Key.Key_Z,
+}
+
+
+def build_tool_key_map(config) -> Dict[int, str]:
+    """从 config.edit_tool_hotkeys 构建 Qt.Key -> tool_name 映射。
+
+    config.edit_tool_hotkeys 格式: {"arrow": "A", "rect": "R", ...}
+    未配置的工具使用默认映射。
+    """
+    custom = getattr(config, "edit_tool_hotkeys", None) or {}
+    result = dict(_DEFAULT_TOOL_KEY_MAP)
+    # 先移除被自定义覆盖的工具对应的旧键
+    for tool_name, key_name in custom.items():
+        if tool_name not in _TOOL_KEYS:
+            continue
+        key_name_u = str(key_name).strip().upper()
+        if not key_name_u:
+            continue
+        qt_key = _NAME_TO_QT_KEY.get(key_name_u)
+        if qt_key is None:
+            continue
+        # 移除该键对应的旧工具（避免冲突）
+        old_tool = result.get(qt_key)
+        if old_tool and old_tool != tool_name:
+            continue  # 保留旧工具，不覆盖（自定义优先级低于冲突检测）
+        # 移除该工具在默认映射中的旧键
+        old_key = TOOL_DEFAULT_KEYS.get(tool_name)
+        if old_key is not None:
+            result.pop(old_key, None)
+        result[qt_key] = tool_name
+    return result
 
 
 class EventMixin:
@@ -93,7 +135,135 @@ class EventMixin:
 
     # ── 鼠标事件 ──
 
+    def _handle_mouse_press_select_mode(self, pos: QPoint) -> None:
+        """处理选择模式下的鼠标点击。"""
+        self.start = pos
+        self.end = pos
+        self.selecting = True
+        # 首次拖拽时加载可吸附窗口列表
+        if getattr(self.config, 'snap_to_windows', True) and not self._snap_windows_loaded:
+            self._refresh_snap_windows()
+        self.update()
+
+    def _handle_ocr_running_click(self, pos: QPoint) -> bool:
+        """OCR运行中时的点击处理。返回True表示已处理。"""
+        key = self.button_at(pos)
+        if key == "cancel":
+            self.close()
+            return True
+        self.message = "正在识别当前截图，请稍候..."
+        self.update()
+        return True
+
+    def _handle_text_panel_click(self, pos: QPoint, event) -> bool:
+        """文本面板区域的点击处理。返回True表示已处理。"""
+        if self.text_editor_panel.geometry().contains(pos):
+            return True
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.settle_inline_text()
+            if self.active_tool == "text" and self.selection_rect.contains(pos):
+                image_pos = self.widget_to_image(pos)
+                if image_pos is not None:
+                    self.open_inline_text_editor(image_pos)
+                return True
+        return False
+
+    def _handle_text_drag_start(self, pos: QPoint) -> bool:
+        """文本标注拖拽开始。返回True表示已处理。"""
+        text_index = self.text_annotation_at(pos)
+        if text_index >= 0:
+            self.text_drag.selected_index = text_index
+            image_pos = self.widget_to_image(pos)
+            if image_pos is not None:
+                self.push_history()
+                self.text_drag.begin_drag(
+                    text_index,
+                    QPoint(int(self.annotations[text_index].get("x", 0)),
+                           int(self.annotations[text_index].get("y", 0))),
+                    image_pos,
+                )
+                self.text_drag.hover_index = text_index
+                self.close_style_panel()
+                self.setCursor(Qt.CursorShape.SizeAllCursor)
+                self.update()
+                return True
+        elif self.text_drag.selected_index >= 0:
+            self.text_drag.selected_index = -1
+            self.update()
+        return False
+
+    def _handle_selection_area_click(self, pos: QPoint, image_pos: QPoint) -> bool:
+        """选区内点击处理（OCR区域模式、文本、取色器、序号、标注工具）。返回True表示已处理。"""
+        if self.active_tool == "none":
+            if getattr(self, "ocr_region_mode", False):
+                self.drag_start = image_pos
+                self.drag_end = image_pos
+                self.dragging_annotation = True
+                self.update()
+                return True
+            return False
+        if self.active_tool == "text":
+            self.open_inline_text_editor(image_pos)
+        elif self.active_tool == "picker":
+            self._pick_color_at(image_pos)
+        elif self.active_tool == "number":
+            self.push_history()
+            self.draw_number_on_pixmap(QPoint(image_pos))
+            self.message = f"已添加序号 #{self.number_counter - 1}，点击继续"
+            self.update()
+        elif self.active_tool in DRAW_TOOLS:
+            self.drag_start = image_pos
+            self.drag_end = image_pos
+            if self.active_tool in ("pen", "highlight"):
+                self.drag_path = [image_pos]
+            self.dragging_annotation = True
+            self.update()
+        return True
+
+    def _handle_mouse_press_edit_mode(self, pos: QPoint, event) -> None:
+        """处理编辑模式下的鼠标点击。"""
+        if self.ocr_running():
+            if self._handle_ocr_running_click(pos):
+                return
+
+        key = self.button_at(pos)
+        if key:
+            self.handle_toolbar_action(key)
+            return
+
+        style_option = self.style_panel_option_at(pos)
+        if style_option:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.apply_style_panel_option(style_option)
+            return
+        if self.style_panel_kind and not self.style_panel_rect.contains(pos):
+            self.close_style_panel()
+
+        if self.text_panel_visible():
+            if self._handle_text_panel_click(pos, event):
+                return
+
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self.active_tool == "none":
+                if self._handle_text_drag_start(pos):
+                    return
+                handle = self.selection_handle_at(pos)
+                if handle:
+                    if self.annotations or self.history:
+                        self.message = "已有标注，先清空/撤销标注或重新截图后再调整选区"
+                        self.update()
+                        return
+                    self.begin_selection_adjust(handle, pos)
+                    return
+
+            if self.selection_rect.contains(pos):
+                image_pos = self.widget_to_image(pos)
+                if image_pos is None:
+                    return
+                self._handle_selection_area_click(pos, image_pos)
+
     def _handle_mouse_press(self, event) -> None:
+        """鼠标按下事件入口。"""
         if event.button() == Qt.MouseButton.RightButton:
             self.close()
             return
@@ -102,113 +272,38 @@ class EventMixin:
         if self.mode == "select":
             if event.button() != Qt.MouseButton.LeftButton:
                 return
-            self.start = pos
-            self.end = pos
-            self.selecting = True
-            self.update()
+            self._handle_mouse_press_select_mode(pos)
             return
 
         if self.mode == "edit":
-            if self.ocr_running():
-                key = self.button_at(pos)
-                if key == "cancel":
-                    self.close()
-                    return
-                self.message = "正在识别当前截图，请稍候..."
-                self.update()
-                return
-
-            key = self.button_at(pos)
-            if key:
-                self.handle_toolbar_action(key)
-                return
-
-            style_option = self.style_panel_option_at(pos)
-            if style_option:
-                if event.button() == Qt.MouseButton.LeftButton:
-                    self.apply_style_panel_option(style_option)
-                return
-            if self.style_panel_kind and not self.style_panel_rect.contains(pos):
-                self.close_style_panel()
-
-            if self.text_panel_visible():
-                if self.text_editor_panel.geometry().contains(pos):
-                    return
-                if event.button() == Qt.MouseButton.LeftButton:
-                    self.settle_inline_text()
-                    if self.active_tool == "text" and self.selection_rect.contains(pos):
-                        image_pos = self.widget_to_image(pos)
-                        if image_pos is not None:
-                            self.open_inline_text_editor(image_pos)
-                        return
-
-            if event.button() == Qt.MouseButton.LeftButton:
-                if self.active_tool == "none":
-                    text_index = self.text_annotation_at(pos)
-                    if text_index >= 0:
-                        self.text_drag.selected_index = text_index
-                        image_pos = self.widget_to_image(pos)
-                        if image_pos is not None:
-                            self.push_history()
-                            self.text_drag.begin_drag(
-                                text_index,
-                                QPoint(int(self.annotations[text_index].get("x", 0)),
-                                       int(self.annotations[text_index].get("y", 0))),
-                                image_pos,
-                            )
-                            self.text_drag.hover_index = text_index
-                            self.close_style_panel()
-                            self.setCursor(Qt.CursorShape.SizeAllCursor)
-                            self.update()
-                            return
-                    elif self.text_drag.selected_index >= 0:
-                        self.text_drag.selected_index = -1
-                        self.update()
-                    handle = self.selection_handle_at(pos)
-                    if handle:
-                        if self.annotations or self.history:
-                            self.message = "已有标注，先清空/撤销标注或重新截图后再调整选区"
-                            self.update()
-                            return
-                        self.begin_selection_adjust(handle, pos)
-                        return
-
-                if self.selection_rect.contains(pos):
-                    if self.active_tool == "none":
-                        if getattr(self, "ocr_region_mode", False):
-                            image_pos = self.widget_to_image(pos)
-                            if image_pos is not None:
-                                self.drag_start = image_pos
-                                self.drag_end = image_pos
-                                self.dragging_annotation = True
-                                self.update()
-                            return
-                        return
-                    image_pos = self.widget_to_image(pos)
-                    if image_pos is None:
-                        return
-                    if self.active_tool == "text":
-                        self.open_inline_text_editor(image_pos)
-                    elif self.active_tool == "picker":
-                        self._pick_color_at(image_pos)
-                    elif self.active_tool == "number":
-                        self.push_history()
-                        self.draw_number_on_pixmap(QPoint(image_pos))
-                        self.message = f"已添加序号 #{self.number_counter - 1}，点击继续"
-                        self.update()
-                    elif self.active_tool in DRAW_TOOLS:
-                        self.drag_start = image_pos
-                        self.drag_end = image_pos
-                        if self.active_tool in ("pen", "highlight"):
-                            self.drag_path = [image_pos]
-                        self.dragging_annotation = True
-                        self.update()
+            self._handle_mouse_press_edit_mode(pos, event)
 
     def _handle_mouse_move(self, event) -> None:
         pos = self.clamp_point(event.position().toPoint())
         if self.mode == "select" and self.selecting:
-            self.end = pos
-            self.update()
+            old_rect = QRect(self.current_select_rect())
+            # 应用窗口吸附
+            if self._snap_window_logical_rects:
+                raw_rect = QRect(self.start, pos).normalized()
+                snapped_rect, snap_edges = self._apply_snap(raw_rect)
+                self._snap_edges = snap_edges
+                if snapped_rect.width() > 0 and snapped_rect.height() > 0:
+                    # 根据鼠标拖拽方向选择吸附矩形的对应角点作为 end
+                    if pos.x() >= self.start.x():
+                        if pos.y() >= self.start.y():
+                            self.end = snapped_rect.bottomRight()
+                        else:
+                            self.end = snapped_rect.topRight()
+                    else:
+                        if pos.y() >= self.start.y():
+                            self.end = snapped_rect.bottomLeft()
+                        else:
+                            self.end = snapped_rect.topLeft()
+            else:
+                self.end = pos
+                self._snap_edges = []
+            dirty = self.selection_frame_dirty_rect(old_rect, self.current_select_rect())
+            self.request_frame_update(dirty)
             return
 
         if self.mode == "edit":
@@ -229,7 +324,7 @@ class EventMixin:
                 self.hover_drag_button = False
                 self.update()
             elif self.active_tool == "picker" and self.selection_rect.contains(pos):
-                self.update()  # 取色器需要持续刷新以显示放大镜
+                self.request_frame_update()  # 取色器需要持续刷新以显示放大镜
             if hover_text != self.text_drag.hover_index and not self.text_drag.is_dragging:
                 self.text_drag.hover_index = hover_text
                 self.update()
@@ -237,19 +332,23 @@ class EventMixin:
             if self.dragging_annotation:
                 image_pos = self.widget_to_image(pos, clamped=True)
                 if image_pos is not None:
+                    dirty = self.edit_repaint_rect()
                     self.drag_end = image_pos
                     if self.active_tool in ("pen", "highlight"):
                         path = getattr(self, "drag_path", [])
                         if not path or (path[-1] - image_pos).manhattanLength() >= 2:
                             path.append(image_pos)
                             self.drag_path = path
-                    self.update()
+                    dirty = dirty.united(self.edit_repaint_rect()).adjusted(-12, -12, 12, 12)
+                    self.request_frame_update(dirty)
                 return
             if self.text_drag.is_dragging:
                 image_pos = self.widget_to_image(pos, clamped=True)
                 if image_pos is not None:
+                    dirty = self.edit_repaint_rect()
                     self.text_drag.update_drag(image_pos)
-                    self.update()
+                    dirty = dirty.united(self.edit_repaint_rect()).adjusted(-12, -12, 12, 12)
+                    self.request_frame_update(dirty)
                 return
 
             if hover:
@@ -282,9 +381,11 @@ class EventMixin:
         if self.mode == "select":
             if event.button() != Qt.MouseButton.LeftButton or not self.selecting:
                 return
-            self.end = pos
+            # 清除吸附参考线（self.end 已在拖拽时设为吸附位置，不要覆盖）
+            self._snap_edges = []
             logical_rect = self.current_select_rect()
             self.selecting = False
+            self._snap_windows_loaded = False
             physical_rect = self.logical_to_physical_rect(logical_rect)
             if physical_rect.width() < 8 or physical_rect.height() < 8:
                 self.close()
@@ -428,34 +529,115 @@ class EventMixin:
 
     # ── 键盘事件 ──
 
+    def _handle_escape_key(self) -> bool:
+        """Escape键处理。返回True表示已处理。"""
+        if self.adjusting_selection:
+            self.selection_rect = QRect(self.adjust_origin_rect)
+            self.recapture_current_selection()
+            self.adjusting_selection = False
+            self.adjust_mode = ""
+            self.adjust_handle = ""
+            self.adjust_start = QPoint()
+            self.adjust_origin_rect = QRect()
+            self.message = "已取消选区调整"
+            self.update_toolbar_layout()
+            self.update()
+            return True
+        self.close()
+        return True
+
+    def _handle_select_mode_key(self, key) -> bool:
+        """选择模式下的按键处理。返回True表示已处理。"""
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            logical_rect = self.current_select_rect()
+            physical_rect = self.logical_to_physical_rect(logical_rect)
+            if physical_rect.width() >= 8 and physical_rect.height() >= 8:
+                self.enter_edit_mode(logical_rect, physical_rect)
+            return True
+        return False
+
+    def _handle_text_panel_key(self, key, ctrl: bool) -> bool:
+        """文本面板打开时的按键处理。返回True表示已处理。"""
+        if key == Qt.Key.Key_Escape:
+            self.cancel_inline_text()
+            return True
+        if ctrl and key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.commit_inline_text()
+            return True
+        return False
+
+    def _handle_ocr_running_key(self, key) -> bool:
+        """OCR运行中的按键处理。返回True表示已处理。"""
+        if key == Qt.Key.Key_Escape:
+            self.close()
+            return True
+        self.message = "正在识别当前截图，请稍候..."
+        self.update()
+        return True
+
+    def _handle_ctrl_key(self, key) -> bool:
+        """Ctrl组合键处理。返回True表示已处理。"""
+        command = _CTRL_KEY_COMMANDS.get(key)
+        if command:
+            self._execute_command(command)
+            return True
+        return False
+
+    def _handle_delete_backspace_key(self) -> bool:
+        """Delete/Backspace键处理。返回True表示已处理。"""
+        if self.text_drag.selected_index >= 0:
+            self.delete_selected_text()
+        else:
+            self.clear_annotations()
+        return True
+
+    def _handle_enter_key(self) -> bool:
+        """Enter键处理。返回True表示已处理。"""
+        if getattr(self, "ocr_region_mode", False):
+            self.ocr_region_mode = False
+            self.recognize_current_text()
+        else:
+            self.finish()
+        return True
+
+    def _handle_ocr_toggle_key(self) -> bool:
+        """O键OCR区域模式切换。返回True表示已处理。"""
+        if getattr(self, "ocr_region_mode", False):
+            self.ocr_region_mode = False
+            self.recognize_current_text()
+        else:
+            self.ocr_region_mode = True
+            self.message = "拖动选择 OCR 区域，或按 Enter 识别全部"
+            self.update()
+        return True
+
+    def _handle_function_keys(self, key, event) -> bool:
+        """功能键处理（G、Tab、方向键）。返回True表示已处理。"""
+        if key == Qt.Key.Key_G:
+            self.toggle_grid()
+            return True
+        elif key == Qt.Key.Key_Tab:
+            self.switch_to_last_tool()
+            return True
+        elif key in (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_Left, Qt.Key.Key_Right):
+            self.nudge_selection(event)
+            return True
+        return False
+
     def _handle_key_press(self, event) -> None:
+        """键盘按下事件入口。"""
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
         key = event.key()
 
         # Escape: 取消调整 / 关闭
         if key == Qt.Key.Key_Escape:
-            if self.adjusting_selection:
-                self.selection_rect = QRect(self.adjust_origin_rect)
-                self.recapture_current_selection()
-                self.adjusting_selection = False
-                self.adjust_mode = ""
-                self.adjust_handle = ""
-                self.adjust_start = QPoint()
-                self.adjust_origin_rect = QRect()
-                self.message = "已取消选区调整"
-                self.update_toolbar_layout()
-                self.update()
-                return
-            self.close()
+            self._handle_escape_key()
             return
 
         # select 模式: Enter 进入编辑
         if self.mode == "select":
             if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                logical_rect = self.current_select_rect()
-                physical_rect = self.logical_to_physical_rect(logical_rect)
-                if physical_rect.width() >= 8 and physical_rect.height() >= 8:
-                    self.enter_edit_mode(logical_rect, physical_rect)
+                self._handle_select_mode_key(key)
             return
 
         if self.mode != "edit":
@@ -463,70 +645,42 @@ class EventMixin:
 
         # 文字面板打开时的特殊处理
         if self.text_panel_visible():
-            if key == Qt.Key.Key_Escape:
-                self.cancel_inline_text()
-                return
-            if ctrl and key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                self.commit_inline_text()
+            if self._handle_text_panel_key(key, ctrl):
                 return
 
         # OCR 运行中
         if self.ocr_running():
-            if key == Qt.Key.Key_Escape:
-                self.close()
-                return
-            self.message = "正在识别当前截图，请稍候..."
-            self.update()
+            self._handle_ocr_running_key(key)
             return
 
         # Ctrl 组合键
         if ctrl:
-            command = _CTRL_KEY_COMMANDS.get(key)
-            if command:
-                self._execute_command(command)
+            if self._handle_ctrl_key(key):
                 return
 
         # Delete/Backspace
         if key in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
-            if self.text_drag.selected_index >= 0:
-                self.delete_selected_text()
-            else:
-                self.clear_annotations()
+            self._handle_delete_backspace_key()
             return
 
         # Enter
         if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            if getattr(self, "ocr_region_mode", False):
-                self.ocr_region_mode = False
-                self.recognize_current_text()
-            else:
-                self.finish()
+            self._handle_enter_key()
             return
 
         # O 键: OCR 区域模式切换
         if key == Qt.Key.Key_O:
-            if getattr(self, "ocr_region_mode", False):
-                self.ocr_region_mode = False
-                self.recognize_current_text()
-            else:
-                self.ocr_region_mode = True
-                self.message = "拖动选择 OCR 区域，或按 Enter 识别全部"
-                self.update()
+            self._handle_ocr_toggle_key()
             return
 
-        # 工具快捷键
-        tool = _TOOL_KEY_MAP.get(key)
+        # 工具快捷键（从 config 动态构建）
+        tool = build_tool_key_map(self.config).get(key)
         if tool:
             self.select_tool(tool)
             return
 
         # 功能键
-        if key == Qt.Key.Key_G:
-            self.toggle_grid()
-        elif key == Qt.Key.Key_Tab:
-            self.switch_to_last_tool()
-        elif key in (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_Left, Qt.Key.Key_Right):
-            self.nudge_selection(event)
+        self._handle_function_keys(key, event)
 
     # ── 工具栏命令 ──
 
@@ -566,7 +720,11 @@ class EventMixin:
             return
         if x < 0 or y < 0 or x >= self.edit_pixmap.width() or y >= self.edit_pixmap.height():
             return
-        color = self.edit_pixmap.toImage().pixelColor(x, y)
+        # 使用缓存的 QImage，避免每次取色都做全量 toImage() 转换
+        cached_image = self._get_cached_edit_image()
+        if cached_image is None:
+            return
+        color = cached_image.pixelColor(x, y)
         hex_str = color.name().upper()
         rgb_str = f"rgb({color.red()}, {color.green()}, {color.blue()})"
         # 应用到标注颜色

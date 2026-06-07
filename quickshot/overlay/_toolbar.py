@@ -39,8 +39,6 @@ class ToolbarMixin:
             ("number", "序号", "", "序号标注 N"),
             ("mosaic", "马赛克", "", "马赛克 M"),
             ("blur", "模糊", "", "模糊打码 L"),
-            ("blur_all", "打码", "", "智能识别隐私信息并打码"),
-            ("picker", "取色", "", "取色器 I"),
             ("sep", "", "", ""),
             ("color", "颜色", "", "切换颜色"),
             ("width", "粗细", "", "切换线宽"),
@@ -48,6 +46,9 @@ class ToolbarMixin:
             ("grid", "网格", "", "网格辅助 G"),
             ("sep", "", "", ""),
             ("ocr", "识文", "", "识别文字 O"),
+            ("picker", "取色", "", "取色器 I"),
+            ("blur_all", "打码", "", "智能识别隐私信息并打码"),
+            ("sep", "", "", ""),
             ("copy", "复制", "", "复制 Ctrl+C"),
             ("save", "保存", "", "保存 Ctrl+S"),
             ("pin", "贴图", "", "贴到桌面"),
@@ -247,10 +248,24 @@ class ToolbarMixin:
                 panel_h += row_gap + preset_btn_h
 
         x = anchor.center().x() - panel_w // 2
-        y = anchor.top() - panel_h - 8
-        if y < 8:
-            y = anchor.bottom() + 8
         x = max(8, min(self.width() - panel_w - 8, x))
+
+        # 智能定位：优先放在工具栏下方（远离选区），自动避开选区内容
+        sel = self.selection_rect
+        below_y = anchor.bottom() + 8
+        above_y = anchor.top() - panel_h - 8
+
+        # 候选位置优先级：工具栏下方 > 选区上方 > 工具栏上方
+        if below_y + panel_h <= self.height() - 8 and not QRect(x, below_y, panel_w, panel_h).intersects(sel):
+            y = below_y
+        elif above_y >= 8 and not QRect(x, above_y, panel_w, panel_h).intersects(sel):
+            y = above_y
+        else:
+            # 兜底：放在选区上方，确保不遮挡选区
+            y = sel.top() - panel_h - 8
+            if y < 8:
+                # 选区上方也没空间，放在选区下方
+                y = sel.bottom() + 8
 
         self.style_panel_rect = QRect(x, y, panel_w, panel_h)
 

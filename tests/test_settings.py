@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -80,6 +81,31 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
         win.switch_settings_page(3)
         self.assertEqual(win.settings_stack.currentIndex(), 3)
         self.assertTrue(win._nav_buttons[3].isChecked())
+
+    def test_startup_toggle_uses_config_startup_manager(self):
+        _ensure_app()
+        cfg = Config()
+        win = SettingsWindow(cfg)
+        with (
+            patch("quickshot.config.StartupManager.set_enabled") as set_enabled,
+            patch("quickshot.config.StartupManager.is_enabled", return_value=False),
+        ):
+            win.on_startup_changed(0)
+        set_enabled.assert_called_once_with(False)
+
+    def test_restore_edit_tool_hotkeys_keeps_current_page_and_refreshes_summary(self):
+        _ensure_app()
+        cfg = Config()
+        cfg.edit_tool_hotkeys = {"arrow": "C"}
+        win = SettingsWindow(cfg)
+        win.switch_settings_page(3)
+        win._refresh_edit_tool_hotkey_summary()
+        self.assertIn("箭头=C", win.edit_tool_hotkey_summary_label.text())
+
+        win._restore_edit_tool_hotkeys()
+
+        self.assertEqual(win.settings_stack.currentIndex(), 3)
+        self.assertIn("箭头=A", win.edit_tool_hotkey_summary_label.text())
 
 
 class SettingsGridWatermarkColorTest(_IsolatedConfigMixin, unittest.TestCase):

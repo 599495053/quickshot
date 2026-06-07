@@ -7,12 +7,11 @@ import threading
 from pathlib import Path
 from typing import Dict, Optional
 
-from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QFileDialog
 
 from ..pin import show_pin_window
 from ..pipeline import run_post_capture_pipeline, should_run_post_capture
-from ..utils import copy_pixmap_to_clipboard, debug_log
+from ..utils import copy_pixmap_to_clipboard, copy_text_to_clipboard, debug_log
 
 
 class ExportMixin:
@@ -20,6 +19,9 @@ class ExportMixin:
     def maybe_notify(self, text: str) -> None:
         if getattr(self.config, "show_notifications", True):
             self.notify.emit(text)
+
+    def _copy_text_to_clipboard(self, text: str) -> None:
+        copy_text_to_clipboard(text)
 
     def copy_current(self) -> None:
         if self.edit_pixmap.isNull():
@@ -173,14 +175,25 @@ class ExportMixin:
 
         # 捕获当前 config 值（避免后台线程访问 GUI 对象）
         config = self.config
+        notify = self.notify
+        clipboard_text_requested = self.clipboard_text_requested
+        show_notifications = getattr(config, "show_notifications", True)
+
+        def _copy_markdown_on_gui_thread(text: str) -> None:
+            clipboard_text_requested.emit(text)
 
         def _run_pipeline() -> None:
             try:
-                ctx = run_post_capture_pipeline(image_path, config)
+                ctx = run_post_capture_pipeline(
+                    image_path,
+                    config,
+                    clipboard_writer=_copy_markdown_on_gui_thread,
+                )
                 if ctx.messages or ctx.errors:
-                    # 用 QTimer.singleShot 回到主线程发通知
+                    # Qt signal 跨线程 emit 会按接收者线程排队，避免后台线程直接碰 UI。
                     for msg in ctx.messages:
-                        QTimer.singleShot(0, lambda m=msg: self.maybe_notify(m))
+                        if show_notifications:
+                            notify.emit(msg)
                     if ctx.errors:
                         debug_log(f"post-capture pipeline errors: {ctx.errors}")
             except Exception as exc:

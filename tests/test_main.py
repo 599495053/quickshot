@@ -43,6 +43,23 @@ class HotkeyAllowedTest(unittest.TestCase):
         self.assertTrue(QuickShotApp._hotkey_allowed(app))
 
 
+class FallbackModifierPollingTest(unittest.TestCase):
+
+    def test_accepts_one_key_from_each_modifier_group(self) -> None:
+        from quickshot.main import QuickShotApp
+
+        pressed = {0xA2, 0xA0}  # Left Ctrl + Left Shift
+        groups = [[0x11, 0xA2, 0xA3], [0x10, 0xA0, 0xA1]]
+        self.assertTrue(QuickShotApp._modifier_groups_pressed(lambda vk: vk in pressed, groups))
+
+    def test_requires_every_modifier_group(self) -> None:
+        from quickshot.main import QuickShotApp
+
+        pressed = {0xA2}  # Ctrl only
+        groups = [[0x11, 0xA2, 0xA3], [0x10, 0xA0, 0xA1]]
+        self.assertFalse(QuickShotApp._modifier_groups_pressed(lambda vk: vk in pressed, groups))
+
+
 class ExceptionHooksTest(unittest.TestCase):
     """测试异常钩子安装。"""
 

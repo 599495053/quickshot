@@ -49,6 +49,7 @@ EXCLUDED_MODULES = [
 EXCLUDED_BINARY_PATTERNS = [
     "cv2/opencv_videoio_ffmpeg*.dll",
     "numpy/_core/_multiarray_tests*.pyd",
+    "PIL/_avif*.pyd",
 ]
 
 

@@ -9,6 +9,10 @@ All notable changes to QuickShot are tracked here.
 - Added `scripts/verify-release-installer.ps1` for GitHub Release installer verification.
 - Added `docs/PACKAGE_SIZE_ANALYSIS.md` with the current PyInstaller size baseline and optimization experiment plan.
 
+### Changed
+
+- Reduced Windows package size by excluding Pillow's unused AVIF extension from the PyInstaller bundle.
+
 ### Planned
 
 - Add code signing when a signing certificate is available.

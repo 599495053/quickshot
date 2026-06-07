@@ -8,8 +8,9 @@ Measured from the current local build artifacts:
 
 | Artifact | Bytes | Size |
 | --- | ---: | ---: |
-| `dist\QuickShot.exe` | 110,809,410 | 105.68 MiB |
-| `build\QuickShot\QuickShot.pkg` | 110,481,730 | 105.36 MiB |
+| `dist\QuickShot.exe` | 106,488,532 | 101.56 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 107,685,743 | 102.70 MiB |
+| `build\QuickShot\QuickShot.pkg` | 106,160,852 | 101.24 MiB |
 | `build\QuickShot\PYZ-00.pyz` | 6,782,465 | 6.47 MiB |
 | `build\QuickShot\base_library.zip` | 1,386,064 | 1.32 MiB |
 
@@ -31,9 +32,32 @@ Toolchain and major package versions:
 
 The current `QuickShot.spec` already uses `optimize=1`, `upx=True`, targeted RapidOCR model data collection, and the shared exclusions in `build_config.py`.
 
+## Completed Experiments
+
+### Pillow AVIF Extension
+
+The `PIL\_avif*.pyd` extension is excluded from PyInstaller binaries because QuickShot imports `PIL.Image` but does not use AVIF-specific functionality.
+
+Result:
+
+| Metric | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 110,809,410 | 106,488,532 | 4,320,878 bytes / 4.12 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 112,000,513 | 107,685,743 | 4,314,770 bytes / 4.11 MiB |
+| Archive entries | 276 | 275 | 1 entry |
+
+Verification:
+
+- `python -m pyflakes quickshot launcher.py build_config.py`
+- `python -m compileall -q quickshot launcher.py build_config.py`
+- `python -m pytest -q`: `471 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
+- `pyi-archive_viewer -l dist\QuickShot.exe` has no `_avif`, `Avif`, or `AVIF` entries.
+
 ## Archive Breakdown
 
-`pyi-archive_viewer -l dist\QuickShot.exe` reports 276 archive entries with 110,465,434 compressed bytes and 268,658,738 uncompressed bytes.
+`pyi-archive_viewer -l dist\QuickShot.exe` reports 275 archive entries with 106,144,604 compressed bytes and 260,765,746 uncompressed bytes.
 
 Largest compressed groups:
 
@@ -45,10 +69,10 @@ Largest compressed groups:
 | `onnxruntime` | 3 | 11.49 MiB | 32.67 MiB | OCR inference runtime. Required while OCR is bundled. |
 | `PYZ.pyz` | 1 | 6.47 MiB | 6.47 MiB | Python module archive. |
 | `numpy.libs` | 2 | 6.29 MiB | 20.02 MiB | Mainly OpenBLAS. Pulled by NumPy wheel. |
-| `PIL` | 6 | 5.41 MiB | 10.68 MiB | Used by HDR tone-fix image conversion. |
-| `python314.dll` | 1 | 2.60 MiB | 6.46 MiB | Python runtime. |
+| Python DLLs | 2 | 2.63 MiB | 6.53 MiB | Python runtime. |
 | `numpy` | 12 | 2.09 MiB | 5.79 MiB | OCR image conversion, HDR capture, and blur support. |
 | `libcrypto-3.dll` | 1 | 1.77 MiB | 4.99 MiB | Needed by network/security dependencies. |
+| `PIL` | 5 | 1.29 MiB | 3.15 MiB | Used by HDR tone-fix image conversion; AVIF extension is excluded. |
 | `Shapely.libs` | 3 | 1.21 MiB | 3.41 MiB | Likely RapidOCR geometry dependency; investigate before excluding. |
 | `winrt` | 9 | 0.50 MiB | 1.49 MiB | Used by Windows Graphics Capture support. |
 
@@ -63,7 +87,6 @@ Largest individual files:
 | `numpy.libs\libscipy_openblas64_*.dll` | 6.11 MiB | 19.47 MiB | Hard to remove while NumPy is used. |
 | `onnxruntime\capi\onnxruntime_pybind11_state.pyd` | 5.88 MiB | 16.65 MiB | OCR runtime. |
 | `onnxruntime\capi\onnxruntime.dll` | 5.60 MiB | 16.01 MiB | OCR runtime. |
-| `PIL\_avif.cp314-win_amd64.pyd` | 4.12 MiB | 7.53 MiB | Candidate exclusion if AVIF support is not needed. |
 | `PyQt6\Qt6\bin\Qt6Gui.dll` | 4.06 MiB | 9.15 MiB | Required. |
 | `PyQt6\Qt6\bin\Qt6Core.dll` | 3.53 MiB | 9.99 MiB | Required. |
 | `PyQt6\Qt6\bin\Qt6Widgets.dll` | 2.84 MiB | 6.29 MiB | Required. |
@@ -81,13 +104,12 @@ Do not remove these without a feature change:
 - `requests`, `keyring`, `libssl`, and `libcrypto` while upload, translation, and secret storage workflows remain bundled.
 - `winrt` and `dxcam` while fast Windows capture and HDR capture paths are supported.
 
-## Safe Experiments First
+## Remaining Safe Experiments
 
 These are the best first trials because they are localized and measurable:
 
 | Candidate | Potential saving | Why it may be safe | Validation focus |
 | --- | ---: | --- | --- |
-| Exclude `PIL\_avif*.pyd` | ~4.12 MiB | QuickShot imports `PIL.Image`, but no AVIF-specific source reference was found. | Save/open PNG, JPEG, BMP, and WebP if supported; verify HDR tone-fix path. |
 | Exclude `PyQt6\Qt6\bin\Qt6Pdf.dll` | ~2.35 MiB | No direct `QtPdf`, `QPdf`, or PDF source reference was found. | Full packaged UI smoke, settings, capture, overlay, OCR dialogs. |
 | Exclude `PyQt6\Qt6\bin\opengl32sw.dll` | ~7.29 MiB | The app does not intentionally depend on Qt software OpenGL rendering. | Test local GPU, remote desktop, VM, and older display-driver environments. |
 | Trim unused Qt translations | likely small | Many translation files are bundled, but each is small. | Installer language and app startup. Low priority. |
@@ -125,8 +147,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipI
 
 Recommended trial order:
 
-1. `PIL\_avif*.pyd`
-2. `Qt6Pdf.dll`
-3. `opengl32sw.dll`
-4. OpenCV blur replacement
-5. Optional OCR packaging
+1. `Qt6Pdf.dll`
+2. `opengl32sw.dll`
+3. OpenCV blur replacement
+4. Optional OCR packaging

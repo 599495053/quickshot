@@ -49,6 +49,7 @@ If an existing QuickShot install is present and should be removed for a clean ve
 - Compare artifact sizes before and after any exclusion changes.
 - Keep `email` bundled because `requests` and `urllib3` need standard-library `email.*` modules.
 - Use `docs\PACKAGE_SIZE_ANALYSIS.md` as the baseline and experiment order before changing package exclusions.
+- Completed the first low-risk trim by excluding Pillow's AVIF extension; the next low-risk candidate is `Qt6Pdf.dll`.
 
 ### User-Facing Polish
 

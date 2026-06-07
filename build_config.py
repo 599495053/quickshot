@@ -26,8 +26,8 @@ EXCLUDED_MODULES = [
     "lib2to3",
     "setuptools",
     "pip",
-    # 注意：不能排除 distutils — keyring/pywin32-ctypes 的 PyInstaller hook
-    # 会尝试 alias distutils，与 ExcludedModule 冲突导致打包失败
+    # 注意：不能排除 distutils。keyring/pywin32-ctypes 的 PyInstaller hook
+    # 会尝试 alias distutils，若被 ExcludedModule 拦截会导致打包失败。
     "numpy.testing",
     "numpy.tests",
     "numpy._core.tests",

@@ -8,9 +8,9 @@ Measured from the current local build artifacts:
 
 | Artifact | Bytes | Size |
 | --- | ---: | ---: |
-| `dist\QuickShot.exe` | 104,028,218 | 99.21 MiB |
-| `installer_output\QuickShot-5.3.0-Setup.exe` | 105,248,264 | 100.37 MiB |
-| `build\QuickShot\QuickShot.pkg` | 103,700,538 | 98.90 MiB |
+| `dist\QuickShot.exe` | 96,386,837 | 91.92 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 97,642,080 | 93.12 MiB |
+| `build\QuickShot\QuickShot.pkg` | 96,059,157 | 91.61 MiB |
 | `build\QuickShot\PYZ-00.pyz` | 6,782,465 | 6.47 MiB |
 | `build\QuickShot\base_library.zip` | 1,386,064 | 1.32 MiB |
 
@@ -76,23 +76,57 @@ Verification:
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
 - `pyi-archive_viewer -l dist\QuickShot.exe` has no `Qt6Pdf.dll` entry.
 
-Cumulative result from the original baseline:
+Cumulative result after the first two experiments:
 
 | Artifact | Original | Current | Saved |
 | --- | ---: | ---: | ---: |
 | `dist\QuickShot.exe` | 110,809,410 | 104,028,218 | 6,781,192 bytes / 6.47 MiB |
 | `installer_output\QuickShot-5.3.0-Setup.exe` | 112,000,513 | 105,248,264 | 6,752,249 bytes / 6.44 MiB |
 
+### Qt Software OpenGL Fallback DLL
+
+The `PyQt6\Qt6\bin\opengl32sw.dll` fallback DLL is excluded from PyInstaller binaries because QuickShot does not import OpenGL, QtOpenGL, QtQuick, or QML APIs.
+
+Result:
+
+| Metric | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 104,028,218 | 96,386,837 | 7,641,381 bytes / 7.29 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 105,248,264 | 97,642,080 | 7,606,184 bytes / 7.25 MiB |
+| Archive entries | 274 | 273 | 1 entry |
+
+Verification:
+
+- `python -m pyflakes quickshot launcher.py build_config.py`
+- `python -m compileall -q quickshot launcher.py build_config.py`
+- `python -m pytest -q`: `471 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
+- Extra packaged launch smoke with `QT_OPENGL=software`
+- `pyi-archive_viewer -l dist\QuickShot.exe` has no `opengl32sw.dll`, `Qt6Pdf.dll`, or `_avif` entries.
+
+Risk note:
+
+- This is validated on the local Windows environment only.
+- Before publishing a release with this exclusion, retest on remote desktop, VM, older GPU, and software-rendering fallback environments.
+
+Cumulative result from the original baseline:
+
+| Artifact | Original | Current | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 110,809,410 | 96,386,837 | 14,422,573 bytes / 13.75 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 112,000,513 | 97,642,080 | 14,358,433 bytes / 13.69 MiB |
+
 ## Archive Breakdown
 
-`pyi-archive_viewer -l dist\QuickShot.exe` reports 274 archive entries with 103,684,338 compressed bytes and 256,154,362 uncompressed bytes.
+`pyi-archive_viewer -l dist\QuickShot.exe` reports 273 archive entries with 96,043,005 compressed bytes and 235,514,474 uncompressed bytes.
 
 Largest compressed groups:
 
 | Group | Entries | Compressed | Uncompressed | Notes |
 | --- | ---: | ---: | ---: | --- |
 | `cv2` | 12 | 25.26 MiB | 71.38 MiB | Used by blur annotations in `quickshot\overlay\_drawing.py`. |
-| `PyQt6` | 128 | 25.04 MiB | 67.85 MiB | Main GUI runtime. Core, Gui, Widgets, Svg, and `qwindows.dll` are required. |
+| `PyQt6` | 127 | 17.75 MiB | 48.17 MiB | Main GUI runtime. Core, Gui, Widgets, Svg, and `qwindows.dll` are required. |
 | `rapidocr_onnxruntime` | 7 | 11.77 MiB | 13.08 MiB | OCR model files. Required for local OCR and privacy detection. |
 | `onnxruntime` | 3 | 11.49 MiB | 32.67 MiB | OCR inference runtime. Required while OCR is bundled. |
 | `PYZ.pyz` | 1 | 6.47 MiB | 6.47 MiB | Python module archive. |
@@ -110,7 +144,6 @@ Largest individual files:
 | --- | ---: | ---: | --- |
 | `cv2\cv2.pyd` | 25.25 MiB | 71.35 MiB | Large but currently used. Requires a code replacement before removal. |
 | `rapidocr_onnxruntime\models\ch_PP-OCRv3_rec_infer.onnx` | 9.15 MiB | 10.20 MiB | Core OCR recognition model. |
-| `PyQt6\Qt6\bin\opengl32sw.dll` | 7.29 MiB | 19.68 MiB | Candidate exclusion, but test remote desktop/software-rendering cases. |
 | `PYZ.pyz` | 6.47 MiB | 6.47 MiB | General Python code archive. |
 | `numpy.libs\libscipy_openblas64_*.dll` | 6.11 MiB | 19.47 MiB | Hard to remove while NumPy is used. |
 | `onnxruntime\capi\onnxruntime_pybind11_state.pyd` | 5.88 MiB | 16.65 MiB | OCR runtime. |
@@ -131,13 +164,12 @@ Do not remove these without a feature change:
 - `requests`, `keyring`, `libssl`, and `libcrypto` while upload, translation, and secret storage workflows remain bundled.
 - `winrt` and `dxcam` while fast Windows capture and HDR capture paths are supported.
 
-## Remaining Safe Experiments
+## Remaining Experiments
 
-These are the best first trials because they are localized and measurable:
+The low-risk binary exclusions have been applied. Remaining work is either small or requires code changes:
 
 | Candidate | Potential saving | Why it may be safe | Validation focus |
 | --- | ---: | --- | --- |
-| Exclude `PyQt6\Qt6\bin\opengl32sw.dll` | ~7.29 MiB | The app does not intentionally depend on Qt software OpenGL rendering. | Test local GPU, remote desktop, VM, and older display-driver environments. |
 | Trim unused Qt translations | likely small | Many translation files are bundled, but each is small. | Installer language and app startup. Low priority. |
 
 Do these as separate commits or feature branches so each size delta and regression risk is easy to isolate.
@@ -173,6 +205,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipI
 
 Recommended trial order:
 
-1. `opengl32sw.dll`
-2. OpenCV blur replacement
-3. Optional OCR packaging
+1. OpenCV blur replacement
+2. Optional OCR packaging
+3. NumPy/OpenBLAS reduction only after replacing NumPy-dependent code paths

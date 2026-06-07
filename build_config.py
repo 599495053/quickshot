@@ -51,6 +51,7 @@ EXCLUDED_BINARY_PATTERNS = [
     "numpy/_core/_multiarray_tests*.pyd",
     "PIL/_avif*.pyd",
     "PyQt6/Qt6/bin/Qt6Pdf.dll",
+    "PyQt6/Qt6/bin/opengl32sw.dll",
 ]
 
 

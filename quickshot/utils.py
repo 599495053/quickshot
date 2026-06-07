@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import QApplication
 APP_NAME = "QuickShot"
 REG_NAME = "QuickShot"
 REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
-APP_VERSION = "5.3.2"
+APP_VERSION = "5.3.3"
 
 
 def get_resource_path(*parts: str) -> Path:

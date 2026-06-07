@@ -4,6 +4,8 @@ All notable changes to QuickShot are tracked here.
 
 ## Unreleased
 
+## v5.3.3 - 2026-06-08
+
 ### Added
 
 - Added packaged privacy OCR fallback, overlay edit smoke, and capture backend smoke self-tests for release builds, with opt-in coverage for local installer, GitHub Release installer, and upgrade/reinstall verification.
@@ -25,12 +27,14 @@ All notable changes to QuickShot are tracked here.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
 - `pyi-archive_viewer -l dist\QuickShot.exe`: no `numpy`, `numpy.libs`, `openblas`, `dxcam`, `winrt`, `rapidocr`, `onnxruntime`, `cv2`, `opencv`, `Qt6Pdf`, `opengl32sw`, or `_avif` entries.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-5.3.2-Setup.exe -PreviousVersion 5.3.2 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -ExePath .\dist\QuickShot.exe -StopExisting`
 
 ### Package Size
 
-- `dist\QuickShot.exe`: `31,624,497` bytes / `30.16 MiB`.
-- `installer_output\QuickShot-5.3.2-Setup.exe`: `33,405,382` bytes / `31.86 MiB`.
+- `dist\QuickShot.exe`: `31,624,375` bytes / `30.16 MiB`.
+- `installer_output\QuickShot-5.3.3-Setup.exe`: `33,405,239` bytes / `31.86 MiB`.
 - Saved `9.52 MiB` from the previous executable baseline and `9.47 MiB` from the previous installer baseline.
 
 ## v5.3.2 - 2026-06-08

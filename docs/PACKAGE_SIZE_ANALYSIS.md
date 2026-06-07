@@ -8,9 +8,9 @@ Measured from the current local build artifacts:
 
 | Artifact | Bytes | Size |
 | --- | ---: | ---: |
-| `dist\QuickShot.exe` | 31,624,497 | 30.16 MiB |
-| `installer_output\QuickShot-5.3.2-Setup.exe` | 33,405,382 | 31.86 MiB |
-| `build\QuickShot\QuickShot.pkg` | 31,296,817 | 29.85 MiB |
+| `dist\QuickShot.exe` | 31,624,375 | 30.16 MiB |
+| `installer_output\QuickShot-5.3.3-Setup.exe` | 33,405,239 | 31.86 MiB |
+| `build\QuickShot\QuickShot.pkg` | 31,296,695 | 29.85 MiB |
 | `build\QuickShot\PYZ-00.pyz` | 4,990,820 | 4.76 MiB |
 | `build\QuickShot\base_library.zip` | 1,386,064 | 1.32 MiB |
 
@@ -210,8 +210,8 @@ Result:
 
 | Metric | Before | After | Saved |
 | --- | ---: | ---: | ---: |
-| `dist\QuickShot.exe` | 41,601,767 | 31,624,497 | 9,977,270 bytes / 9.52 MiB |
-| `installer_output\QuickShot-5.3.2-Setup.exe` | 43,339,059 | 33,405,382 | 9,933,677 bytes / 9.47 MiB |
+| `dist\QuickShot.exe` | 41,601,767 | 31,624,375 | 9,977,392 bytes / 9.52 MiB |
+| `installer_output\QuickShot-5.3.3-Setup.exe` | 43,339,059 | 33,405,239 | 9,933,820 bytes / 9.47 MiB |
 | Archive entries | 147 | 124 | 23 entries |
 
 Verification:
@@ -229,12 +229,12 @@ Cumulative result from the original baseline:
 
 | Artifact | Original | Current | Saved |
 | --- | ---: | ---: | ---: |
-| `dist\QuickShot.exe` | 110,809,410 | 31,624,497 | 79,184,913 bytes / 75.52 MiB |
-| `installer_output\QuickShot-5.3.2-Setup.exe` | 112,000,513 | 33,405,382 | 78,595,131 bytes / 74.95 MiB |
+| `dist\QuickShot.exe` | 110,809,410 | 31,624,375 | 79,185,035 bytes / 75.52 MiB |
+| `installer_output\QuickShot-5.3.3-Setup.exe` | 112,000,513 | 33,405,239 | 78,595,274 bytes / 74.95 MiB |
 
 ## Archive Breakdown
 
-`pyi-archive_viewer -l dist\QuickShot.exe` reports 124 archive entries with 31,290,425 compressed bytes and 72,700,073 uncompressed bytes.
+`pyi-archive_viewer -l dist\QuickShot.exe` reports 124 archive entries with 31,290,303 compressed bytes and 72,700,073 uncompressed bytes.
 
 Largest compressed groups:
 

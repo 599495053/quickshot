@@ -1,11 +1,11 @@
 # QuickShot Maintenance Plan
 
-This document tracks the next maintenance cycle after the v5.3.2 release.
+This document tracks the next maintenance cycle after the v5.3.3 release.
 
 ## Current Stable Release
 
-- Version: `v5.3.2`
-- Release URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.2`
+- Version: `v5.3.3`
+- Release URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.3`
 - Release status: published and verified
 - Signing status: unsigned, because no code signing certificate is configured
 
@@ -39,8 +39,8 @@ Run the current release verification with:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 `
-  -Tag v5.3.2 `
-  -ExpectedSha256 E0B9B948485783D9C031E1EB2100F9DE1476B19E73E0D0477A1582520CFE04FC
+  -Tag v5.3.3 `
+  -ExpectedSha256 738845DC1F9F086E3FDBFC0E70A5DEC9E9D8A12400937040464E998446196F8C
 ```
 
 If an existing QuickShot install is present and should be removed for a clean verification run, add `-RemoveExisting`.
@@ -49,8 +49,8 @@ Run upgrade/reinstall verification with:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 `
-  -PreviousInstallerPath .\installer_output\QuickShot-5.3.1-Setup.exe `
-  -PreviousVersion 5.3.1
+  -PreviousInstallerPath .\installer_output\QuickShot-5.3.2-Setup.exe `
+  -PreviousVersion 5.3.2
 ```
 
 ### Package Size
@@ -71,10 +71,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 
 
 ### User-Facing Polish
 
-- Release notes published in `docs\RELEASE_NOTES_v5.3.2.md`.
+- Release notes published in `docs\RELEASE_NOTES_v5.3.3.md`.
 - Improve README screenshots or short usage visuals.
 - Add clearer GitHub Release download instructions.
-- Gather early user feedback from v5.3.2 before changing UI behavior.
+- Gather early user feedback from v5.3.3 before changing UI behavior.
 
 ### Quality Gates
 

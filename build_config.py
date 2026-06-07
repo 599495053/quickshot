@@ -21,7 +21,6 @@ EXCLUDED_MODULES = [
     "doctest",
     "pydoc",
     "pdb",
-    "email",
     "http.server",
     "xmlrpc",
     "lib2to3",

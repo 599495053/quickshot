@@ -25,3 +25,7 @@ wgc_hdr_capture_test*.png
 # Packaging artifacts
 *.egg-info/
 .eggs/
+
+# Build and installer output
+installer_output/
+nul

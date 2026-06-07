@@ -1,10 +1,4 @@
-# QuickShot v5.3.1 Release Notes Draft
-
-This is the working draft for the next GitHub Release. Do not publish it until the final artifacts are uploaded and the artifact table below is confirmed against those files.
-
-## Title
-
-QuickShot v5.3.1
+# QuickShot v5.3.1 Release Notes
 
 ## Summary
 
@@ -34,7 +28,7 @@ pip install -e .[ocr]
 
 ## Verification
 
-Current v5.3.1 release-candidate artifact results:
+Final v5.3.1 artifact and desktop verification results:
 
 - `python -m pyflakes quickshot launcher.py build_config.py`
 - `python -m compileall -q quickshot launcher.py build_config.py`
@@ -43,6 +37,9 @@ Current v5.3.1 release-candidate artifact results:
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1`
+- Manual desktop capture verification:
+  - `Ctrl+Shift+A` opens region capture and drag-selection copies an image to the clipboard.
+  - `Ctrl+Shift+W` captures the current Calculator window and copies an image to the clipboard.
 - Local installer verification:
   - SHA256 matches release manifest.
   - Silent current-user install succeeds.
@@ -58,25 +55,12 @@ Current v5.3.1 release-candidate artifact results:
 
 ## Artifact Results
 
-Generated from the current v5.3.1 release-candidate build:
+Generated from the final v5.3.1 release build:
 
 | Artifact | Size | SHA256 |
 | --- | ---: | --- |
 | `QuickShot-5.3.1-Setup.exe` | 45,265,412 bytes / 43.17 MiB | `198D52BBF4E72EE1165B07D054AF4DC980461B1336E7733F29F51AC7F3430B93` |
 | `QuickShot-5.3.1-release.txt` | 415 bytes | `4794726E10287DA1A458E26D03FB80F43AC59F08FD4DD3E34F5505E1233F4421` |
-
-## Publish Checklist
-
-Before publishing:
-
-- Run `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.1`.
-- Run `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`.
-- Run packaged smoke test.
-- Run `scripts\verify-local-installer.ps1` against the local build.
-- Manually verify region screenshot drag selection and current-window screenshot once on the release desktop.
-- Upload the final installer and release manifest.
-- Run `scripts\verify-release-installer.ps1` against the GitHub Release asset.
-- Confirm the artifact table above still matches the uploaded files.
 
 ## Known Notes
 

@@ -50,10 +50,13 @@ Last verified: 2026-06-08
 - [x] Tray initializes successfully.
 - [x] Capture imports prewarm successfully.
 - [x] RapidOCR is optional in the default package; Windows system OCR remains available.
-- [ ] Region hotkey `Ctrl+Shift+A` drag-selection capture manually verified on the release desktop.
-- [ ] Window hotkey `Ctrl+Shift+W` current-window capture manually verified on the release desktop.
+- [x] Region hotkey `Ctrl+Shift+A` drag-selection capture manually verified on the release desktop.
+  - Clipboard image observed after drag selection: `1382 x 806`.
+- [x] Window hotkey `Ctrl+Shift+W` current-window capture manually verified on the release desktop.
+  - Clipboard image observed after capturing Calculator: `484 x 801`.
 - [x] Clipboard formats observed during core capture verification:
   - `application/x-qt-image`
+  - `DeviceIndependentBitmap`
   - `image/png`
 - [x] Capture history writes new PNG files.
 - [x] Debug log has no new `CRASH`, `Traceback`, `error`, or `failed` entries during the tested launch windows.
@@ -100,6 +103,6 @@ Last verified: 2026-06-08
 - [x] Decide whether this release should be signed. Current release is unsigned; `Get-AuthenticodeSignature` returns `NotSigned` for both artifacts.
 - [x] Decide whether to commit generated installer logs or keep them local only. Generated build output remains local and ignored.
 - [x] Run one final local installer smoke test if the installer script changes again.
-- [ ] Manually verify region screenshot drag selection and current-window screenshot.
+- [x] Manually verify region screenshot drag selection and current-window screenshot.
 - [ ] Publish `installer_output\QuickShot-5.3.1-Setup.exe` and its SHA256.
 - [ ] Run GitHub Release installer verification after publishing.

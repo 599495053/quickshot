@@ -200,13 +200,14 @@ function Test-VersionConsistency {
 function Invoke-SmokeTest {
     param([Parameter(Mandatory = $true)][string]$ExePath)
 
+    $resolvedExePath = (Resolve-Path -LiteralPath $ExePath).Path
     $logPath = Join-Path ([Environment]::GetFolderPath("ApplicationData")) "QuickShot\debug.log"
     $previousLength = 0
     if (Test-Path -LiteralPath $logPath) {
         $previousLength = (Get-Item -LiteralPath $logPath).Length
     }
 
-    $process = Start-Process -FilePath $ExePath -WindowStyle Hidden -PassThru
+    $process = Start-Process -FilePath $resolvedExePath -WindowStyle Hidden -PassThru
     Start-Sleep -Seconds 5
     try {
         if ($process.HasExited -and $process.ExitCode -ne 0) {
@@ -234,6 +235,19 @@ function Invoke-SmokeTest {
         if (-not $process.HasExited) {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
             $process.WaitForExit(5000) | Out-Null
+        }
+        $processName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedExePath)
+        $matchingProcesses = Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object {
+            try {
+                $_.Path -eq $resolvedExePath
+            }
+            catch {
+                $false
+            }
+        }
+        foreach ($matchingProcess in $matchingProcesses) {
+            Stop-Process -Id $matchingProcess.Id -Force -ErrorAction SilentlyContinue
+            $matchingProcess.WaitForExit(5000) | Out-Null
         }
     }
 }

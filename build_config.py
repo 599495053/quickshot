@@ -50,6 +50,7 @@ EXCLUDED_BINARY_PATTERNS = [
     "cv2/opencv_videoio_ffmpeg*.dll",
     "numpy/_core/_multiarray_tests*.pyd",
     "PIL/_avif*.pyd",
+    "PyQt6/Qt6/bin/Qt6Pdf.dll",
 ]
 
 

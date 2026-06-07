@@ -8,9 +8,9 @@ Measured from the current local build artifacts:
 
 | Artifact | Bytes | Size |
 | --- | ---: | ---: |
-| `dist\QuickShot.exe` | 106,488,532 | 101.56 MiB |
-| `installer_output\QuickShot-5.3.0-Setup.exe` | 107,685,743 | 102.70 MiB |
-| `build\QuickShot\QuickShot.pkg` | 106,160,852 | 101.24 MiB |
+| `dist\QuickShot.exe` | 104,028,218 | 99.21 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 105,248,264 | 100.37 MiB |
+| `build\QuickShot\QuickShot.pkg` | 103,700,538 | 98.90 MiB |
 | `build\QuickShot\PYZ-00.pyz` | 6,782,465 | 6.47 MiB |
 | `build\QuickShot\base_library.zip` | 1,386,064 | 1.32 MiB |
 
@@ -55,16 +55,44 @@ Verification:
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
 - `pyi-archive_viewer -l dist\QuickShot.exe` has no `_avif`, `Avif`, or `AVIF` entries.
 
+### Qt PDF Runtime DLL
+
+The `PyQt6\Qt6\bin\Qt6Pdf.dll` runtime DLL is excluded from PyInstaller binaries because QuickShot does not import `QtPdf`, `QPdf`, or PDF-specific APIs. The small `PyQt6\Qt6\plugins\imageformats\qpdf.dll` image-format plugin remains bundled and is unrelated to this runtime DLL.
+
+Result:
+
+| Metric | Before | After | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 106,488,532 | 104,028,218 | 2,460,314 bytes / 2.35 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 107,685,743 | 105,248,264 | 2,437,479 bytes / 2.32 MiB |
+| Archive entries | 275 | 274 | 1 entry |
+
+Verification:
+
+- `python -m pyflakes quickshot launcher.py build_config.py`
+- `python -m compileall -q quickshot launcher.py build_config.py`
+- `python -m pytest -q`: `471 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
+- `pyi-archive_viewer -l dist\QuickShot.exe` has no `Qt6Pdf.dll` entry.
+
+Cumulative result from the original baseline:
+
+| Artifact | Original | Current | Saved |
+| --- | ---: | ---: | ---: |
+| `dist\QuickShot.exe` | 110,809,410 | 104,028,218 | 6,781,192 bytes / 6.47 MiB |
+| `installer_output\QuickShot-5.3.0-Setup.exe` | 112,000,513 | 105,248,264 | 6,752,249 bytes / 6.44 MiB |
+
 ## Archive Breakdown
 
-`pyi-archive_viewer -l dist\QuickShot.exe` reports 275 archive entries with 106,144,604 compressed bytes and 260,765,746 uncompressed bytes.
+`pyi-archive_viewer -l dist\QuickShot.exe` reports 274 archive entries with 103,684,338 compressed bytes and 256,154,362 uncompressed bytes.
 
 Largest compressed groups:
 
 | Group | Entries | Compressed | Uncompressed | Notes |
 | --- | ---: | ---: | ---: | --- |
-| `PyQt6` | 129 | 27.39 MiB | 72.25 MiB | Main GUI runtime. Core, Gui, Widgets, Svg, and `qwindows.dll` are required. |
 | `cv2` | 12 | 25.26 MiB | 71.38 MiB | Used by blur annotations in `quickshot\overlay\_drawing.py`. |
+| `PyQt6` | 128 | 25.04 MiB | 67.85 MiB | Main GUI runtime. Core, Gui, Widgets, Svg, and `qwindows.dll` are required. |
 | `rapidocr_onnxruntime` | 7 | 11.77 MiB | 13.08 MiB | OCR model files. Required for local OCR and privacy detection. |
 | `onnxruntime` | 3 | 11.49 MiB | 32.67 MiB | OCR inference runtime. Required while OCR is bundled. |
 | `PYZ.pyz` | 1 | 6.47 MiB | 6.47 MiB | Python module archive. |
@@ -90,7 +118,6 @@ Largest individual files:
 | `PyQt6\Qt6\bin\Qt6Gui.dll` | 4.06 MiB | 9.15 MiB | Required. |
 | `PyQt6\Qt6\bin\Qt6Core.dll` | 3.53 MiB | 9.99 MiB | Required. |
 | `PyQt6\Qt6\bin\Qt6Widgets.dll` | 2.84 MiB | 6.29 MiB | Required. |
-| `PyQt6\Qt6\bin\Qt6Pdf.dll` | 2.35 MiB | 4.40 MiB | Candidate exclusion; no source reference to QtPdf was found. |
 
 ## Keep Bundled
 
@@ -110,7 +137,6 @@ These are the best first trials because they are localized and measurable:
 
 | Candidate | Potential saving | Why it may be safe | Validation focus |
 | --- | ---: | --- | --- |
-| Exclude `PyQt6\Qt6\bin\Qt6Pdf.dll` | ~2.35 MiB | No direct `QtPdf`, `QPdf`, or PDF source reference was found. | Full packaged UI smoke, settings, capture, overlay, OCR dialogs. |
 | Exclude `PyQt6\Qt6\bin\opengl32sw.dll` | ~7.29 MiB | The app does not intentionally depend on Qt software OpenGL rendering. | Test local GPU, remote desktop, VM, and older display-driver environments. |
 | Trim unused Qt translations | likely small | Many translation files are bundled, but each is small. | Installer language and app startup. Low priority. |
 
@@ -147,7 +173,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipI
 
 Recommended trial order:
 
-1. `Qt6Pdf.dll`
-2. `opengl32sw.dll`
-3. OpenCV blur replacement
-4. Optional OCR packaging
+1. `opengl32sw.dll`
+2. OpenCV blur replacement
+3. Optional OCR packaging

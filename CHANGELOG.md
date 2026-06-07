@@ -12,6 +12,8 @@ All notable changes to QuickShot are tracked here.
 ### Changed
 
 - Reduced Windows package size by excluding Pillow's unused AVIF extension from the PyInstaller bundle.
+- Reduced Windows package size further by excluding the unused Qt PDF runtime DLL from the PyInstaller bundle.
+- Improved packaged smoke-test cleanup so PyInstaller child processes do not keep `dist\QuickShot.exe` locked.
 
 ### Planned
 

@@ -15,12 +15,12 @@ QuickShot v5.3.1 focuses on a much lighter Windows package and stronger release 
 ## User-Facing Changes
 
 - Default OCR now uses Windows system OCR.
-- Smart privacy auto-detection falls back to Windows system OCR when the optional RapidOCR add-on is not installed.
+- Smart privacy auto-detection requires the optional RapidOCR add-on in this release, and reports a clear optional-component message when it is not installed.
 - Manual mosaic and blur tools remain available without RapidOCR.
 
 ## Optional RapidOCR Add-On
 
-For source/custom builds that need the local RapidOCR engine:
+For source/custom builds that need local RapidOCR and smart privacy auto-detection:
 
 ```powershell
 pip install -e .[ocr]
@@ -49,7 +49,7 @@ Final v5.3.1 artifact and desktop verification results:
   - Silent uninstall removes installed files and uninstall entry.
 - OCR validation:
   - Lightweight build uses Windows system OCR.
-  - Missing RapidOCR falls back to Windows system OCR for smart privacy masking.
+  - Missing RapidOCR reports a clear optional-component message for smart privacy masking.
 - Package archive scan:
   - No `rapidocr_onnxruntime`, `onnxruntime`, `.onnx`, `Shapely`, `pyclipper`, `cv2`, `opencv`, `opengl32sw.dll`, `Qt6Pdf.dll`, or `_avif` entries.
 

@@ -8,9 +8,9 @@ Measured from the current local build artifacts:
 
 | Artifact | Bytes | Size |
 | --- | ---: | ---: |
-| `dist\QuickShot.exe` | 41,602,073 | 39.67 MiB |
-| `installer_output\QuickShot-5.3.1-Setup.exe` | 43,338,364 | 41.33 MiB |
-| `build\QuickShot\QuickShot.pkg` | 41,274,393 | 39.36 MiB |
+| `dist\QuickShot.exe` | 41,601,767 | 39.67 MiB |
+| `installer_output\QuickShot-5.3.2-Setup.exe` | 43,339,059 | 41.33 MiB |
+| `build\QuickShot\QuickShot.pkg` | 41,274,087 | 39.36 MiB |
 | `build\QuickShot\PYZ-00.pyz` | 6,544,481 | 6.24 MiB |
 | `build\QuickShot\base_library.zip` | 1,386,064 | 1.32 MiB |
 
@@ -145,7 +145,7 @@ Cumulative result from the original baseline:
 
 ### Optional RapidOCR Packaging
 
-RapidOCR and ONNX Runtime are now optional OCR add-ons instead of default runtime dependencies. The default package keeps Windows system OCR available, and smart privacy masking falls back to Windows OCR line bounding boxes when RapidOCR is unavailable. Local RapidOCR can still be enabled in source/custom builds with `pip install -e .[ocr]` for the in-process OCR path.
+RapidOCR and ONNX Runtime are now optional OCR add-ons instead of default runtime dependencies. The default package keeps Windows system OCR available, and v5.3.2 adds a Windows OCR line-box fallback for smart privacy masking when RapidOCR is unavailable. Local RapidOCR can still be enabled in source/custom builds with `pip install -e .[ocr]` for the in-process OCR path.
 
 Result:
 
@@ -160,7 +160,7 @@ Verification:
 - `python -m pyflakes quickshot launcher.py build_config.py`
 - `python -m compileall -q quickshot launcher.py build_config.py`
 - `python -m pytest tests\test_ocr_utils.py -q`: `50 passed`
-- `python -m pytest -q`: `475 passed, 37 subtests passed`
+- `python -m pytest -q`: `478 passed, 37 subtests passed`
 - `python -m pip check`: `No broken requirements found.`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
@@ -181,8 +181,8 @@ Result:
 
 | Metric | Before | After | Saved |
 | --- | ---: | ---: | ---: |
-| `dist\QuickShot.exe` | 43,532,731 | 41,602,073 | 1,930,658 bytes / 1.84 MiB |
-| `installer_output\QuickShot-5.3.1-Setup.exe` | 45,265,412 | 43,338,364 | 1,927,048 bytes / 1.84 MiB |
+| `dist\QuickShot.exe` | 43,532,731 | 41,601,767 | 1,930,964 bytes / 1.84 MiB |
+| `installer_output\QuickShot-5.3.2-Setup.exe` | 45,265,412 | 43,339,059 | 1,926,353 bytes / 1.84 MiB |
 | Archive entries | 243 | 147 | 96 entries |
 
 Verification:
@@ -193,20 +193,20 @@ Verification:
 - `python -m pytest -q`: `478 passed, 37 subtests passed`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
-- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1`
-- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-5.3.0-Setup.exe -PreviousVersion 5.3.0`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-5.3.1-Setup.exe -PreviousVersion 5.3.1`
 - `pyi-archive_viewer -l dist\QuickShot.exe` has no `PyQt6\Qt6\translations` or `.qm` entries.
 
 Cumulative result from the original baseline:
 
 | Artifact | Original | Current | Saved |
 | --- | ---: | ---: | ---: |
-| `dist\QuickShot.exe` | 110,809,410 | 41,602,073 | 69,207,337 bytes / 66.00 MiB |
-| `installer_output\QuickShot-5.3.1-Setup.exe` | 112,000,513 | 43,338,364 | 68,662,149 bytes / 65.48 MiB |
+| `dist\QuickShot.exe` | 110,809,410 | 41,601,767 | 69,207,643 bytes / 66.00 MiB |
+| `installer_output\QuickShot-5.3.2-Setup.exe` | 112,000,513 | 43,339,059 | 68,661,454 bytes / 65.48 MiB |
 
 ## Archive Breakdown
 
-`pyi-archive_viewer -l dist\QuickShot.exe` reports 147 archive entries with 41,266,241 compressed bytes and 100,970,704 uncompressed bytes.
+`pyi-archive_viewer -l dist\QuickShot.exe` reports 147 archive entries with 41,265,935 compressed bytes and 100,970,704 uncompressed bytes.
 
 Largest compressed groups:
 
@@ -215,10 +215,10 @@ Largest compressed groups:
 | `PyQt6` | 31 | 15.92 MiB | 41.78 MiB | Main GUI runtime. Core, Gui, Widgets, Svg, and `qwindows.dll` are required; Qt translations are excluded. |
 | `numpy.libs` | 2 | 6.29 MiB | 20.02 MiB | Mainly OpenBLAS. Pulled by NumPy wheel. |
 | `PYZ.pyz` | 1 | 6.24 MiB | 6.24 MiB | Python module archive. |
-| Python/runtime DLLs | 16 | 5.99 MiB | 15.57 MiB | Python runtime plus common SSL/standard-library extension DLLs. |
+| Python/runtime DLLs | 33 | 6.42 MiB | 16.13 MiB | Python runtime plus common SSL/standard-library extension DLLs. |
 | `numpy` | 12 | 2.09 MiB | 5.79 MiB | HDR capture, WGC frame conversion, and optional RapidOCR image conversion. |
 | `PIL` | 5 | 1.29 MiB | 3.15 MiB | Used by HDR tone-fix image conversion; AVIF extension is excluded. |
-| Root modules/hooks | 71 | 1.04 MiB | 2.25 MiB | Launcher, PyInstaller runtime hooks, and root-level extension modules. |
+| Root modules/hooks | 54 | 0.60 MiB | 1.69 MiB | Launcher, PyInstaller runtime hooks, and root-level modules. |
 | `winrt` | 9 | 0.50 MiB | 1.49 MiB | Used by Windows Graphics Capture support. |
 
 Largest individual files:

@@ -2,7 +2,33 @@
 
 All notable changes to QuickShot are tracked here.
 
-## v5.3.1 - Unreleased
+## v5.3.2 - 2026-06-08
+
+### Added
+
+- Added installer upgrade and same-version reinstall regression verification.
+- Added `docs/RELEASE_NOTES_v5.3.2.md` as the GitHub Release body.
+
+### Changed
+
+- Reduced Windows package size further by excluding unused PyQt6 Qt translation files.
+- Updated release documentation and verification records for the v5.3.2 installer.
+
+### Fixed
+
+- Fixed smart privacy masking in lightweight builds by using Windows OCR line boxes when RapidOCR is unavailable.
+
+### Verified
+
+- `python -m pyflakes quickshot launcher.py build_config.py`
+- `python -m compileall -q quickshot launcher.py build_config.py`
+- `python -m pytest -q`: `478 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-5.3.1-Setup.exe -PreviousVersion 5.3.1`
+
+## v5.3.1 - 2026-06-08
 
 ### Added
 
@@ -17,12 +43,8 @@ All notable changes to QuickShot are tracked here.
 - Reduced Windows package size further by excluding the unused Qt PDF runtime DLL from the PyInstaller bundle.
 - Reduced Windows package size further by excluding the unused Qt software OpenGL fallback DLL from the PyInstaller bundle.
 - Replaced OpenCV-backed blur annotations with Pillow Gaussian blur and removed `opencv-python` from runtime dependencies.
-- Made RapidOCR/ONNX Runtime an optional OCR add-on; smart privacy masking now falls back to Windows system OCR when RapidOCR is missing.
+- Made RapidOCR/ONNX Runtime an optional OCR add-on; default text OCR keeps using Windows system OCR, while smart privacy auto-detection requires the optional add-on.
 - Improved packaged smoke-test cleanup so PyInstaller child processes do not keep `dist\QuickShot.exe` locked.
-
-### Fixed
-
-- Fixed smart privacy masking in lightweight builds by using Windows OCR line boxes when RapidOCR is unavailable.
 
 ### Planned
 

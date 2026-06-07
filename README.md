@@ -1,19 +1,19 @@
-# QuickShot V5.3.1
+# QuickShot V5.3.2
 
-QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截图、标注、贴图、OCR、翻译、历史库、自动上传、复制、保存、托盘和设置管理。v5.3.1 重点优化了安装包体积，并补齐了本地安装包和 GitHub Release 下载版安装器验证。
+QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截图、标注、贴图、OCR、翻译、历史库、自动上传、复制、保存、托盘和设置管理。v5.3.2 修复轻量包智能隐私打码回退，并延续安装包瘦身和发布验证。
 
 ![QuickShot workflow preview](docs/images/quickshot-workflow-preview.png)
 
 ## 立即下载
 
-- 最新版本：[QuickShot v5.3.1](https://github.com/599495053/quickshot/releases/tag/v5.3.1)
-- Windows 安装包：[QuickShot-5.3.1-Setup.exe](https://github.com/599495053/quickshot/releases/download/v5.3.1/QuickShot-5.3.1-Setup.exe)
-- 校验清单：[QuickShot-5.3.1-release.txt](https://github.com/599495053/quickshot/releases/download/v5.3.1/QuickShot-5.3.1-release.txt)
+- 最新版本：[QuickShot v5.3.2](https://github.com/599495053/quickshot/releases/tag/v5.3.2)
+- Windows 安装包：[QuickShot-5.3.2-Setup.exe](https://github.com/599495053/quickshot/releases/download/v5.3.2/QuickShot-5.3.2-Setup.exe)
+- 校验清单：[QuickShot-5.3.2-release.txt](https://github.com/599495053/quickshot/releases/download/v5.3.2/QuickShot-5.3.2-release.txt)
 
 安装包 SHA256：
 
 ```text
-198D52BBF4E72EE1165B07D054AF4DC980461B1336E7733F29F51AC7F3430B93
+E0B9B948485783D9C031E1EB2100F9DE1476B19E73E0D0477A1582520CFE04FC
 ```
 
 说明：
@@ -24,7 +24,7 @@ QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截�
 
 ## 快速上手
 
-1. 下载并运行 `QuickShot-5.3.1-Setup.exe`。
+1. 下载并运行 `QuickShot-5.3.2-Setup.exe`。
 2. 启动 QuickShot 后，它会常驻系统托盘。
 3. 按 `Ctrl+Shift+A` 拖拽区域截图。
 4. 按 `Ctrl+Shift+W` 截取当前窗口。
@@ -137,7 +137,7 @@ python -m pytest -q
 
 当前验证规模：
 
-- `475 passed`
+- `478 passed`
 - `37 subtests passed`
 
 ## 打包与发布
@@ -162,8 +162,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 输出文件：
 
 - `dist\QuickShot.exe`
-- `installer_output\QuickShot-5.3.1-Setup.exe`
-- `installer_output\QuickShot-5.3.1-release.txt`
+- `installer_output\QuickShot-5.3.2-Setup.exe`
+- `installer_output\QuickShot-5.3.2-release.txt`
 
 打包后冒烟测试：
 
@@ -195,8 +195,8 @@ GitHub Release 下载版安装器验证：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 `
-  -Tag v5.3.1 `
-  -ExpectedSha256 198D52BBF4E72EE1165B07D054AF4DC980461B1336E7733F29F51AC7F3430B93
+  -Tag v5.3.2 `
+  -ExpectedSha256 E0B9B948485783D9C031E1EB2100F9DE1476B19E73E0D0477A1582520CFE04FC
 ```
 
 ## 代码签名
@@ -243,12 +243,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 
 ## 发布状态
 
-v5.3.1 已完成以下验证：
+v5.3.2 已完成以下验证：
 
 - 本地 release build 通过。
 - packaged smoke test 通过。
 - 本地安装包验证通过。
-- 5.3.0 -> 5.3.1 升级覆盖和 5.3.1 同版本重装验证通过。
+- 5.3.1 -> 5.3.2 升级覆盖和 5.3.2 同版本重装验证通过。
 - 区域截图和当前窗口截图已在发布桌面手动验证。
 - GitHub Release 下载版安装器验证通过。
 - CI 通过。

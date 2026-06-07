@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quickshot"
-version = "5.3.0"
+version = "5.3.1"
 description = "Windows 截图工具，支持区域/窗口截图、标注、OCR、翻译、上传和贴图。"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -1,6 +1,6 @@
 # QuickShot v5.3.1 Release Notes Draft
 
-This is the working draft for the next GitHub Release. Do not publish it until the project version is bumped to `5.3.1`, fresh artifacts are built, and the placeholders below are replaced.
+This is the working draft for the next GitHub Release. Do not publish it until the final artifacts are uploaded and the artifact table below is confirmed against those files.
 
 ## Title
 
@@ -34,7 +34,7 @@ pip install -e .[ocr]
 
 ## Verification
 
-Replace these with the final v5.3.1 artifact results before publishing:
+Current v5.3.1 release-candidate artifact results:
 
 - `python -m pyflakes quickshot launcher.py build_config.py`
 - `python -m compileall -q quickshot launcher.py build_config.py`
@@ -56,14 +56,14 @@ Replace these with the final v5.3.1 artifact results before publishing:
 - Package archive scan:
   - No `rapidocr_onnxruntime`, `onnxruntime`, `.onnx`, `Shapely`, `pyclipper`, `cv2`, `opencv`, `opengl32sw.dll`, `Qt6Pdf.dll`, or `_avif` entries.
 
-## Artifact Placeholders
+## Artifact Results
 
-Update after the final v5.3.1 release build:
+Generated from the current v5.3.1 release-candidate build:
 
 | Artifact | Size | SHA256 |
 | --- | ---: | --- |
-| `QuickShot-5.3.1-Setup.exe` | TODO | TODO |
-| `QuickShot-5.3.1-release.txt` | TODO | TODO |
+| `QuickShot-5.3.1-Setup.exe` | 45,265,412 bytes / 43.17 MiB | `198D52BBF4E72EE1165B07D054AF4DC980461B1336E7733F29F51AC7F3430B93` |
+| `QuickShot-5.3.1-release.txt` | 415 bytes | `4794726E10287DA1A458E26D03FB80F43AC59F08FD4DD3E34F5505E1233F4421` |
 
 ## Publish Checklist
 
@@ -76,7 +76,7 @@ Before publishing:
 - Manually verify region screenshot drag selection and current-window screenshot once on the release desktop.
 - Upload the final installer and release manifest.
 - Run `scripts\verify-release-installer.ps1` against the GitHub Release asset.
-- Replace artifact placeholders above.
+- Confirm the artifact table above still matches the uploaded files.
 
 ## Known Notes
 

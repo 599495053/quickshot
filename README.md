@@ -1,4 +1,4 @@
-# QuickShot V5.3.0
+# QuickShot V5.3.1
 
 QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截图、标注、贴图、OCR、翻译、历史库、自动上传、复制、保存、托盘和设置管理。
 
@@ -133,13 +133,13 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -SkipInstall -Clean
 发布前先同步版本号：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.0
+powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.1
 ```
 
 只检查版本号是否一致：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.0 -CheckOnly
+powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.1 -CheckOnly
 ```
 
 一键发布构建：
@@ -162,8 +162,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 输出文件：
 
 - `dist\QuickShot.exe`
-- `installer_output\QuickShot-5.3.0-Setup.exe`
-- `installer_output\QuickShot-5.3.0-release.txt`
+- `installer_output\QuickShot-5.3.1-Setup.exe`
+- `installer_output\QuickShot-5.3.1-release.txt`
 
 可选的打包后冒烟测试：
 

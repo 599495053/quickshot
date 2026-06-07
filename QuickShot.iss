@@ -1,7 +1,7 @@
 ﻿[Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 AppName=QuickShot
-AppVersion=5.3.0
+AppVersion=5.3.1
 AppPublisher=QuickShot
 DefaultDirName={autopf}\QuickShot
 DefaultGroupName=QuickShot
@@ -9,7 +9,7 @@ UninstallDisplayName=QuickShot
 AllowNoIcons=yes
 UsePreviousTasks=no
 OutputDir=installer_output
-OutputBaseFilename=QuickShot-5.3.0-Setup
+OutputBaseFilename=QuickShot-5.3.1-Setup
 SetupIconFile=assets\icon.ico
 UninstallDisplayIcon={app}\QuickShot.exe
 Compression=lzma2/ultra64

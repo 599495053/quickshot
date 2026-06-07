@@ -1,12 +1,12 @@
 # QuickShot Release Checklist
 
-Version: 5.3.0
+Version: 5.3.1
 Last verified: 2026-06-08
 
 ## Quality Gates
 
 - [x] `python -m pytest -q`
-  - Result: `471 passed, 37 subtests passed`
+  - Result: `475 passed, 37 subtests passed`
 - [x] `python -m pyflakes quickshot launcher.py build_config.py`
 - [x] `python -m compileall -q quickshot launcher.py build_config.py`
 - [x] `python -m pip check`
@@ -15,21 +15,21 @@ Last verified: 2026-06-08
 ## Build
 
 - [x] Version references synchronized:
-  - Check: `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.0 -CheckOnly`
+  - Check: `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.1 -CheckOnly`
   - Update command for a new release: `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version <new-version>`
 - [x] Automated release build:
   - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
-  - Manifest: `installer_output\QuickShot-5.3.0-release.txt`
+  - Manifest: `installer_output\QuickShot-5.3.1-release.txt`
 - [x] Build executable:
-  - Command: `powershell -ExecutionPolicy Bypass -File .\build.ps1 -SkipInstall -Clean`
+  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
   - Output: `dist\QuickShot.exe`
-  - Size: `110809410` bytes
-  - SHA256: `DA467775690F52C1035856C1B2AB678CE5CE9FEF6D3378E41E16CCAA7462D1D7`
+  - Size: `43532731` bytes
+  - SHA256: `97EDE745F2F425734CA12AA2081085B0605DF74ED626D386ED5DECF48F5AB8D8`
 - [x] Build installer:
-  - Command: `& 'C:\Users\59949\AppData\Local\Programs\Inno Setup 6\ISCC.exe' QuickShot.iss`
-  - Output: `installer_output\QuickShot-5.3.0-Setup.exe`
-  - Size: `112000513` bytes
-  - SHA256: `D5834B52DC1FEC2D354695500258210B9BE562FCE7D9FE8F7F136AC9B1D69A90`
+  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+  - Output: `installer_output\QuickShot-5.3.1-Setup.exe`
+  - Size: `45265412` bytes
+  - SHA256: `198D52BBF4E72EE1165B07D054AF4DC980461B1336E7733F29F51AC7F3430B93`
 
 ## Installer Behavior
 
@@ -49,32 +49,41 @@ Last verified: 2026-06-08
 - [x] Installed app starts from the install directory.
 - [x] Tray initializes successfully.
 - [x] Capture imports prewarm successfully.
-- [x] RapidOCR prewarms successfully.
-- [x] Region hotkey `Ctrl+Shift+A` captures and writes image clipboard formats.
-- [x] Window hotkey `Ctrl+Shift+W` captures and writes image clipboard formats.
-- [x] Clipboard formats observed:
-  - `CF_BITMAP`
-  - `CF_DIB`
-  - `CF_DIBV5`
+- [x] RapidOCR is optional in the default package; Windows system OCR remains available.
+- [ ] Region hotkey `Ctrl+Shift+A` drag-selection capture manually verified on the release desktop.
+- [ ] Window hotkey `Ctrl+Shift+W` current-window capture manually verified on the release desktop.
+- [x] Clipboard formats observed during core capture verification:
+  - `application/x-qt-image`
   - `image/png`
 - [x] Capture history writes new PNG files.
 - [x] Debug log has no new `CRASH`, `Traceback`, `error`, or `failed` entries during the tested launch windows.
 
+## Local Installer Verification
+
+- [x] Local installer verification passed:
+  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1`
+- [x] Installer SHA256 matches the local release manifest.
+- [x] Silent current-user install succeeds.
+- [x] Default install does not create a desktop shortcut.
+- [x] Default install does not create a Windows startup entry.
+- [x] Installed app launch smoke passes.
+- [x] Silent uninstall removes installed files and uninstall entry.
+
 ## GitHub Release Verification
 
-- [x] GitHub Release exists:
-  - URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.0`
-- [x] Downloaded `QuickShot-5.3.0-Setup.exe` from the GitHub Release.
-- [x] Downloaded `QuickShot-5.3.0-release.txt` from the GitHub Release.
-- [x] Installer SHA256 matches the expected release hash:
-  - `D5834B52DC1FEC2D354695500258210B9BE562FCE7D9FE8F7F136AC9B1D69A90`
-- [x] Release manifest contains the same installer SHA256.
-- [x] Silent install from the downloaded installer succeeds.
-- [x] Default silent install does not create a desktop shortcut.
-- [x] Default silent install does not create a Windows startup entry.
-- [x] Installed app launches successfully from the install directory.
-- [x] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
-- [x] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
+- [ ] GitHub Release exists:
+  - URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.1`
+- [ ] Downloaded `QuickShot-5.3.1-Setup.exe` from the GitHub Release.
+- [ ] Downloaded `QuickShot-5.3.1-release.txt` from the GitHub Release.
+- [ ] Installer SHA256 matches the expected release hash:
+  - `198D52BBF4E72EE1165B07D054AF4DC980461B1336E7733F29F51AC7F3430B93`
+- [ ] Release manifest contains the same installer SHA256.
+- [ ] Silent install from the downloaded installer succeeds.
+- [ ] Default silent install does not create a desktop shortcut.
+- [ ] Default silent install does not create a Windows startup entry.
+- [ ] Installed app launches successfully from the install directory.
+- [ ] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
+- [ ] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
 
 ## Known Build Notes
 
@@ -90,5 +99,7 @@ Last verified: 2026-06-08
 - [x] Confirm the current Git diff contains only intended release changes.
 - [x] Decide whether this release should be signed. Current release is unsigned; `Get-AuthenticodeSignature` returns `NotSigned` for both artifacts.
 - [x] Decide whether to commit generated installer logs or keep them local only. Generated build output remains local and ignored.
-- [x] Run one final manual installer smoke test if the installer script changes again. GitHub Release installer verification passed.
-- [x] Publish `installer_output\QuickShot-5.3.0-Setup.exe` and its SHA256.
+- [x] Run one final local installer smoke test if the installer script changes again.
+- [ ] Manually verify region screenshot drag selection and current-window screenshot.
+- [ ] Publish `installer_output\QuickShot-5.3.1-Setup.exe` and its SHA256.
+- [ ] Run GitHub Release installer verification after publishing.

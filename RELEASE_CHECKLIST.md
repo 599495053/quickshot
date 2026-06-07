@@ -74,19 +74,19 @@ Last verified: 2026-06-08
 
 ## GitHub Release Verification
 
-- [ ] GitHub Release exists:
+- [x] GitHub Release exists:
   - URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.1`
-- [ ] Downloaded `QuickShot-5.3.1-Setup.exe` from the GitHub Release.
-- [ ] Downloaded `QuickShot-5.3.1-release.txt` from the GitHub Release.
-- [ ] Installer SHA256 matches the expected release hash:
+- [x] Downloaded `QuickShot-5.3.1-Setup.exe` from the GitHub Release.
+- [x] Downloaded `QuickShot-5.3.1-release.txt` from the GitHub Release.
+- [x] Installer SHA256 matches the expected release hash:
   - `198D52BBF4E72EE1165B07D054AF4DC980461B1336E7733F29F51AC7F3430B93`
-- [ ] Release manifest contains the same installer SHA256.
-- [ ] Silent install from the downloaded installer succeeds.
-- [ ] Default silent install does not create a desktop shortcut.
-- [ ] Default silent install does not create a Windows startup entry.
-- [ ] Installed app launches successfully from the install directory.
-- [ ] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
-- [ ] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
+- [x] Release manifest contains the same installer SHA256.
+- [x] Silent install from the downloaded installer succeeds.
+- [x] Default silent install does not create a desktop shortcut.
+- [x] Default silent install does not create a Windows startup entry.
+- [x] Installed app launches successfully from the install directory.
+- [x] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
+- [x] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
 
 ## Known Build Notes
 
@@ -104,5 +104,5 @@ Last verified: 2026-06-08
 - [x] Decide whether to commit generated installer logs or keep them local only. Generated build output remains local and ignored.
 - [x] Run one final local installer smoke test if the installer script changes again.
 - [x] Manually verify region screenshot drag selection and current-window screenshot.
-- [ ] Publish `installer_output\QuickShot-5.3.1-Setup.exe` and its SHA256.
-- [ ] Run GitHub Release installer verification after publishing.
+- [x] Publish `installer_output\QuickShot-5.3.1-Setup.exe` and its SHA256.
+- [x] Run GitHub Release installer verification after publishing.

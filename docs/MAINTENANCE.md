@@ -1,15 +1,15 @@
 # QuickShot Maintenance Plan
 
-This document tracks the next maintenance cycle after the v5.3.0 release.
+This document tracks the next maintenance cycle after the v5.3.1 release.
 
 ## Current Stable Release
 
-- Version: `v5.3.0`
-- Release URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.0`
+- Version: `v5.3.1`
+- Release URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.1`
 - Release status: published and verified
 - Signing status: unsigned, because no code signing certificate is configured
 
-## v5.3.1 Priorities
+## Next Maintenance Priorities
 
 ### Release Trust
 
@@ -37,8 +37,8 @@ Run the current release verification with:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 `
-  -Tag v5.3.0 `
-  -ExpectedSha256 D5834B52DC1FEC2D354695500258210B9BE562FCE7D9FE8F7F136AC9B1D69A90
+  -Tag v5.3.1 `
+  -ExpectedSha256 198D52BBF4E72EE1165B07D054AF4DC980461B1336E7733F29F51AC7F3430B93
 ```
 
 If an existing QuickShot install is present and should be removed for a clean verification run, add `-RemoveExisting`.
@@ -58,10 +58,10 @@ If an existing QuickShot install is present and should be removed for a clean ve
 
 ### User-Facing Polish
 
-- Release notes draft prepared in `docs\RELEASE_NOTES_v5.3.1.md`.
+- Release notes published in `docs\RELEASE_NOTES_v5.3.1.md`.
 - Improve README screenshots or short usage visuals.
 - Add clearer GitHub Release download instructions.
-- Gather early user feedback from v5.3.0 before changing UI behavior.
+- Gather early user feedback from v5.3.1 before changing UI behavior.
 
 ### Quality Gates
 
@@ -77,7 +77,7 @@ Do not bump the project version at the start of the maintenance cycle.
 When the next release is ready, run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.1
+powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.2
 ```
 
 Then run:

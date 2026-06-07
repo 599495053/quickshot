@@ -8,6 +8,7 @@ All notable changes to QuickShot are tracked here.
 
 - Added `scripts/verify-release-installer.ps1` for GitHub Release installer verification.
 - Added `docs/PACKAGE_SIZE_ANALYSIS.md` with the current PyInstaller size baseline and optimization experiment plan.
+- Added `docs/RELEASE_NOTES_v5.3.1.md` as the draft GitHub Release body and publishing checklist.
 
 ### Changed
 

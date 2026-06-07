@@ -57,6 +57,7 @@ If an existing QuickShot install is present and should be removed for a clean ve
 
 ### User-Facing Polish
 
+- Release notes draft prepared in `docs\RELEASE_NOTES_v5.3.1.md`.
 - Improve README screenshots or short usage visuals.
 - Add clearer GitHub Release download instructions.
 - Gather early user feedback from v5.3.0 before changing UI behavior.

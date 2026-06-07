@@ -8,10 +8,10 @@ Measured from the current local build artifacts:
 
 | Artifact | Bytes | Size |
 | --- | ---: | ---: |
-| `dist\QuickShot.exe` | 41,599,032 | 39.67 MiB |
-| `installer_output\QuickShot-5.3.1-Setup.exe` | 43,335,818 | 41.33 MiB |
-| `build\QuickShot\QuickShot.pkg` | 41,271,352 | 39.36 MiB |
-| `build\QuickShot\PYZ-00.pyz` | 6,542,715 | 6.24 MiB |
+| `dist\QuickShot.exe` | 41,602,073 | 39.67 MiB |
+| `installer_output\QuickShot-5.3.1-Setup.exe` | 43,338,364 | 41.33 MiB |
+| `build\QuickShot\QuickShot.pkg` | 41,274,393 | 39.36 MiB |
+| `build\QuickShot\PYZ-00.pyz` | 6,544,481 | 6.24 MiB |
 | `build\QuickShot\base_library.zip` | 1,386,064 | 1.32 MiB |
 
 Toolchain and major package versions:
@@ -145,7 +145,7 @@ Cumulative result from the original baseline:
 
 ### Optional RapidOCR Packaging
 
-RapidOCR and ONNX Runtime are now optional OCR add-ons instead of default runtime dependencies. The default package keeps Windows system OCR available, while local RapidOCR and smart privacy auto-detection can be enabled in source/custom builds with `pip install -e .[ocr]`. When the add-on is unavailable, smart privacy masking reports a clear optional-component message.
+RapidOCR and ONNX Runtime are now optional OCR add-ons instead of default runtime dependencies. The default package keeps Windows system OCR available, and smart privacy masking falls back to Windows OCR line bounding boxes when RapidOCR is unavailable. Local RapidOCR can still be enabled in source/custom builds with `pip install -e .[ocr]` for the in-process OCR path.
 
 Result:
 
@@ -181,8 +181,8 @@ Result:
 
 | Metric | Before | After | Saved |
 | --- | ---: | ---: | ---: |
-| `dist\QuickShot.exe` | 43,532,731 | 41,599,032 | 1,933,699 bytes / 1.84 MiB |
-| `installer_output\QuickShot-5.3.1-Setup.exe` | 45,265,412 | 43,335,818 | 1,929,594 bytes / 1.84 MiB |
+| `dist\QuickShot.exe` | 43,532,731 | 41,602,073 | 1,930,658 bytes / 1.84 MiB |
+| `installer_output\QuickShot-5.3.1-Setup.exe` | 45,265,412 | 43,338,364 | 1,927,048 bytes / 1.84 MiB |
 | Archive entries | 243 | 147 | 96 entries |
 
 Verification:
@@ -190,7 +190,7 @@ Verification:
 - `python -m pytest tests\test_build_config.py -q`: `2 passed`
 - `python -m pyflakes quickshot launcher.py build_config.py tests\test_build_config.py`
 - `python -m compileall -q quickshot launcher.py build_config.py tests\test_build_config.py`
-- `python -m pytest -q`: `477 passed, 37 subtests passed`
+- `python -m pytest -q`: `478 passed, 37 subtests passed`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1`
@@ -201,12 +201,12 @@ Cumulative result from the original baseline:
 
 | Artifact | Original | Current | Saved |
 | --- | ---: | ---: | ---: |
-| `dist\QuickShot.exe` | 110,809,410 | 41,599,032 | 69,210,378 bytes / 66.00 MiB |
-| `installer_output\QuickShot-5.3.1-Setup.exe` | 112,000,513 | 43,335,818 | 68,664,695 bytes / 65.48 MiB |
+| `dist\QuickShot.exe` | 110,809,410 | 41,602,073 | 69,207,337 bytes / 66.00 MiB |
+| `installer_output\QuickShot-5.3.1-Setup.exe` | 112,000,513 | 43,338,364 | 68,662,149 bytes / 65.48 MiB |
 
 ## Archive Breakdown
 
-`pyi-archive_viewer -l dist\QuickShot.exe` reports 147 archive entries with 41,263,200 compressed bytes and 100,967,620 uncompressed bytes.
+`pyi-archive_viewer -l dist\QuickShot.exe` reports 147 archive entries with 41,266,241 compressed bytes and 100,970,704 uncompressed bytes.
 
 Largest compressed groups:
 

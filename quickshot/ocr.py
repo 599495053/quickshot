@@ -315,8 +315,6 @@ def detect_privacy_info(image: Union[QPixmap, QImage]) -> list:
     """检测图片中的隐私信息，返回需要打码的区域列表 [(x, y, w, h), ...]。"""
     if _is_null_image(image):
         return []
-    if not is_rapidocr_available():
-        raise RuntimeError(RAPIDOCR_OPTIONAL_MESSAGE)
 
     try:
         orig_w, orig_h = image.width(), image.height()
@@ -327,13 +325,18 @@ def detect_privacy_info(image: Union[QPixmap, QImage]) -> list:
         prepared_w, prepared_h = prepared.width(), prepared.height()
         scale = prepared_w / orig_w if orig_w > 0 else 1.0
 
-        result, _elapsed = rapidocr_engine()(_qimage_to_numpy(prepared))
+        if is_rapidocr_available():
+            result, _elapsed = rapidocr_engine()(_qimage_to_numpy(prepared))
+            engine_name = "RapidOCR"
+        else:
+            result = _recognize_privacy_lines_with_windows_ocr(prepared)
+            engine_name = "Windows OCR"
         if not result:
             return []
 
         # 将坐标从缩放后的空间转换回原始图像空间
         rects = _match_privacy_rects(result)
-        debug_log(f"Privacy: orig={orig_w}x{orig_h}, prepared={prepared_w}x{prepared_h}, scale={scale:.2f}, raw_rects={rects}")
+        debug_log(f"Privacy: engine={engine_name}, orig={orig_w}x{orig_h}, prepared={prepared_w}x{prepared_h}, scale={scale:.2f}, raw_rects={rects}")
         if scale > 1.05 and rects:
             inv_scale = 1.0 / scale
             rects = [(int(x * inv_scale), int(y * inv_scale), int(w * inv_scale), int(h * inv_scale)) for x, y, w, h in rects]
@@ -473,17 +476,112 @@ def _get_windows_ocr_script_path() -> Path:
     import tempfile
 
     global _CACHED_SCRIPT_PATH
+    script_text = _load_windows_ocr_script()
     if _CACHED_SCRIPT_PATH is not None and _CACHED_SCRIPT_PATH.exists():
-        return _CACHED_SCRIPT_PATH
+        try:
+            if _CACHED_SCRIPT_PATH.read_text(encoding="utf-8-sig") == script_text:
+                return _CACHED_SCRIPT_PATH
+        except OSError:
+            pass
 
     # 使用基于用户名的隔离目录，避免多用户环境中的文件替换风险
     username = os.environ.get("USERNAME", os.environ.get("USER", "default"))
     script_dir = Path(tempfile.gettempdir()) / f"quickshot_cache_{username}"
     script_dir.mkdir(parents=True, exist_ok=True)
     script_path = script_dir / "ocr.ps1"
-    script_path.write_text(_load_windows_ocr_script(), encoding="utf-8-sig")
+    script_path.write_text(script_text, encoding="utf-8-sig")
     _CACHED_SCRIPT_PATH = script_path
     return script_path
+
+
+def _windows_ocr_lines_to_rapidocr_result(lines) -> list:
+    """Convert Windows OCR line JSON into RapidOCR-like text box entries."""
+    result = []
+    if not isinstance(lines, list):
+        return result
+
+    for line in lines:
+        if not isinstance(line, dict):
+            continue
+        text = normalize_ocr_symbols(str(line.get("Text", ""))).strip()
+        box = line.get("BoundingBox")
+        if not text or not isinstance(box, list) or len(box) != 4:
+            continue
+        try:
+            left, top, right, bottom = [float(value) for value in box]
+        except (TypeError, ValueError):
+            continue
+        if right <= left or bottom <= top:
+            continue
+
+        result.append([
+            [[left, top], [right, top], [right, bottom], [left, bottom]],
+            text,
+        ])
+    return result
+
+
+def _recognize_privacy_lines_with_windows_ocr(prepared_image: QImage) -> list:
+    import base64
+    import json
+    import shutil
+    import subprocess
+    import tempfile
+
+    powershell = shutil.which("powershell") or shutil.which("pwsh")
+    if not powershell:
+        raise RuntimeError("未找到 PowerShell，无法使用 Windows 系统 OCR 进行智能隐私打码。")
+
+    with tempfile.TemporaryDirectory(prefix="quickshot_ocr_") as tmp_dir:
+        temp_dir = Path(tmp_dir)
+        image_path = temp_dir / "capture.png"
+        if not prepared_image.save(str(image_path), "PNG"):
+            raise RuntimeError("无法准备智能隐私打码识别图片，请重新截图后再试。")
+
+        script_path = _get_windows_ocr_script_path()
+        creationflags = 0
+        if hasattr(subprocess, "CREATE_NO_WINDOW"):
+            creationflags = subprocess.CREATE_NO_WINDOW
+
+        try:
+            completed = subprocess.run(
+                [
+                    powershell,
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(script_path),
+                    "-ImagePath",
+                    str(image_path),
+                    "-Output",
+                    "Json",
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+                startupinfo=hidden_process_startupinfo(),
+                creationflags=creationflags,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("Windows 系统 OCR 识别超时，请缩小截图区域后重试。") from exc
+
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()
+        raise RuntimeError(
+            f"Windows 系统 OCR 识别失败：{detail[:200] if detail else '未知错误'}"
+        )
+
+    encoded_text = completed.stdout.strip()
+    if not encoded_text:
+        return []
+    try:
+        lines = json.loads(base64.b64decode(encoded_text).decode("utf-8"))
+    except Exception as exc:
+        raise RuntimeError("Windows 系统 OCR 坐标结果解析失败。") from exc
+    return _windows_ocr_lines_to_rapidocr_result(lines)
 
 
 def recognize_text_with_windows_ocr(source_image: Union[QPixmap, QImage]) -> str:

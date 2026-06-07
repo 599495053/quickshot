@@ -1,4 +1,7 @@
-﻿param([Parameter(Mandatory=$true)][string]$ImagePath)
+﻿param(
+    [Parameter(Mandatory=$true)][string]$ImagePath,
+    [ValidateSet("Text", "Json")][string]$Output = "Text"
+)
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
@@ -49,7 +52,41 @@ try {
     $decoder = Await-Operation ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
     $bitmap = Await-Operation ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
     $result = Await-Operation ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
-    Write-Output ([Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($result.Text)))
+    if ($Output -eq "Json") {
+        $lines = @()
+        foreach ($line in $result.Lines) {
+            $words = @($line.Words)
+            if ($words.Count -eq 0) {
+                continue
+            }
+
+            $left = [double]::PositiveInfinity
+            $top = [double]::PositiveInfinity
+            $right = [double]::NegativeInfinity
+            $bottom = [double]::NegativeInfinity
+            foreach ($word in $words) {
+                $rect = $word.BoundingRect
+                $left = [Math]::Min($left, [double]$rect.X)
+                $top = [Math]::Min($top, [double]$rect.Y)
+                $right = [Math]::Max($right, [double]($rect.X + $rect.Width))
+                $bottom = [Math]::Max($bottom, [double]($rect.Y + $rect.Height))
+            }
+
+            if ([double]::IsInfinity($left) -or [double]::IsInfinity($top) -or [double]::IsInfinity($right) -or [double]::IsInfinity($bottom)) {
+                continue
+            }
+
+            $lines += [pscustomobject]@{
+                Text = $line.Text
+                BoundingBox = @($left, $top, $right, $bottom)
+            }
+        }
+        $json = ConvertTo-Json -InputObject $lines -Compress -Depth 4
+        Write-Output ([Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($json)))
+    }
+    else {
+        Write-Output ([Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($result.Text)))
+    }
 }
 finally {
     if ($null -ne $stream) {

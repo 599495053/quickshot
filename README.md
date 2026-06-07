@@ -20,7 +20,7 @@ QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截�
 
 - 当前发布版未配置代码签名证书，Windows 可能显示安全提示。确认来源是本仓库 Release 后继续安装即可。
 - 默认安装不会创建桌面快捷方式，也不会添加开机启动项。
-- 默认包保留 Windows 系统 OCR；RapidOCR/ONNX Runtime 已改为可选组件，以保持安装包更轻。
+- 默认包保留 Windows 系统 OCR；智能隐私打码会在缺少 RapidOCR 时自动回退到系统 OCR。
 
 ## 快速上手
 
@@ -80,7 +80,7 @@ QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截�
 - 箭头、矩形、椭圆、虚线框、画笔、高亮。
 - 文字、序号、马赛克、模糊打码、取色器。
 - 标注颜色、线宽和样式预设。
-- 可安装 RapidOCR 可选组件后启用智能隐私自动识别。
+- 智能隐私打码可使用默认系统 OCR；安装 RapidOCR 可选组件后会优先使用本地 RapidOCR 引擎。
 
 ### OCR 与翻译
 
@@ -104,7 +104,7 @@ QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截�
 
 ## 可选 RapidOCR 组件
 
-默认发布包不再捆绑 RapidOCR 和 ONNX Runtime。需要本地 RapidOCR 或智能隐私自动检测时，可以在源码/自定义环境中安装：
+默认发布包不再捆绑 RapidOCR 和 ONNX Runtime。智能隐私打码在轻量包中会自动使用 Windows 系统 OCR；需要本地 RapidOCR 引擎或更稳定的隐私区域检测时，可以在源码/自定义环境中安装：
 
 ```powershell
 pip install -e .[ocr]

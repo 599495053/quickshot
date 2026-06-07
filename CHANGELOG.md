@@ -17,8 +17,12 @@ All notable changes to QuickShot are tracked here.
 - Reduced Windows package size further by excluding the unused Qt PDF runtime DLL from the PyInstaller bundle.
 - Reduced Windows package size further by excluding the unused Qt software OpenGL fallback DLL from the PyInstaller bundle.
 - Replaced OpenCV-backed blur annotations with Pillow Gaussian blur and removed `opencv-python` from runtime dependencies.
-- Made RapidOCR/ONNX Runtime an optional OCR add-on so the default Windows package uses the system OCR fallback and reports smart privacy masking as unavailable when the add-on is missing.
+- Made RapidOCR/ONNX Runtime an optional OCR add-on; smart privacy masking now falls back to Windows system OCR when RapidOCR is missing.
 - Improved packaged smoke-test cleanup so PyInstaller child processes do not keep `dist\QuickShot.exe` locked.
+
+### Fixed
+
+- Fixed smart privacy masking in lightweight builds by using Windows OCR line boxes when RapidOCR is unavailable.
 
 ### Planned
 

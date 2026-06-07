@@ -61,6 +61,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 
 - Completed the first three binary trims by excluding Pillow's AVIF extension, `Qt6Pdf.dll`, and `opengl32sw.dll`.
 - Replaced the OpenCV-backed blur implementation with Pillow blur and removed `opencv-python` from runtime dependencies.
 - Made RapidOCR/ONNX Runtime optional so the default package stays light while Windows system OCR remains available.
+- Smart privacy masking falls back to Windows system OCR line boxes when RapidOCR is unavailable.
 - Excluded unused PyQt6 Qt translation files from PyInstaller binary and data entries.
 - Retest the `opengl32sw.dll` exclusion on remote desktop, VM, older GPU, and software-rendering fallback environments before publishing the next release.
 - The next meaningful size target is NumPy/OpenBLAS reduction, but only after replacing the remaining NumPy-dependent code paths.

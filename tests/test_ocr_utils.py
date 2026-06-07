@@ -307,12 +307,31 @@ class RapidOcrOptionalTest(unittest.TestCase):
         with patch("quickshot.ocr.is_rapidocr_available", return_value=False):
             self.assertFalse(RapidOcrEngine().is_available())
 
-    def test_privacy_detection_reports_missing_optional_component(self):
-        image = QImage(16, 16, QImage.Format.Format_RGB32)
+    def test_privacy_detection_falls_back_to_windows_ocr_when_rapidocr_is_missing(self):
+        image = QImage(3000, 100, QImage.Format.Format_RGB32)
+        windows_result = [
+            [[[10, 20], [130, 20], [130, 40], [10, 40]], "手机号 13812345678"],
+        ]
+
         with patch("quickshot.ocr.is_rapidocr_available", return_value=False):
-            with self.assertRaises(RuntimeError) as ctx:
-                detect_privacy_info(image)
-        self.assertIn("RapidOCR", str(ctx.exception))
+            with patch("quickshot.ocr._recognize_privacy_lines_with_windows_ocr", return_value=windows_result) as fallback:
+                rects = detect_privacy_info(image)
+
+        fallback.assert_called_once()
+        self.assertEqual(rects, [(10, 20, 120, 20)])
+
+    def test_windows_ocr_lines_are_converted_to_rapidocr_shape(self):
+        from quickshot.ocr import _windows_ocr_lines_to_rapidocr_result
+
+        converted = _windows_ocr_lines_to_rapidocr_result([
+            {"Text": "邮箱 test@example.com", "BoundingBox": [5, 7, 105, 27]},
+            {"Text": "", "BoundingBox": [1, 2, 3, 4]},
+            {"Text": "bad", "BoundingBox": [9, 9, 8, 10]},
+        ])
+
+        self.assertEqual(converted, [
+            [[[5.0, 7.0], [105.0, 7.0], [105.0, 27.0], [5.0, 27.0]], "邮箱 test@example.com"],
+        ])
 
     def test_prewarm_skips_when_optional_component_is_missing(self):
         import quickshot.ocr as ocr

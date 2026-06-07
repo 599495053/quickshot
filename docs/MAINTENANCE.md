@@ -20,8 +20,9 @@ This document tracks the next maintenance cycle after the v5.3.0 release.
 
 ### Installer Regression Coverage
 
-- Add a reusable installer verification script under `scripts/`.
-- Cover fresh install, uninstall, reinstall, and upgrade-style install.
+- Reuse `scripts\verify-release-installer.ps1` for GitHub Release installer verification.
+- Cover fresh install and uninstall.
+- Add future coverage for reinstall and upgrade-style install.
 - Verify default tasks remain unchecked:
   - no desktop shortcut
   - no Windows startup entry
@@ -30,6 +31,16 @@ This document tracks the next maintenance cycle after the v5.3.0 release.
   - uninstall registry key
   - startup registry value
   - optional shortcuts
+
+Run the current release verification with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 `
+  -Tag v5.3.0 `
+  -ExpectedSha256 D5834B52DC1FEC2D354695500258210B9BE562FCE7D9FE8F7F136AC9B1D69A90
+```
+
+If an existing QuickShot install is present and should be removed for a clean verification run, add `-RemoveExisting`.
 
 ### Package Size
 

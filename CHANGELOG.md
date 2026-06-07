@@ -4,12 +4,16 @@ All notable changes to QuickShot are tracked here.
 
 ## v5.3.1 - Unreleased
 
+### Added
+
+- Added `scripts/verify-release-installer.ps1` for GitHub Release installer verification.
+
 ### Planned
 
 - Add code signing when a signing certificate is available.
 - Improve release notes and public download instructions.
-- Continue reducing packaged artifact size.
 - Add more installer regression checks around upgrade and reinstall flows.
+- Continue reducing packaged artifact size.
 - Triage user feedback from the v5.3.0 release.
 
 ## v5.3.0 - 2026-06-08

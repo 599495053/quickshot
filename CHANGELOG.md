@@ -4,6 +4,18 @@ All notable changes to QuickShot are tracked here.
 
 ## Unreleased
 
+### Changed
+
+- Updated CI to `actions/checkout@v6`, `actions/setup-python@v6`, and the pinned `windows-2025` runner.
+
+### Verified
+
+- Workflow YAML parse check.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.3 -CheckOnly`
+- `python -m pyflakes quickshot launcher.py build_config.py tests\test_build_config.py tests\test_selftest.py`
+- `python -m compileall -q quickshot launcher.py build_config.py tests\test_build_config.py tests\test_selftest.py`
+- `python -m pytest -q`: `488 passed, 37 subtests passed`
+
 ## v5.3.3 - 2026-06-08
 
 ### Added

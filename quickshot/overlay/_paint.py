@@ -170,36 +170,39 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         self.draw_dim_edge_cleanup(painter, rect, shade)
 
     def draw_dim_edge_cleanup(self, painter: QPainter, rect: QRect, shade: QColor) -> None:
-        """Hide bright desktop lines that align with selection top/bottom edges."""
+        """Hide desktop scanlines that land exactly on selection top/bottom edges."""
         if self.raw_pixmap.isNull() or rect.width() <= 0 or rect.height() <= 0:
             return
         bounds = self.rect()
-        side_ranges = (
-            (bounds.left(), max(0, rect.left() - bounds.left())),
-            (rect.right() + 1, max(0, bounds.right() - rect.right())),
+        ranges = (
+            (bounds.left(), max(0, rect.left() - bounds.left()), True),
+            (rect.left(), rect.width(), False),
+            (rect.right() + 1, max(0, bounds.right() - rect.right()), True),
         )
-        sample_offset = max(2, min(8, rect.height() // 30))
         cleanup_rows = (
-            (rect.top(), rect.top() - sample_offset),
-            (rect.bottom(), rect.bottom() + sample_offset),
+            (rect.top(), rect.top() - 1, rect.top() + 1),
+            (rect.bottom(), rect.bottom() + 1, rect.bottom() - 1),
         )
 
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
-        for target_y, source_y in cleanup_rows:
+        for target_y, outside_source_y, inside_source_y in cleanup_rows:
             target_y = max(bounds.top(), min(bounds.bottom(), target_y))
-            source_y = max(bounds.top(), min(bounds.bottom(), source_y))
-            for x, width in side_ranges:
+            outside_source_y = max(bounds.top(), min(bounds.bottom(), outside_source_y))
+            inside_source_y = max(rect.top(), min(rect.bottom(), inside_source_y))
+            for x, width, dimmed in ranges:
                 if width <= 0:
                     continue
                 target = QRect(x, target_y, width, 1).intersected(bounds)
                 if target.isNull():
                     continue
+                source_y = outside_source_y if dimmed else inside_source_y
                 source = self.logical_to_physical_rect(QRect(target.x(), source_y, target.width(), target.height()))
                 if source.width() <= 0 or source.height() <= 0:
                     continue
                 painter.drawPixmap(target, self.raw_pixmap, source)
-                painter.fillRect(target, shade)
+                if dimmed:
+                    painter.fillRect(target, shade)
         painter.restore()
 
     def draw_interaction_blocker(self, painter: QPainter, rect: QRect) -> None:

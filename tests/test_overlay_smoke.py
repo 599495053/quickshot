@@ -273,17 +273,42 @@ class OverlayToolSmokeTest(unittest.TestCase):
         canvas.fill(QColor(0, 0, 0))
         painter = QPainter(canvas)
         try:
+            overlay.clear_canvas(painter)
+            overlay.draw_frozen_desktop(painter)
             overlay.paint_select_mode(painter)
         finally:
             painter.end()
 
         for y in (rect.top(), rect.bottom()):
             with self.subTest(y=y):
-                for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
+                for x in (40, rect.left() - 10, rect.center().x(), rect.right() + 10, overlay.width() - 40):
                     color = canvas.pixelColor(x, y)
                     self.assertLess(color.red(), 90)
                     self.assertLess(color.green(), 90)
                     self.assertLess(color.blue(), 90)
+
+        seam_checks = (
+            (rect.top(), rect.top() - 1),
+            (rect.bottom(), rect.bottom() + 1),
+        )
+        for edge_y, adjacent_y in seam_checks:
+            with self.subTest(edge_y=edge_y):
+                for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
+                    self.assertEqual(
+                        canvas.pixelColor(x, edge_y).getRgb()[:3],
+                        canvas.pixelColor(x, adjacent_y).getRgb()[:3],
+                    )
+
+        interior_checks = (
+            (rect.top(), rect.top() + 1),
+            (rect.bottom(), rect.bottom() - 1),
+        )
+        for edge_y, adjacent_y in interior_checks:
+            with self.subTest(interior_edge_y=edge_y):
+                self.assertEqual(
+                    canvas.pixelColor(rect.center().x(), edge_y).getRgb()[:3],
+                    canvas.pixelColor(rect.center().x(), adjacent_y).getRgb()[:3],
+                )
 
         for y in (rect.top() - 2, rect.top() - 1, rect.bottom() + 1, rect.bottom() + 2):
             with self.subTest(adjacent_y=y):

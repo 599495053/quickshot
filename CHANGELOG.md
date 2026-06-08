@@ -6,6 +6,31 @@ All notable changes to QuickShot are tracked here.
 
 No changes yet.
 
+## v5.3.9 - 2026-06-08
+
+### Fixed
+
+- Polished the GitHub uploader missing-configuration status text so it reads `缺少：GitHub 用户名或组织...` instead of joining the label directly to `缺少`.
+- Added regression coverage for the corrected GitHub uploader status wording.
+- Added `docs/RELEASE_NOTES_v5.3.9.md` as the GitHub Release body.
+
+### Verified
+
+- Real settings-window UI smoke: automation page rendered correctly; publish preset, restore defaults, and GitHub uploader missing-configuration hint updated as expected.
+- `python -m pytest -q`: `530 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`: v5.3.9 release build passed; generated unsigned `dist\QuickShot.exe` SHA256 `2C1934DE601D1E29A804B65F830D32720B6F13E9ABD6BC6AFBD1DA53637DB4A9` and unsigned `installer_output\QuickShot-5.3.9-Setup.exe` SHA256 `EB68758488AE638AE8D84B835570BA21A67C10D6A85B371C278DF170E4B3D56F`.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`: packaged smoke, privacy OCR fallback, overlay edit, and capture backend self-tests passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 .\dist\QuickShot.exe .\installer_output\QuickShot-5.3.9-Setup.exe -ExpectedStatus NotSigned`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`: local installer install, launch, self-test, and uninstall passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-5.3.8-Setup.exe -PreviousVersion 5.3.8 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`: local v5.3.8 to v5.3.9 upgrade and v5.3.9 same-version reinstall passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -ExePath .\dist\QuickShot.exe -StopExisting`: region and current-window hotkey capture passed.
+- `pyi-archive_viewer -l dist\QuickShot.exe`: no `numpy`, `numpy.libs`, `openblas`, `dxcam`, `winrt`, `rapidocr`, `onnxruntime`, `cv2`, `opencv`, `Qt6Pdf`, `opengl32sw`, or `_avif` entries.
+
+### Package Size
+
+- `dist\QuickShot.exe`: `31,657,093` bytes / `30.19 MiB`.
+- `installer_output\QuickShot-5.3.9-Setup.exe`: `33,437,488` bytes / `31.89 MiB`.
+
 ## v5.3.8 - 2026-06-08
 
 ### Added

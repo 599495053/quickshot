@@ -11,10 +11,10 @@ Last verified: 2026-06-08
 - [x] `python -m compileall -q quickshot launcher.py build_config.py`
 - [x] `python -m pip check`
   - Result: `No broken requirements found.`
-- [ ] GitHub Actions CI for the release commit passed:
-  - Run: `pending for v5.3.9 release commit`
-  - Commit: `pending`
-  - Result: `pending`
+- [x] GitHub Actions CI for the release commit passed:
+  - Run: `https://github.com/599495053/quickshot/actions/runs/27132246228`
+  - Commit: `ca772764e01c2078890f6c241eecfa90980c80b3`
+  - Result: `success`
 
 ## Build
 
@@ -91,30 +91,30 @@ Last verified: 2026-06-08
 
 ## GitHub Release Verification
 
-- [ ] GitHub Release exists:
-  - URL: `pending for v5.3.9`
-  - Published: `pending`
-  - Draft: `pending`
-  - Prerelease: `pending`
-- [ ] Uploaded release assets are present:
+- [x] GitHub Release exists:
+  - URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.9`
+  - Published: `2026-06-08T10:43:48Z`
+  - Draft: `false`
+  - Prerelease: `false`
+- [x] Uploaded release assets are present:
   - `QuickShot-5.3.9-Setup.exe`: `33437488` bytes, digest `sha256:eb68758488ae638ae8d84b835570ba21a67c10d6a85b371c278df170e4b3d56f`
   - `QuickShot-5.3.9-release.txt`: `488` bytes, digest `sha256:9b2a836662bd3116423602b7bd6fcdbdbca72734bc2f9aabebb473a533ac98c3`
-- [ ] Downloaded `QuickShot-5.3.9-Setup.exe` from the GitHub Release.
-- [ ] Downloaded `QuickShot-5.3.9-release.txt` from the GitHub Release.
-- [ ] Installer SHA256 matches the expected release hash:
+- [x] Downloaded `QuickShot-5.3.9-Setup.exe` from the GitHub Release.
+- [x] Downloaded `QuickShot-5.3.9-release.txt` from the GitHub Release.
+- [x] Installer SHA256 matches the expected release hash:
   - `EB68758488AE638AE8D84B835570BA21A67C10D6A85B371C278DF170E4B3D56F`
-- [ ] Release manifest contains the same installer SHA256.
-- [ ] Silent install from the downloaded installer succeeds.
-- [ ] Default silent install does not create a desktop shortcut.
-- [ ] Default silent install does not create a Windows startup entry.
-- [ ] Installed app launches successfully from the install directory.
-- [ ] Packaged privacy OCR fallback self-test passes.
-- [ ] Packaged overlay edit smoke self-test passes.
-- [ ] Packaged capture backend smoke self-test passes.
-- [ ] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
-- [ ] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
-- [ ] GitHub Release installer verification passed:
-  - Command: `pending until v5.3.9 is published`
+- [x] Release manifest contains the same installer SHA256.
+- [x] Silent install from the downloaded installer succeeds.
+- [x] Default silent install does not create a desktop shortcut.
+- [x] Default silent install does not create a Windows startup entry.
+- [x] Installed app launches successfully from the install directory.
+- [x] Packaged privacy OCR fallback self-test passes.
+- [x] Packaged overlay edit smoke self-test passes.
+- [x] Packaged capture backend smoke self-test passes.
+- [x] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
+- [x] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
+- [x] GitHub Release installer verification passed:
+  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 -Tag v5.3.9 -ExpectedSha256 EB68758488AE638AE8D84B835570BA21A67C10D6A85B371C278DF170E4B3D56F -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
 
 ## Known Build Notes
 

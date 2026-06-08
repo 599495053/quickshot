@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Latest release
+    url: https://github.com/599495053/quickshot/releases/latest
+    about: Download the current installer and release manifest.
+  - name: Security policy
+    url: https://github.com/599495053/quickshot/blob/master/SECURITY.md
+    about: Read this before reporting security-sensitive issues.

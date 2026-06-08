@@ -4,13 +4,20 @@ All notable changes to QuickShot are tracked here.
 
 ## Unreleased
 
+### Added
+
+- Added public repository badges, installer verification guidance, feedback links, MIT license text, security policy, and GitHub issue templates.
+
 ### Changed
 
+- Refreshed the README workflow preview image for v5.3.3.
 - Updated CI to `actions/checkout@v6`, `actions/setup-python@v6`, and the pinned `windows-2025-vs2026` runner.
 
 ### Verified
 
 - Workflow YAML parse check.
+- GitHub issue template YAML parse check.
+- Markdown local link and image reference check.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.3 -CheckOnly`
 - `python -m pyflakes quickshot launcher.py build_config.py tests\test_build_config.py tests\test_selftest.py`
 - `python -m compileall -q quickshot launcher.py build_config.py tests\test_build_config.py tests\test_selftest.py`

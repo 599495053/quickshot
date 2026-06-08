@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest an improvement or new workflow.
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow
+      description: What are you trying to do, and where does QuickShot slow you down?
+      placeholder: "I often need to..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Related area
+      options:
+        - Capture
+        - Annotation
+        - OCR
+        - Privacy masking
+        - History
+        - Pin window
+        - Upload/translation
+        - Installer/release
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional, but useful if you already tried another workflow.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked the latest release notes for this feature.
+          required: true

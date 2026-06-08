@@ -1,19 +1,32 @@
 # QuickShot V5.3.3
 
+[![CI](https://github.com/599495053/quickshot/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/599495053/quickshot/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/599495053/quickshot?sort=semver)](https://github.com/599495053/quickshot/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/599495053/quickshot/latest/total)](https://github.com/599495053/quickshot/releases/latest)
+[![License](https://img.shields.io/github/license/599495053/quickshot)](LICENSE)
+
 QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截图、标注、贴图、OCR、翻译、历史库、自动上传、复制、保存、托盘和设置管理。v5.3.3 继续缩小默认安装包，并把 HDR 高级捕获组件改为可选安装。
 
 ![QuickShot workflow preview](docs/images/quickshot-workflow-preview.png)
 
 ## 立即下载
 
-- 最新版本：[QuickShot v5.3.3](https://github.com/599495053/quickshot/releases/tag/v5.3.3)
-- Windows 安装包：[QuickShot-5.3.3-Setup.exe](https://github.com/599495053/quickshot/releases/download/v5.3.3/QuickShot-5.3.3-Setup.exe)
-- 校验清单：[QuickShot-5.3.3-release.txt](https://github.com/599495053/quickshot/releases/download/v5.3.3/QuickShot-5.3.3-release.txt)
+| 项目 | 链接 |
+| --- | --- |
+| 最新版本 | [QuickShot v5.3.3](https://github.com/599495053/quickshot/releases/tag/v5.3.3) |
+| Windows 安装包 | [QuickShot-5.3.3-Setup.exe](https://github.com/599495053/quickshot/releases/download/v5.3.3/QuickShot-5.3.3-Setup.exe) |
+| 校验清单 | [QuickShot-5.3.3-release.txt](https://github.com/599495053/quickshot/releases/download/v5.3.3/QuickShot-5.3.3-release.txt) |
 
 安装包 SHA256：
 
 ```text
 738845DC1F9F086E3FDBFC0E70A5DEC9E9D8A12400937040464E998446196F8C
+```
+
+下载后可用 PowerShell 校验：
+
+```powershell
+Get-FileHash .\QuickShot-5.3.3-Setup.exe -Algorithm SHA256
 ```
 
 说明：
@@ -22,6 +35,7 @@ QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截�
 - 默认安装不会创建桌面快捷方式，也不会添加开机启动项。
 - 默认包保留 Windows 系统 OCR；智能隐私打码会在缺少 RapidOCR 时自动回退到系统 OCR。
 - 默认包不捆绑 NumPy、OpenBLAS、dxcam 或 WinRT HDR 捕获组件；普通截图走轻量 `mss` 后端。
+- 安全与漏洞反馈请看 [SECURITY.md](SECURITY.md)。
 
 ## 快速上手
 
@@ -133,6 +147,12 @@ python launcher.py
 ```powershell
 python -m quickshot
 ```
+
+## 反馈与安全
+
+- Bug 报告：[创建 Bug issue](https://github.com/599495053/quickshot/issues/new?template=bug_report.yml)
+- 功能建议：[创建 Feature issue](https://github.com/599495053/quickshot/issues/new?template=feature_request.yml)
+- 安全问题：请先阅读 [SECURITY.md](SECURITY.md)，不要在公开 issue 中贴敏感截图、token 或个人信息。
 
 ## 测试
 

@@ -1,0 +1,73 @@
+name: Bug report
+description: Report a reproducible QuickShot problem.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please remove private screenshots, tokens, and personal information before attaching anything.
+  - type: input
+    id: version
+    attributes:
+      label: QuickShot version
+      description: Check the Settings window or the installer filename.
+      placeholder: "5.3.3"
+    validations:
+      required: true
+  - type: input
+    id: windows_version
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Region capture
+        - Window capture
+        - Overlay editing
+        - OCR
+        - Smart privacy masking
+        - History
+        - Pin window
+        - Upload/translation
+        - Installer/update
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Write the shortest sequence that triggers the issue.
+      placeholder: |
+        1. Start QuickShot
+        2. Press Ctrl+Shift+A
+        3. Drag a region
+        4. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include error text or redacted screenshots if helpful.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or extra context
+      description: If you have a debug log, remove personal data before pasting it.
+      render: text

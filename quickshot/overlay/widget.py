@@ -20,7 +20,7 @@ from ..theme import (
     floating_text,
     qc,
 )
-from ..utils import APP_NAME, debug_log
+from ..utils import APP_NAME, debug_log, record_test_event
 from .coords import CoordinateSystem
 from .icons import IconCache
 from ._drawing import DrawingMixin
@@ -271,6 +271,12 @@ class FloatingSnipOverlay(
             self.releaseKeyboard()
         except Exception as exc:
             debug_log(f"releaseKeyboard failed: {exc}")
+        record_test_event(
+            "overlay_closed",
+            mode=self.mode,
+            logical_w=self.selection_rect.width() if not self.selection_rect.isNull() else 0,
+            logical_h=self.selection_rect.height() if not self.selection_rect.isNull() else 0,
+        )
         self.closed.emit()
         super().closeEvent(event)
 

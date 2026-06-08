@@ -8,7 +8,7 @@ from PyQt6.QtCore import QPoint, QRect, Qt
 from PyQt6.QtGui import QPainter, QPixmap
 
 from . import annotation_painter
-from ..utils import copy_pixmap_to_clipboard
+from ..utils import copy_pixmap_to_clipboard, record_test_event
 from ..workflow_presets import workflow_capture_hint
 
 
@@ -49,6 +49,19 @@ class SelectionMixin:
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self._edit_entered_at = time.monotonic()
         self.rebuild_edit_pixmap()
+        record_test_event(
+            "overlay_enter_edit",
+            logical_x=self.selection_rect.x(),
+            logical_y=self.selection_rect.y(),
+            logical_w=self.selection_rect.width(),
+            logical_h=self.selection_rect.height(),
+            physical_x=self.selection_physical_rect.x(),
+            physical_y=self.selection_physical_rect.y(),
+            physical_w=self.selection_physical_rect.width(),
+            physical_h=self.selection_physical_rect.height(),
+            scale_x=self.scale_x,
+            scale_y=self.scale_y,
+        )
 
         privacy_first = bool(getattr(self.config, "workflow_privacy_first", False))
         capture_hint = workflow_capture_hint(self.config)

@@ -62,7 +62,7 @@ from .hotkey import NativeHotkeyWindow
 from .ocr import schedule_rapidocr_prewarm, shutdown_ocr_executor
 from .overlay import FloatingSnipOverlay
 from .screenshot import get_foreground_window_rect, grab_virtual_screen, schedule_capture_prewarm
-from .utils import APP_NAME, copy_text_to_clipboard, debug_log, load_app_icon, safe_print
+from .utils import APP_NAME, copy_text_to_clipboard, debug_log, load_app_icon, record_test_event, safe_print
 from .workflow_presets import (
     WORKFLOW_PRESET_CUSTOM,
     WORKFLOW_PRESET_LABELS,
@@ -497,6 +497,12 @@ class QuickShotApp(QObject):
             overlay.auto_ocr = True
         overlay.show()
         debug_log("region overlay shown")
+        record_test_event(
+            "region_overlay_shown",
+            width=overlay.width(),
+            height=overlay.height(),
+            mode=overlay.mode,
+        )
 
     def start_window_snip(self) -> None:
         QTimer.singleShot(WINDOW_CAPTURE_DELAY_MS, self.capture_current_window)
@@ -519,6 +525,13 @@ class QuickShotApp(QObject):
         overlay.set_initial_capture_from_physical_abs(rect)
         overlay.show()
         debug_log("window overlay shown")
+        record_test_event(
+            "window_overlay_shown",
+            width=overlay.width(),
+            height=overlay.height(),
+            selection_w=overlay.selection_rect.width() if not overlay.selection_rect.isNull() else 0,
+            selection_h=overlay.selection_rect.height() if not overlay.selection_rect.isNull() else 0,
+        )
 
     def show_settings(self, checked: bool = False) -> None:
         if self.settings_window is None:

@@ -1,6 +1,7 @@
 """QuickShot 通用工具函数与常量。"""
 
 import datetime
+import json
 import importlib
 import os
 import subprocess
@@ -91,6 +92,25 @@ def debug_log(message: str) -> None:
             fh.write(f"[{stamp}] {message}\n")
     except OSError:
         # debug_log 自身 IO 失败时绝不可递归调用 debug_log
+        pass
+
+
+def record_test_event(event: str, **fields) -> None:
+    """Write structured test-only events when QUICKSHOT_TEST_EVENTS_LOG is set."""
+    path = os.environ.get("QUICKSHOT_TEST_EVENTS_LOG")
+    if not path:
+        return
+    payload = {
+        "ts": datetime.datetime.now().isoformat(timespec="milliseconds"),
+        "event": str(event),
+    }
+    payload.update(fields)
+    try:
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
+    except OSError:
         pass
 
 

@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import QFileDialog
 from ..feedback import compact_error_message
 from ..pin import show_pin_window
 from ..pipeline import run_post_capture_pipeline, should_run_post_capture
-from ..utils import copy_pixmap_to_clipboard, copy_text_to_clipboard, debug_log
+from ..utils import copy_pixmap_to_clipboard, copy_text_to_clipboard, debug_log, record_test_event
 
 
 class ExportMixin:
@@ -34,6 +34,12 @@ class ExportMixin:
         try:
             copy_pixmap_to_clipboard(self.edit_pixmap)
             self.record_capture_history("copy")
+            record_test_event(
+                "overlay_copy_current",
+                width=self.edit_pixmap.width(),
+                height=self.edit_pixmap.height(),
+                history_item_id=getattr(self, "history_item_id", ""),
+            )
             self.message = f"已复制到剪贴板：{self.edit_pixmap.width()} × {self.edit_pixmap.height()}"
             self.maybe_notify("已复制到剪贴板")
             self._maybe_run_post_capture_pipeline()
@@ -174,6 +180,14 @@ class ExportMixin:
             if not saved:
                 raise RuntimeError("pixmap.save returned False")
             self.record_capture_history("save")
+            record_test_event(
+                "overlay_save_current",
+                filepath=filepath,
+                format=qt_fmt,
+                width=self.edit_pixmap.width(),
+                height=self.edit_pixmap.height(),
+                history_item_id=getattr(self, "history_item_id", ""),
+            )
             self.message = f"已保存（{fmt_name}）：{filepath}"
             self.maybe_notify(f"已保存：{Path(filepath).name}")
             if run_pipeline:

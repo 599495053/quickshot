@@ -61,7 +61,7 @@ from .hotkey import NativeHotkeyWindow
 from .ocr import schedule_rapidocr_prewarm, shutdown_ocr_executor
 from .overlay import FloatingSnipOverlay
 from .screenshot import get_foreground_window_rect, grab_virtual_screen, schedule_capture_prewarm
-from .utils import APP_NAME, debug_log, load_app_icon, safe_print
+from .utils import APP_NAME, copy_text_to_clipboard, debug_log, load_app_icon, safe_print
 
 
 def _global_exception_hook(exc_type, exc_value, exc_tb) -> None:
@@ -200,6 +200,7 @@ class QuickShotApp(QObject):
         pin_manager_action = QAction("贴图管理", menu)
         settings_action = QAction("设置", menu)
         open_dir_action = QAction("打开保存目录", menu)
+        diagnostic_action = QAction("复制诊断信息", menu)
         quit_action = QAction("退出", menu)
 
         region_action.triggered.connect(lambda: self.run_after_tray_menu(self.start_region_snip))
@@ -208,6 +209,7 @@ class QuickShotApp(QObject):
         pin_manager_action.triggered.connect(lambda: self.run_after_tray_menu(self.show_pin_manager))
         settings_action.triggered.connect(lambda: self.run_after_tray_menu(self.show_settings))
         open_dir_action.triggered.connect(lambda: self.run_after_tray_menu(self.open_save_dir))
+        diagnostic_action.triggered.connect(lambda: self.run_after_tray_menu(self.copy_diagnostic_info))
         quit_action.triggered.connect(self.quit)
 
         menu.addAction(region_action)
@@ -217,6 +219,7 @@ class QuickShotApp(QObject):
         menu.addSeparator()
         menu.addAction(settings_action)
         menu.addAction(open_dir_action)
+        menu.addAction(diagnostic_action)
         menu.addSeparator()
         menu.addAction(quit_action)
         return menu
@@ -544,6 +547,16 @@ class QuickShotApp(QObject):
             os.startfile(path)  # type: ignore[attr-defined]
         except Exception as exc:
             QMessageBox.warning(None, "打开失败", f"无法打开保存目录：{exc}")
+
+    def copy_diagnostic_info(self) -> None:
+        try:
+            from .diagnostics import build_diagnostic_report
+
+            copy_text_to_clipboard(build_diagnostic_report(self.config))
+            self.show_tip("诊断信息已复制到剪贴板")
+        except Exception as exc:
+            debug_log(f"copy diagnostic info failed: {exc}")
+            QMessageBox.warning(None, "复制失败", f"无法复制诊断信息：{exc}")
 
     def show_tip(self, text: str) -> None:
         if not text:

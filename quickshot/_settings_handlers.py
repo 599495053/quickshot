@@ -406,3 +406,14 @@ class SettingsHandlers:
         self.hotkeys_changed.emit()
         self.update_help_text()
         QMessageBox.information(self, "导入成功", "设置已导入并生效。")
+
+    def copy_diagnostic_info(self) -> None:
+        from .diagnostics import build_diagnostic_report
+        from .utils import copy_text_to_clipboard, debug_log
+
+        try:
+            copy_text_to_clipboard(build_diagnostic_report(self.config))
+            QMessageBox.information(self, "已复制", "诊断信息已复制到剪贴板。反馈问题时可以直接粘贴。")
+        except Exception as exc:
+            debug_log(f"copy diagnostic info failed: {exc}")
+            QMessageBox.warning(self, "复制失败", f"无法复制诊断信息：{exc}")

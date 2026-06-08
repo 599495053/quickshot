@@ -61,6 +61,7 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
         win = SettingsWindow(cfg)
         self.assertIsNotNone(win)
         self.assertTrue(win.windowTitle().startswith("QuickShot"))
+        self.assertEqual(win.copy_diagnostic_btn.text(), "复制诊断信息")
 
     def test_config_values_loaded(self):
         _ensure_app()

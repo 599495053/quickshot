@@ -368,6 +368,8 @@ class SettingsWindow(SettingsHandlers, QWidget):
         self.export_btn.clicked.connect(self.export_settings)
         self.import_btn = set_button_role(QPushButton("导入设置"))
         self.import_btn.clicked.connect(self.import_settings)
+        self.copy_diagnostic_btn = set_button_role(QPushButton("复制诊断信息"))
+        self.copy_diagnostic_btn.clicked.connect(self.copy_diagnostic_info)
         self.close_btn = set_button_role(QPushButton("关闭"), "primary")
         self.close_btn.clicked.connect(self.close)
 
@@ -500,8 +502,10 @@ class SettingsWindow(SettingsHandlers, QWidget):
         backup_row.setSpacing(8)
         backup_row.addWidget(self.export_btn)
         backup_row.addWidget(self.import_btn)
+        backup_row.addWidget(self.copy_diagnostic_btn)
         backup_row.addStretch(1)
         backup_layout.addLayout(backup_row)
+        backup_layout.addWidget(self._helper("诊断信息会尽量脱敏，可用于反馈截图失败、OCR 失败、智能隐私打码异常等问题。粘贴前建议快速检查。"))
         page.addWidget(backup_card)
         page.addStretch(1)
         return layout

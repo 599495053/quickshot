@@ -66,6 +66,12 @@ body:
     validations:
       required: true
   - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic info
+      description: In QuickShot, use tray menu or Settings -> Copy diagnostic info, review it, then paste it here.
+      render: text
+  - type: textarea
     id: logs
     attributes:
       label: Logs or extra context

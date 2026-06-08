@@ -163,6 +163,29 @@ class ApplySnapTest(unittest.TestCase):
         self.assertEqual(result.top(), 100)    # 吸附到 Win1
         self.assertEqual(result.bottom(), 599)  # 吸附到 Win2
 
+    def test_snap_prefers_overlapping_edge_over_closer_disconnected_edge(self):
+        self.overlay._snap_window_logical_rects = [
+            (1, QRect(200, 200, 120, 90), "Aligned"),
+            (2, QRect(197, 20, 120, 80), "Disconnected"),
+        ]
+
+        raw = QRect(194, 210, 120, 60)
+        result, edges = self.overlay._apply_snap(raw)
+
+        self.assertEqual(result.left(), 200)
+        self.assertTrue(any(edge[1] == QRect(200, 200, 120, 90) for edge in edges))
+
+    def test_snap_ignores_disconnected_edge_when_not_at_corner(self):
+        self.overlay._snap_window_logical_rects = [
+            (1, QRect(200, 360, 120, 80), "FarVertical"),
+        ]
+
+        raw = QRect(192, 100, 120, 60)
+        result, edges = self.overlay._apply_snap(raw)
+
+        self.assertEqual(result, raw)
+        self.assertEqual(edges, [])
+
     def test_schedule_snap_prewarm_uses_timer_once(self):
         """预热应只排队一次，避免重复枚举窗口。"""
         with patch("quickshot.overlay._snap.QTimer.singleShot") as single_shot:

@@ -173,6 +173,29 @@ class ToolbarButtonTest(unittest.TestCase):
         self.assertNotEqual(tip_rect.center().x(), overlay.toolbar_rect.center().x())
 
 
+class FloatingBubbleLayoutTest(unittest.TestCase):
+
+    def test_size_label_uses_bottom_when_top_space_is_tight(self) -> None:
+        overlay = _make_overlay()
+        target = QRect(100, 4, 180, 80)
+
+        label = overlay.size_label_rect(target, 180, 80)
+
+        self.assertGreater(label.top(), target.bottom())
+        self.assertFalse(label.intersects(target))
+
+    def test_size_label_avoids_toolbar_when_selection_near_bottom(self) -> None:
+        overlay = _make_overlay()
+        target = QRect(120, 500, 360, 80)
+        overlay.selection_rect = target
+        overlay.update_toolbar_layout()
+
+        label = overlay.size_label_rect(target, 360, 80)
+
+        self.assertFalse(label.intersects(overlay.toolbar_rect))
+        self.assertTrue(overlay.rect().contains(label))
+
+
 class StylePanelTest(unittest.TestCase):
     """测试样式面板功能。"""
 

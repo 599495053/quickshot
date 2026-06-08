@@ -609,6 +609,24 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
     # ── 尺寸/消息布局 ──
 
 
+    def _clamped_bubble_rect(self, rect: QRect) -> QRect:
+        bounds = self.rect()
+        if bounds.isNull() or rect.isNull():
+            return QRect(rect)
+        x = max(bounds.left() + 8, min(bounds.right() - rect.width() + 1 - 8, rect.left()))
+        y = max(bounds.top() + 8, min(bounds.bottom() - rect.height() + 1 - 8, rect.top()))
+        return QRect(x, y, rect.width(), rect.height())
+
+    def _bubble_overlap_area(self, rect: QRect, blockers: Tuple[QRect, ...]) -> int:
+        total = 0
+        for blocker in blockers:
+            if blocker.isNull() or blocker.width() <= 0 or blocker.height() <= 0:
+                continue
+            overlap = rect.intersected(blocker)
+            if not overlap.isNull() and overlap.width() > 0 and overlap.height() > 0:
+                total += overlap.width() * overlap.height()
+        return total
+
     def size_label_rect(self, rect: QRect, width: int, height: int) -> QRect:
         if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
             return QRect()
@@ -616,14 +634,33 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         self._ensure_paint_cache()
         label_w = self._fm_label.horizontalAdvance(text) + 22
         label_h = 28
-        x = rect.left()
-        y = rect.top() - label_h - 10
-        if y < 8:
-            y = rect.top() + 10
-        if x + label_w > self.width() - 8:
-            x = self.width() - label_w - 8
-        x = max(8, x)
-        return QRect(x, y, label_w, label_h)
+        left = rect.left()
+        right = rect.right() - label_w + 1
+        inside_left = rect.left() + 10
+        inside_right = rect.right() - label_w - 9
+        above = rect.top() - label_h - 10
+        below = rect.bottom() + 10
+        inside_top = rect.top() + 10
+        inside_bottom = rect.bottom() - label_h - 9
+        raw_candidates = (
+            QRect(left, above, label_w, label_h),
+            QRect(right, above, label_w, label_h),
+            QRect(left, below, label_w, label_h),
+            QRect(right, below, label_w, label_h),
+            QRect(inside_left, inside_top, label_w, label_h),
+            QRect(inside_right, inside_top, label_w, label_h),
+            QRect(inside_left, inside_bottom, label_w, label_h),
+            QRect(inside_right, inside_bottom, label_w, label_h),
+        )
+        blockers = [QRect(rect)]
+        for maybe_blocker in (getattr(self, "toolbar_rect", QRect()), getattr(self, "style_panel_rect", QRect())):
+            if not maybe_blocker.isNull() and maybe_blocker.width() > 0 and maybe_blocker.height() > 0:
+                blockers.append(QRect(maybe_blocker).adjusted(-4, -4, 4, 4))
+        scored = []
+        for order, candidate in enumerate(raw_candidates):
+            placed = self._clamped_bubble_rect(candidate)
+            scored.append((self._bubble_overlap_area(placed, tuple(blockers)), order, placed))
+        return min(scored, key=lambda item: (item[0], item[1]))[2]
 
     def current_message_rect(self) -> QRect:
         if not self.message:

@@ -96,18 +96,48 @@ class SnapMixin:
         if not window_rects:
             return raw_rect, []
 
-        threshold = getattr(self.config, 'snap_threshold_px', 10)
+        threshold = max(1, int(getattr(self.config, 'snap_threshold_px', 10)))
+        corner_threshold = max(3, threshold // 2)
 
         left = raw_rect.left()
         top = raw_rect.top()
         right = raw_rect.right()
         bottom = raw_rect.bottom()
 
-        # 每条边独立寻找最近的吸附候选
-        best_left = (left, None)
-        best_top = (top, None)
-        best_right = (right, None)
-        best_bottom = (bottom, None)
+        # 每条边独立寻找最合适的吸附候选
+        def span_overlap(a1: int, a2: int, b1: int, b2: int) -> int:
+            return max(0, min(a2, b2) - max(a1, b1) + 1)
+
+        def span_gap(a1: int, a2: int, b1: int, b2: int) -> int:
+            if a2 < b1:
+                return b1 - a2
+            if b2 < a1:
+                return a1 - b2
+            return 0
+
+        def snap_score(distance: int, moving_a: int, moving_b: int, target_a: int, target_b: int):
+            if distance >= threshold:
+                return None
+            overlap = span_overlap(moving_a, moving_b, target_a, target_b)
+            if overlap > 0:
+                return (0, distance, -overlap)
+            gap = span_gap(moving_a, moving_b, target_a, target_b)
+            if distance <= corner_threshold and gap <= threshold:
+                return (1, distance, gap)
+            return None
+
+        def choose(best, value: int, rect: QRect, distance: int, moving_a: int, moving_b: int, target_a: int, target_b: int):
+            score = snap_score(distance, moving_a, moving_b, target_a, target_b)
+            if score is None:
+                return best
+            if best[2] is None or score < best[2]:
+                return (value, rect, score)
+            return best
+
+        best_left = (left, None, None)
+        best_top = (top, None, None)
+        best_right = (right, None, None)
+        best_bottom = (bottom, None, None)
 
         for _hwnd, wrect, _title in window_rects:
             wl, wt, wr, wb = wrect.left(), wrect.top(), wrect.right(), wrect.bottom()
@@ -115,20 +145,16 @@ class SnapMixin:
             # 水平方向：选区左边/右边 吸附到 窗口左边/右边
             for win_val in (wl, wr):
                 d = abs(left - win_val)
-                if d < threshold and (best_left[1] is None or d < abs(best_left[0] - win_val)):
-                    best_left = (win_val, wrect)
+                best_left = choose(best_left, win_val, wrect, d, top, bottom, wt, wb)
                 d = abs(right - win_val)
-                if d < threshold and (best_right[1] is None or d < abs(best_right[0] - win_val)):
-                    best_right = (win_val, wrect)
+                best_right = choose(best_right, win_val, wrect, d, top, bottom, wt, wb)
 
             # 垂直方向：选区上边/下边 吸附到 窗口上边/下边
             for win_val in (wt, wb):
                 d = abs(top - win_val)
-                if d < threshold and (best_top[1] is None or d < abs(best_top[0] - win_val)):
-                    best_top = (win_val, wrect)
+                best_top = choose(best_top, win_val, wrect, d, left, right, wl, wr)
                 d = abs(bottom - win_val)
-                if d < threshold and (best_bottom[1] is None or d < abs(best_bottom[0] - win_val)):
-                    best_bottom = (win_val, wrect)
+                best_bottom = choose(best_bottom, win_val, wrect, d, left, right, wl, wr)
 
         new_left = best_left[0]
         new_top = best_top[0]

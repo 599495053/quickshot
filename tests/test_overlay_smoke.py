@@ -58,6 +58,30 @@ def _make_overlay() -> FloatingSnipOverlay:
     return overlay
 
 
+def _make_select_overlay_with_horizontal_desktop_lines() -> FloatingSnipOverlay:
+    _ensure_app()
+    cfg = Config()
+    cfg.snap_to_windows = False
+    raw = QPixmap(800, 600)
+    painter = QPainter(raw)
+    try:
+        painter.fillRect(QRect(0, 0, 800, 600), QColor(60, 60, 60))
+        painter.fillRect(QRect(0, 99, 800, 1), QColor(245, 245, 245))
+        painter.fillRect(QRect(0, 400, 800, 1), QColor(245, 245, 245))
+    finally:
+        painter.end()
+    display = raw.copy()
+    overlay = FloatingSnipOverlay(
+        raw, display, QRect(0, 0, 800, 600), 1.0, 1.0, 0, 0, cfg, None
+    )
+    overlay.mode = "select"
+    overlay.selecting = True
+    overlay.start = QPoint(240, 100)
+    overlay.end = QPoint(639, 399)
+    overlay.resize(800, 600)
+    return overlay
+
+
 def _paint_once(overlay: FloatingSnipOverlay) -> None:
     canvas = QPixmap(overlay.width(), overlay.height())
     canvas.fill(QColor(0, 0, 0))
@@ -196,6 +220,26 @@ class OverlayToolSmokeTest(unittest.TestCase):
                         white_pixels += 1
 
         self.assertEqual(white_pixels, 0)
+
+    def test_select_mode_masks_horizontal_desktop_lines_at_dim_edges(self) -> None:
+        overlay = _make_select_overlay_with_horizontal_desktop_lines()
+        rect = overlay.current_select_rect()
+
+        canvas = QImage(overlay.width(), overlay.height(), QImage.Format.Format_ARGB32)
+        canvas.fill(QColor(0, 0, 0))
+        painter = QPainter(canvas)
+        try:
+            overlay.paint_select_mode(painter)
+        finally:
+            painter.end()
+
+        for y in (rect.top() - 1, rect.bottom() + 1):
+            with self.subTest(y=y):
+                for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
+                    color = canvas.pixelColor(x, y)
+                    self.assertLess(color.red(), 90)
+                    self.assertLess(color.green(), 90)
+                    self.assertLess(color.blue(), 90)
 
     def test_edit_mode_skips_selection_snapshot_by_default(self) -> None:
         overlay = _make_overlay()

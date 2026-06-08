@@ -180,6 +180,45 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             painter.fillRect(QRect(0, rect.top(), left_w, rect.height()), shade)
         if right_w > 0:
             painter.fillRect(QRect(right_x, rect.top(), right_w, rect.height()), shade)
+        self.draw_dim_edge_cleanup(painter, rect, shade)
+
+    def draw_dim_edge_cleanup(self, painter: QPainter, rect: QRect, shade: QColor) -> None:
+        """Hide bright desktop lines that align with selection top/bottom edges."""
+        if self.display_pixmap.isNull() or rect.width() <= 0 or rect.height() <= 0:
+            return
+        bounds = self.rect()
+        pixmap_rect = QRect(0, 0, self.display_pixmap.width(), self.display_pixmap.height())
+        if not pixmap_rect.contains(bounds):
+            return
+
+        side_ranges = (
+            (bounds.left(), max(0, rect.left() - bounds.left())),
+            (rect.right() + 1, max(0, bounds.right() - rect.right())),
+        )
+        cleanup_rows = (
+            (rect.top() - 1, rect.top() - 5),
+            (rect.bottom() - 1, rect.bottom() + 3),
+        )
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        for target_y, source_y in cleanup_rows:
+            target_y = max(bounds.top(), min(bounds.bottom() - 2, target_y))
+            source_y = max(bounds.top(), min(bounds.bottom() - 2, source_y))
+            for x, width in side_ranges:
+                if width <= 0:
+                    continue
+                target = QRect(x, target_y, width, 3).intersected(bounds)
+                if target.isNull():
+                    continue
+                source = QRect(target)
+                source.moveTop(source_y)
+                source = source.intersected(pixmap_rect)
+                if source.size() != target.size():
+                    continue
+                painter.drawPixmap(target, self.display_pixmap, source)
+                painter.fillRect(target, shade)
+        painter.restore()
 
     def draw_interaction_blocker(self, painter: QPainter, rect: QRect) -> None:
         if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:

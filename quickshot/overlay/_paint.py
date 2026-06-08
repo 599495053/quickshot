@@ -209,13 +209,15 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         target = rect.normalized().intersected(bounds)
         if target.isNull() or target.width() <= 0 or target.height() <= 0:
             return
-        rows = min(5, max(1, target.height() // 90))
+        rows = min(12, max(6, target.height() // 90))
         base_alpha = shade.alpha()
 
         painter.save()
         painter.setPen(Qt.PenStyle.NoPen)
         for offset in range(rows):
-            alpha = int(round(base_alpha * (rows - offset) / rows))
+            t = offset / max(1, rows - 1)
+            smooth = t * t * (3.0 - 2.0 * t)
+            alpha = int(round(base_alpha * (1.0 - smooth)))
             if alpha <= 0:
                 continue
             color = QColor(shade)

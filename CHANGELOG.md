@@ -4,16 +4,37 @@ All notable changes to QuickShot are tracked here.
 
 ## Unreleased
 
+No changes yet.
+
+## v5.3.8 - 2026-06-08
+
 ### Added
 
 - Added a settings-page workflow summary showing the current preset and Enter behavior.
 - Added a settings-page action to restore the default workflow.
 - Added a GitHub uploader status hint in settings so missing owner, repo, or token is visible before capture.
+- Added `docs/RELEASE_NOTES_v5.3.8.md` as the GitHub Release body.
 
 ### Changed
 
 - Workflow changes made from settings now refresh the tray tooltip and workflow menu.
 - Upload workflow failures now include more actionable configuration, permission, token, and network guidance.
+
+### Verified
+
+- `python -m pytest -q`: `530 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`: v5.3.8 release build passed; generated unsigned `dist\QuickShot.exe` SHA256 `B23857233A2929F6A32722ABB40803086A3F629348F3C7D265FF154EBE35DA5A` and unsigned `installer_output\QuickShot-5.3.8-Setup.exe` SHA256 `5269AD772B55FA6029CD90B3BC83AEE676A4782DC38AD56059D2095EC9CDDFF4`.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`: packaged smoke, privacy OCR fallback, overlay edit, and capture backend self-tests passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 .\dist\QuickShot.exe .\installer_output\QuickShot-5.3.8-Setup.exe -ExpectedStatus NotSigned`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-5.3.7-Setup.exe -PreviousVersion 5.3.7 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`: local v5.3.7 to v5.3.8 upgrade and v5.3.8 same-version reinstall passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`: local installer install, launch, self-test, and uninstall passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -ExePath .\dist\QuickShot.exe -StopExisting`: region and current-window hotkey capture passed.
+- `pyi-archive_viewer -l dist\QuickShot.exe`: no `numpy`, `numpy.libs`, `openblas`, `dxcam`, `winrt`, `rapidocr`, `onnxruntime`, `cv2`, `opencv`, `Qt6Pdf`, `opengl32sw`, or `_avif` entries.
+
+### Package Size
+
+- `dist\QuickShot.exe`: `31,657,788` bytes / `30.19 MiB`.
+- `installer_output\QuickShot-5.3.8-Setup.exe`: `33,438,608` bytes / `31.89 MiB`.
 
 ## v5.3.7 - 2026-06-08
 

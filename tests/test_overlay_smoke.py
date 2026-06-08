@@ -165,7 +165,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
             overlay.draw_dim_outside = original
         self.assertEqual(calls, [rect])
 
-    def test_select_mode_vertical_edges_do_not_have_white_handle_stripes(self) -> None:
+    def test_select_mode_edges_do_not_have_white_handle_stripes(self) -> None:
         overlay = _make_overlay()
         overlay.mode = "select"
         overlay.selecting = True
@@ -181,18 +181,19 @@ class OverlayToolSmokeTest(unittest.TestCase):
         finally:
             painter.end()
 
-        center_y = rect.center().y()
         white_pixels = 0
-        for x in range(rect.left() - 3, rect.left() + 4):
-            for y in range(center_y - 10, center_y + 11):
-                color = canvas.pixelColor(x, y)
-                if color.red() > 220 and color.green() > 220 and color.blue() > 220:
-                    white_pixels += 1
-        for x in range(rect.right() - 3, rect.right() + 4):
-            for y in range(center_y - 10, center_y + 11):
-                color = canvas.pixelColor(x, y)
-                if color.red() > 220 and color.green() > 220 and color.blue() > 220:
-                    white_pixels += 1
+        probes = (
+            (range(rect.left() - 3, rect.left() + 4), range(rect.center().y() - 10, rect.center().y() + 11)),
+            (range(rect.right() - 3, rect.right() + 4), range(rect.center().y() - 10, rect.center().y() + 11)),
+            (range(rect.center().x() - 10, rect.center().x() + 11), range(rect.top() - 3, rect.top() + 4)),
+            (range(rect.center().x() - 10, rect.center().x() + 11), range(rect.bottom() - 3, rect.bottom() + 4)),
+        )
+        for xs, ys in probes:
+            for x in xs:
+                for y in ys:
+                    color = canvas.pixelColor(x, y)
+                    if color.red() > 220 and color.green() > 220 and color.blue() > 220:
+                        white_pixels += 1
 
         self.assertEqual(white_pixels, 0)
 

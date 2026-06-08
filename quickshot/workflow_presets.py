@@ -17,6 +17,15 @@ WORKFLOW_PRESET_LABELS: tuple[tuple[str, str], ...] = (
     ("privacy", "隐私模式"),
 )
 
+WORKFLOW_PRESET_HINTS: dict[str, str] = {
+    WORKFLOW_PRESET_CUSTOM: "按当前开关执行",
+    "quick_copy": "Enter 后复制图片",
+    "auto_save": "Enter 后自动保存到默认目录",
+    "ocr": "Enter 后 OCR 并复制文字",
+    "publish": "Enter 后保存、上传并复制 Markdown",
+    "privacy": "截图后先进入智能隐私打码预览",
+}
+
 _PRESET_VALUES: dict[str, dict[str, bool]] = {
     "quick_copy": {
         "auto_copy": True,
@@ -73,6 +82,41 @@ def normalize_workflow_preset(value: Any) -> str:
 def workflow_preset_values(preset: Any) -> dict[str, bool]:
     normalized = normalize_workflow_preset(preset)
     return dict(_PRESET_VALUES.get(normalized, {}))
+
+
+def workflow_preset_label(preset: Any) -> str:
+    normalized = normalize_workflow_preset(preset)
+    for key, label in WORKFLOW_PRESET_LABELS:
+        if key == normalized:
+            return label
+    return "自定义"
+
+
+def workflow_preset_hint(preset: Any) -> str:
+    return WORKFLOW_PRESET_HINTS.get(normalize_workflow_preset(preset), WORKFLOW_PRESET_HINTS[WORKFLOW_PRESET_CUSTOM])
+
+
+def workflow_capture_hint(config: object) -> str:
+    preset = normalize_workflow_preset(getattr(config, "workflow_preset", WORKFLOW_PRESET_DEFAULT))
+    if preset != WORKFLOW_PRESET_CUSTOM:
+        return f"{workflow_preset_label(preset)}：{workflow_preset_hint(preset)}"
+
+    actions: list[str] = []
+    if getattr(config, "workflow_privacy_first", False):
+        actions.append("先智能隐私打码预览")
+    if getattr(config, "workflow_auto_save", False):
+        actions.append("自动保存")
+    if getattr(config, "workflow_auto_ocr", False):
+        actions.append("OCR 并复制文字")
+    if getattr(config, "workflow_auto_upload", False):
+        actions.append("自动上传")
+    if getattr(config, "workflow_copy_markdown", False):
+        actions.append("复制 Markdown")
+    if getattr(config, "auto_copy", False) and not getattr(config, "workflow_privacy_first", False):
+        actions.append("自动复制图片")
+    if not actions:
+        actions.append("手动处理")
+    return f"自定义：{'、'.join(actions)}"
 
 
 def apply_workflow_preset(config: object, preset: Any | None = None) -> bool:

@@ -8,6 +8,8 @@ from quickshot.config import Config
 from quickshot.workflow_presets import (
     WORKFLOW_PRESET_DEFAULT,
     apply_workflow_preset,
+    workflow_capture_hint,
+    workflow_preset_label,
     normalize_workflow_preset,
     workflow_preset_values,
 )
@@ -56,6 +58,26 @@ class WorkflowPresetTest(unittest.TestCase):
         values["workflow_privacy_first"] = False
 
         self.assertTrue(workflow_preset_values("privacy")["workflow_privacy_first"])
+
+    def test_preset_label_and_hint_are_user_facing(self) -> None:
+        cfg = Config()
+        cfg.workflow_preset = "publish"
+
+        self.assertEqual(workflow_preset_label("publish"), "发布模式")
+        self.assertIn("保存、上传并复制 Markdown", workflow_capture_hint(cfg))
+
+    def test_custom_capture_hint_describes_enabled_switches(self) -> None:
+        cfg = Config()
+        cfg.workflow_preset = "custom"
+        cfg.auto_copy = False
+        cfg.workflow_auto_save = True
+        cfg.workflow_auto_upload = True
+
+        hint = workflow_capture_hint(cfg)
+
+        self.assertIn("自定义", hint)
+        self.assertIn("自动保存", hint)
+        self.assertIn("自动上传", hint)
 
 
 if __name__ == "__main__":

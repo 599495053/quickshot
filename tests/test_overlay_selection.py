@@ -286,6 +286,17 @@ class EnterEditModeTest(unittest.TestCase):
         ov.enter_edit_mode(QRect(100, 100, 300, 200), QRect(100, 100, 300, 200))
         self.assertEqual(ov.active_tool, "none")
 
+    def test_enter_edit_mode_message_shows_workflow_hint(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov.config.auto_copy = False
+        ov.config.workflow_preset = "auto_save"
+
+        ov.enter_edit_mode(QRect(100, 100, 300, 200), QRect(100, 100, 300, 200))
+
+        self.assertIn("自动保存", ov.message)
+        self.assertIn("默认目录", ov.message)
+
     def test_privacy_first_skips_auto_copy_and_starts_detection(self):
         ov = _make_overlay()
         ov.mode = "select"

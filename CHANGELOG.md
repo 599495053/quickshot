@@ -4,7 +4,20 @@ All notable changes to QuickShot are tracked here.
 
 ## Unreleased
 
-- No changes yet.
+### Added
+
+- Added a tray menu workflow preset switcher for quick copy, auto save, OCR, publish, and privacy-first flows.
+
+### Changed
+
+- Screenshot selection messages now include the current workflow behavior so users can see what Enter will do.
+
+### Verified
+
+- `python -m pyflakes quickshot tests\test_workflow_presets.py tests\test_main.py tests\test_overlay_selection.py`
+- `python -m compileall -q quickshot tests\test_workflow_presets.py tests\test_main.py tests\test_overlay_selection.py`
+- `python -m pytest -q tests\test_workflow_presets.py tests\test_main.py tests\test_overlay_selection.py tests\test_settings.py`: `70 passed, 4 subtests passed`
+- `python -m pytest -q`: `522 passed, 37 subtests passed`
 
 ## v5.3.6 - 2026-06-08
 

@@ -63,6 +63,15 @@ from .ocr import schedule_rapidocr_prewarm, shutdown_ocr_executor
 from .overlay import FloatingSnipOverlay
 from .screenshot import get_foreground_window_rect, grab_virtual_screen, schedule_capture_prewarm
 from .utils import APP_NAME, copy_text_to_clipboard, debug_log, load_app_icon, safe_print
+from .workflow_presets import (
+    WORKFLOW_PRESET_CUSTOM,
+    WORKFLOW_PRESET_LABELS,
+    apply_workflow_preset,
+    normalize_workflow_preset,
+    workflow_capture_hint,
+    workflow_preset_hint,
+    workflow_preset_label,
+)
 
 
 def _global_exception_hook(exc_type, exc_value, exc_tb) -> None:
@@ -140,7 +149,7 @@ class QuickShotApp(QObject):
         self.hotkey_poll_timer.timeout.connect(self.poll_fallback_hotkeys)
 
         self.tray = QSystemTrayIcon(self.create_icon(), self.app)
-        self.tray.setToolTip(f"{APP_NAME} 正在后台运行")
+        self.refresh_tray_tooltip()
         self.menu = self.create_tray_menu()
         self.tray.setContextMenu(self.menu)
         self.tray.activated.connect(self.on_tray_activated)
@@ -153,7 +162,7 @@ class QuickShotApp(QObject):
         QTimer.singleShot(300, self._prewarm_capture_and_ocr)
         self.tray.showMessage(
             APP_NAME,
-            f"已启动：{self.config.region_hotkey} 区域截图",
+            f"已启动：{self.config.region_hotkey} 区域截图；工作流：{workflow_preset_label(self.config.workflow_preset)}",
             QSystemTrayIcon.MessageIcon.Information,
             TRAY_MESSAGE_DURATION_MS,
         )
@@ -199,6 +208,7 @@ class QuickShotApp(QObject):
         window_action = QAction(f"当前窗口截图  {self.config.window_hotkey}", menu)
         history_action = QAction("截图历史", menu)
         pin_manager_action = QAction("贴图管理", menu)
+        workflow_menu = self.create_workflow_menu(menu)
         settings_action = QAction("设置", menu)
         open_dir_action = QAction("打开保存目录", menu)
         diagnostic_action = QAction("复制诊断信息", menu)
@@ -217,6 +227,7 @@ class QuickShotApp(QObject):
         menu.addAction(window_action)
         menu.addAction(history_action)
         menu.addAction(pin_manager_action)
+        menu.addMenu(workflow_menu)
         menu.addSeparator()
         menu.addAction(settings_action)
         menu.addAction(open_dir_action)
@@ -224,6 +235,52 @@ class QuickShotApp(QObject):
         menu.addSeparator()
         menu.addAction(quit_action)
         return menu
+
+    def create_workflow_menu(self, parent: QMenu) -> QMenu:
+        workflow_menu = QMenu("工作流预设", parent)
+        current = normalize_workflow_preset(getattr(self.config, "workflow_preset", WORKFLOW_PRESET_CUSTOM))
+        status_action = QAction(f"当前：{workflow_preset_label(current)}", workflow_menu)
+        status_action.setEnabled(False)
+        status_action.setToolTip(workflow_capture_hint(self.config))
+        workflow_menu.addAction(status_action)
+        workflow_menu.addSeparator()
+        for preset, label in WORKFLOW_PRESET_LABELS:
+            if preset == WORKFLOW_PRESET_CUSTOM:
+                continue
+            action = QAction(label, workflow_menu)
+            action.setCheckable(True)
+            action.setChecked(current == preset)
+            action.setToolTip(workflow_preset_hint(preset))
+            action.triggered.connect(
+                lambda _checked=False, selected=preset: self.run_after_tray_menu(
+                    lambda: self.set_workflow_preset(selected)
+                )
+            )
+            workflow_menu.addAction(action)
+        return workflow_menu
+
+    def refresh_tray_tooltip(self) -> None:
+        if not hasattr(self, "tray"):
+            return
+        self.tray.setToolTip(
+            f"{APP_NAME} 正在后台运行\n"
+            f"工作流：{workflow_preset_label(getattr(self.config, 'workflow_preset', WORKFLOW_PRESET_CUSTOM))}"
+        )
+
+    def set_workflow_preset(self, preset: str) -> None:
+        changed = apply_workflow_preset(self.config, preset)
+        self.config.save()
+        settings_window = getattr(self, "settings_window", None)
+        if settings_window is not None and hasattr(settings_window, "_refresh_workflow_controls"):
+            try:
+                settings_window._refresh_workflow_controls()
+            except Exception as exc:
+                debug_log(f"refresh settings workflow controls failed: {exc}")
+        self.refresh_tray_tooltip()
+        self.refresh_tray_menu()
+        label = workflow_preset_label(getattr(self.config, "workflow_preset", preset))
+        suffix = workflow_capture_hint(self.config)
+        self.show_tip(f"工作流已切换：{label}；{suffix}" if changed else f"工作流保持：{label}")
 
     def _hotkey_allowed(self) -> bool:
         now = time.monotonic()

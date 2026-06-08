@@ -9,6 +9,7 @@ from PyQt6.QtGui import QPainter, QPixmap
 
 from . import annotation_painter
 from ..utils import copy_pixmap_to_clipboard
+from ..workflow_presets import workflow_capture_hint
 
 
 class SelectionMixin:
@@ -50,13 +51,20 @@ class SelectionMixin:
         self.rebuild_edit_pixmap()
 
         privacy_first = bool(getattr(self.config, "workflow_privacy_first", False))
+        capture_hint = workflow_capture_hint(self.config)
         if self.config.auto_copy and not privacy_first:
             copy_pixmap_to_clipboard(self.edit_pixmap)
-            self.message = f"已复制到剪贴板：{self.edit_pixmap.width()} × {self.edit_pixmap.height()}；框内可拖动，边缘可拉伸"
+            self.message = (
+                f"已复制到剪贴板：{self.edit_pixmap.width()} × {self.edit_pixmap.height()}；"
+                f"框内可拖动，边缘可拉伸；{capture_hint}"
+            )
         elif privacy_first:
-            self.message = "隐私模式：正在识别隐私信息..."
+            self.message = f"隐私模式：正在识别隐私信息...；{capture_hint}"
         else:
-            self.message = f"已选择区域：{self.edit_pixmap.width()} × {self.edit_pixmap.height()}；框内可拖动，边缘可拉伸"
+            self.message = (
+                f"已选择区域：{self.edit_pixmap.width()} × {self.edit_pixmap.height()}；"
+                f"框内可拖动，边缘可拉伸；{capture_hint}"
+            )
         self.update_toolbar_layout()
         self.update()
 

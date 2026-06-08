@@ -15,7 +15,6 @@ from ..theme import (
     floating_bg,
     floating_border,
     floating_text,
-    handle_fill,
     overlay_dim,
     overlay_solid,
     overlay_tip_bg,
@@ -62,6 +61,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         pen_handle.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen_handle.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         self._pen_handle = pen_handle
+        self._color_handle_dot = qc("accent.base", 225)
 
         self._color_drag_active_bg = overlay_toolbar_primary_bg()
         self._color_drag_active_border = overlay_toolbar_primary_border()
@@ -430,7 +430,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
 
         if rect.width() > 120 and rect.height() > 90:
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(handle_fill())
+            painter.setBrush(self._color_handle_dot)
             size = 6
             half = size // 2
             for p in [

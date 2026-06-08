@@ -20,7 +20,7 @@ if str(ROOT) not in sys.path:
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import QPoint, QRect  # noqa: E402
-from PyQt6.QtGui import QColor, QPainter, QPixmap  # noqa: E402
+from PyQt6.QtGui import QColor, QImage, QPainter, QPixmap  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from quickshot.config import Config  # noqa: E402
@@ -164,6 +164,37 @@ class OverlayToolSmokeTest(unittest.TestCase):
         finally:
             overlay.draw_dim_outside = original
         self.assertEqual(calls, [rect])
+
+    def test_select_mode_vertical_edges_do_not_have_white_handle_stripes(self) -> None:
+        overlay = _make_overlay()
+        overlay.mode = "select"
+        overlay.selecting = True
+        overlay.start = QPoint(100, 100)
+        overlay.end = QPoint(499, 399)
+        rect = overlay.current_select_rect()
+
+        canvas = QImage(overlay.width(), overlay.height(), QImage.Format.Format_ARGB32)
+        canvas.fill(QColor(0, 0, 0))
+        painter = QPainter(canvas)
+        try:
+            overlay.paint_select_mode(painter)
+        finally:
+            painter.end()
+
+        center_y = rect.center().y()
+        white_pixels = 0
+        for x in range(rect.left() - 3, rect.left() + 4):
+            for y in range(center_y - 10, center_y + 11):
+                color = canvas.pixelColor(x, y)
+                if color.red() > 220 and color.green() > 220 and color.blue() > 220:
+                    white_pixels += 1
+        for x in range(rect.right() - 3, rect.right() + 4):
+            for y in range(center_y - 10, center_y + 11):
+                color = canvas.pixelColor(x, y)
+                if color.red() > 220 and color.green() > 220 and color.blue() > 220:
+                    white_pixels += 1
+
+        self.assertEqual(white_pixels, 0)
 
     def test_edit_mode_skips_selection_snapshot_by_default(self) -> None:
         overlay = _make_overlay()

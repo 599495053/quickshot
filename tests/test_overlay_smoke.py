@@ -66,8 +66,8 @@ def _make_select_overlay_with_horizontal_desktop_lines() -> FloatingSnipOverlay:
     painter = QPainter(raw)
     try:
         painter.fillRect(QRect(0, 0, 800, 600), QColor(60, 60, 60))
-        painter.fillRect(QRect(0, 99, 800, 1), QColor(245, 245, 245))
-        painter.fillRect(QRect(0, 400, 800, 1), QColor(245, 245, 245))
+        painter.fillRect(QRect(0, 100, 800, 1), QColor(245, 245, 245))
+        painter.fillRect(QRect(0, 399, 800, 1), QColor(245, 245, 245))
     finally:
         painter.end()
     display = raw.copy()
@@ -233,7 +233,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
         finally:
             painter.end()
 
-        for y in (rect.top() - 1, rect.bottom() + 1):
+        for y in (rect.top(), rect.bottom()):
             with self.subTest(y=y):
                 for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
                     color = canvas.pixelColor(x, y)
@@ -241,7 +241,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
                     self.assertLess(color.green(), 90)
                     self.assertLess(color.blue(), 90)
 
-        for y in (rect.top() - 2, rect.top(), rect.bottom(), rect.bottom() + 2):
+        for y in (rect.top() - 2, rect.top() - 1, rect.bottom() + 1, rect.bottom() + 2):
             with self.subTest(adjacent_y=y):
                 for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
                     color = canvas.pixelColor(x, y)

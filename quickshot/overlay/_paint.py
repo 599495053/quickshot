@@ -184,20 +184,17 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
 
     def draw_dim_edge_cleanup(self, painter: QPainter, rect: QRect, shade: QColor) -> None:
         """Hide bright desktop lines that align with selection top/bottom edges."""
-        if self.display_pixmap.isNull() or rect.width() <= 0 or rect.height() <= 0:
+        if self.raw_pixmap.isNull() or rect.width() <= 0 or rect.height() <= 0:
             return
         bounds = self.rect()
-        pixmap_rect = QRect(0, 0, self.display_pixmap.width(), self.display_pixmap.height())
-        if not pixmap_rect.contains(bounds):
-            return
-
         side_ranges = (
             (bounds.left(), max(0, rect.left() - bounds.left())),
             (rect.right() + 1, max(0, bounds.right() - rect.right())),
         )
+        sample_offset = max(2, min(8, rect.height() // 30))
         cleanup_rows = (
-            (rect.top() - 1, rect.top() - 2),
-            (rect.bottom() + 1, rect.bottom() + 2),
+            (rect.top(), rect.top() + sample_offset),
+            (rect.bottom(), rect.bottom() - sample_offset),
         )
 
         painter.save()
@@ -211,12 +208,10 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
                 target = QRect(x, target_y, width, 1).intersected(bounds)
                 if target.isNull():
                     continue
-                source = QRect(target)
-                source.moveTop(source_y)
-                source = source.intersected(pixmap_rect)
-                if source.size() != target.size():
+                source = self.logical_to_physical_rect(QRect(target.x(), source_y, target.width(), target.height()))
+                if source.width() <= 0 or source.height() <= 0:
                     continue
-                painter.drawPixmap(target, self.display_pixmap, source)
+                painter.drawPixmap(target, self.raw_pixmap, source)
                 painter.fillRect(target, shade)
         painter.restore()
 

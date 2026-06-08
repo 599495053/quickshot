@@ -11,6 +11,10 @@ Last verified: 2026-06-08
 - [x] `python -m compileall -q quickshot launcher.py build_config.py`
 - [x] `python -m pip check`
   - Result: `No broken requirements found.`
+- [x] GitHub Actions CI for the release commit passed:
+  - Run: `https://github.com/599495053/quickshot/actions/runs/27127371045`
+  - Commit: `c4cf03abe93fb22c2edf46218c0d878d0f9a4949`
+  - Result: `success`
 
 ## Build
 
@@ -87,19 +91,30 @@ Last verified: 2026-06-08
 
 ## GitHub Release Verification
 
-- [ ] GitHub Release exists:
+- [x] GitHub Release exists:
   - URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.7`
-- [ ] Downloaded `QuickShot-5.3.7-Setup.exe` from the GitHub Release.
-- [ ] Downloaded `QuickShot-5.3.7-release.txt` from the GitHub Release.
-- [ ] Installer SHA256 matches the expected release hash:
+  - Published: `2026-06-08T09:10:20Z`
+  - Draft: `false`
+  - Prerelease: `false`
+- [x] Uploaded release assets are present:
+  - `QuickShot-5.3.7-Setup.exe`: `33434302` bytes, digest `sha256:5bd5987e360832b90ea5bf1fd160b5cdc30ce954d96f2ad5b88cbb01494bb77b`
+  - `QuickShot-5.3.7-release.txt`: `488` bytes, digest `sha256:317c0f72523ee03e84a383912b8c1c11d92c3e2c0d5d9d7896371c3d3591846b`
+- [x] Downloaded `QuickShot-5.3.7-Setup.exe` from the GitHub Release.
+- [x] Downloaded `QuickShot-5.3.7-release.txt` from the GitHub Release.
+- [x] Installer SHA256 matches the expected release hash:
   - `5BD5987E360832B90EA5BF1FD160B5CDC30CE954D96F2AD5B88CBB01494BB77B`
-- [ ] Release manifest contains the same installer SHA256.
-- [ ] Silent install from the downloaded installer succeeds.
-- [ ] Default silent install does not create a desktop shortcut.
-- [ ] Default silent install does not create a Windows startup entry.
-- [ ] Installed app launches successfully from the install directory.
-- [ ] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
-- [ ] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
+- [x] Release manifest contains the same installer SHA256.
+- [x] Silent install from the downloaded installer succeeds.
+- [x] Default silent install does not create a desktop shortcut.
+- [x] Default silent install does not create a Windows startup entry.
+- [x] Installed app launches successfully from the install directory.
+- [x] Packaged privacy OCR fallback self-test passes.
+- [x] Packaged overlay edit smoke self-test passes.
+- [x] Packaged capture backend smoke self-test passes.
+- [x] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
+- [x] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
+- [x] GitHub Release installer verification passed:
+  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 -Tag v5.3.7 -ExpectedSha256 5BD5987E360832B90EA5BF1FD160B5CDC30CE954D96F2AD5B88CBB01494BB77B -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
 
 ## Known Build Notes
 
@@ -120,5 +135,5 @@ Last verified: 2026-06-08
 - [x] Decide whether to commit generated installer logs or keep them local only. Generated build output remains local and ignored.
 - [x] Run one final local installer smoke test if the installer script changes again.
 - [x] Verify region screenshot and current-window screenshot with `scripts\verify-desktop-hotkeys.ps1`.
-- [ ] Publish `installer_output\QuickShot-5.3.7-Setup.exe` and its SHA256.
-- [ ] Run GitHub Release installer verification after publishing.
+- [x] Publish `installer_output\QuickShot-5.3.7-Setup.exe` and its SHA256.
+- [x] Run GitHub Release installer verification after publishing.

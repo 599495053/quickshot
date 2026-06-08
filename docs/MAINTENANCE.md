@@ -6,7 +6,8 @@ This document tracks the next maintenance cycle after the v5.3.7 release.
 
 - Version: `v5.3.7`
 - Release URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.7`
-- Release status: local artifacts verified; GitHub Release verification pending publication
+- Release status: local artifacts verified; GitHub Release installer verification passed
+- Release published: `2026-06-08T09:10:20Z`
 - Signing status: unsigned, because no code signing certificate is configured
 
 ## Current Release Verification
@@ -16,8 +17,10 @@ These artifacts are the v5.3.7 release outputs from the current `master` branch.
 - Build command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
 - Packaged smoke/self-test command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
 - Installer verification: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
+- GitHub Release verification: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 -Tag v5.3.7 -ExpectedSha256 5BD5987E360832B90EA5BF1FD160B5CDC30CE954D96F2AD5B88CBB01494BB77B -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
 - Upgrade verification: local `v5.3.6` installer -> local `v5.3.7` installer, plus v5.3.7 same-version reinstall
 - Desktop hotkey verification: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -ExePath .\dist\QuickShot.exe -StopExisting`
+- GitHub Actions CI: `https://github.com/599495053/quickshot/actions/runs/27127371045`, result `success`
 - Signature status: `NotSigned` for both `dist\QuickShot.exe` and `installer_output\QuickShot-5.3.7-Setup.exe`
 - `dist\QuickShot.exe`: `31,654,804` bytes / `30.19 MiB`, SHA256 `B4DB6F4C1B335CA5F4267752CF28F1AEED13764F05AB24458A5D173EF19A7B41`
 - `installer_output\QuickShot-5.3.7-Setup.exe`: `33,434,302` bytes / `31.89 MiB`, SHA256 `5BD5987E360832B90EA5BF1FD160B5CDC30CE954D96F2AD5B88CBB01494BB77B`

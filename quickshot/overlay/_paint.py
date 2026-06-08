@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional, Tuple
 
 from PyQt6.QtCore import QPoint, QRect, QRectF, Qt
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen, QPixmap, QRegion
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen, QPixmap
 
 from . import annotation_painter
 from ._paint_toolbar import ToolbarPaintMixin
@@ -201,6 +201,20 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         self._dim_backdrop_cache = (key, backdrop)
         return backdrop
 
+    def outside_dim_rects(self, clear_rect: QRect) -> tuple[QRect, ...]:
+        bounds = self.rect()
+        rect = clear_rect.normalized().intersected(bounds)
+        if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
+            return (QRect(bounds),)
+
+        bands = (
+            QRect(bounds.left(), bounds.top(), bounds.width(), rect.top() - bounds.top()),
+            QRect(bounds.left(), rect.bottom() + 1, bounds.width(), bounds.bottom() - rect.bottom()),
+            QRect(bounds.left(), rect.top(), rect.left() - bounds.left(), rect.height()),
+            QRect(rect.right() + 1, rect.top(), bounds.right() - rect.right(), rect.height()),
+        )
+        return tuple(band for band in bands if not band.isNull() and band.width() > 0 and band.height() > 0)
+
     def draw_dim_outside(self, painter: QPainter, clear_rect: QRect) -> None:
         shade = self.dim_shade()
         rect = clear_rect.normalized().intersected(self.rect())
@@ -208,127 +222,26 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             painter.fillRect(self.rect(), shade)
             return
 
+        bands = self.outside_dim_rects(rect)
+        if not bands:
+            return
+
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        outside = QRegion(self.rect()).subtracted(QRegion(rect))
-        painter.setClipRegion(outside)
         blurred = self.soft_dim_backdrop_enabled() and self.dim_backdrop_downscale() > 1
         if blurred:
             backdrop = self.dim_backdrop_pixmap(self.rect())
             if not backdrop.isNull():
                 painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
                 painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-                painter.drawPixmap(self.rect(), backdrop)
+                bounds = self.rect()
+                for band in bands:
+                    source = QRect(band).translated(-bounds.left(), -bounds.top())
+                    painter.drawPixmap(band, backdrop, source)
                 painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
                 painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
-        painter.fillRect(self.rect(), shade)
-        painter.restore()
-        if not blurred:
-            self.draw_dim_edge_cleanup(painter, rect, shade)
-
-    def draw_dim_edge_cleanup(self, painter: QPainter, rect: QRect, shade: QColor) -> None:
-        """Heal outside-only 1px desktop scanlines near selection top/bottom edges."""
-        if self.raw_pixmap.isNull() or rect.width() <= 0 or rect.height() <= 0:
-            return
-        bounds = self.rect()
-        if bounds.isNull() or bounds.width() <= 0 or bounds.height() <= 0:
-            return
-        raw_key = self.raw_pixmap.cacheKey()
-        cached = getattr(self, "_dim_edge_scan_cache", None)
-        if cached is not None and cached[0] == raw_key:
-            raw_image = cached[1]
-        else:
-            raw_image = self.raw_pixmap.toImage()
-            self._dim_edge_scan_cache = (raw_key, raw_image)
-        if raw_image.isNull():
-            return
-        scale_x = max(0.001, float(getattr(self, "scale_x", 1.0)))
-        scale_y = max(0.001, float(getattr(self, "scale_y", 1.0)))
-        physical_rect = self.logical_to_physical_rect(rect)
-        if physical_rect.isNull() or physical_rect.width() <= 0 or physical_rect.height() <= 0:
-            return
-        edge_radius = min(14, max(1, raw_image.height()))
-        outside_xs = (
-            bounds.left() + 40,
-            rect.left() - 10,
-            rect.right() + 10,
-            bounds.right() - 40,
-        )
-        sample_xs = tuple(
-            max(0, min(raw_image.width() - 1, int(round(x * scale_x))))
-            for x in outside_xs
-            if bounds.left() <= x <= bounds.right() and not rect.left() <= x <= rect.right()
-        )
-        if not sample_xs:
-            return
-
-        line_cache: dict[int, bool] = {}
-
-        def pixel_diff(x: int, y1: int, y2: int) -> int:
-            c1 = raw_image.pixelColor(x, y1)
-            c2 = raw_image.pixelColor(x, y2)
-            return (
-                abs(c1.red() - c2.red())
-                + abs(c1.green() - c2.green())
-                + abs(c1.blue() - c2.blue())
-            )
-
-        def is_horizontal_scanline(physical_y: int) -> bool:
-            if physical_y in line_cache:
-                return line_cache[physical_y]
-            if physical_y <= 0 or physical_y >= raw_image.height() - 1:
-                line_cache[physical_y] = False
-                return False
-            hits = 0
-            for px in sample_xs:
-                contrast = max(
-                    pixel_diff(px, physical_y, physical_y - 1),
-                    pixel_diff(px, physical_y, physical_y + 1),
-                )
-                if contrast >= 45:
-                    hits += 1
-            line_cache[physical_y] = hits >= max(1, len(sample_xs) // 2)
-            return line_cache[physical_y]
-
-        def replacement_y(physical_y: int, direction: int) -> int:
-            max_offset = max(edge_radius * 4, 8)
-            for offset in range(edge_radius + 1, max_offset + 1):
-                candidate = physical_y + direction * offset
-                if 0 <= candidate < raw_image.height() and not is_horizontal_scanline(candidate):
-                    return candidate
-            fallback = physical_y - direction
-            return max(0, min(raw_image.height() - 1, fallback))
-
-        top_rows = range(
-            max(0, physical_rect.top() - edge_radius),
-            min(raw_image.height() - 1, physical_rect.top() + edge_radius) + 1,
-        )
-        bottom_rows = range(
-            max(0, physical_rect.bottom() - edge_radius),
-            min(raw_image.height() - 1, physical_rect.bottom() + edge_radius) + 1,
-        )
-
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
-        outside = QRegion(bounds).subtracted(QRegion(rect))
-        painter.setClipRegion(outside)
-        for physical_y in tuple(top_rows) + tuple(bottom_rows):
-            if not is_horizontal_scanline(physical_y):
-                continue
-            direction = -1 if abs(physical_y - physical_rect.top()) <= abs(physical_y - physical_rect.bottom()) else 1
-            target = QRectF(
-                float(bounds.left()),
-                physical_y / scale_y,
-                float(bounds.width()),
-                1.0 / scale_y,
-            )
-            source_y = replacement_y(physical_y, direction)
-            source = QRectF(0.0, float(source_y), float(raw_image.width()), 1.0)
-            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-            painter.drawPixmap(target, self.raw_pixmap, source)
-            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
-            painter.fillRect(target, shade)
+        for band in bands:
+            painter.fillRect(band, shade)
         painter.restore()
 
     def draw_interaction_blocker(self, painter: QPainter, rect: QRect) -> None:

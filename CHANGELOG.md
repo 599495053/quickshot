@@ -4,7 +4,14 @@ All notable changes to QuickShot are tracked here.
 
 ## Unreleased
 
-No changes yet.
+### Added
+
+- Added a settings-page workflow summary showing the current preset and Enter behavior.
+- Added a settings-page action to restore the default workflow.
+
+### Changed
+
+- Workflow changes made from settings now refresh the tray tooltip and workflow menu.
 
 ## v5.3.7 - 2026-06-08
 

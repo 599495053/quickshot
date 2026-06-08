@@ -8,6 +8,7 @@ from quickshot.config import Config
 from quickshot.workflow_presets import (
     WORKFLOW_PRESET_DEFAULT,
     apply_workflow_preset,
+    reset_workflow_defaults,
     workflow_capture_hint,
     workflow_preset_label,
     normalize_workflow_preset,
@@ -52,6 +53,29 @@ class WorkflowPresetTest(unittest.TestCase):
 
         self.assertFalse(changed)
         self.assertTrue(cfg.workflow_auto_upload)
+
+    def test_reset_workflow_defaults_restores_safe_capture_flow(self) -> None:
+        cfg = Config()
+        cfg.workflow_preset = "publish"
+        cfg.auto_copy = False
+        cfg.workflow_auto_save = True
+        cfg.workflow_auto_ocr = True
+        cfg.workflow_auto_upload = True
+        cfg.workflow_copy_markdown = True
+        cfg.workflow_privacy_first = True
+        cfg.workflow_uploader = "github"
+
+        changed = reset_workflow_defaults(cfg)
+
+        self.assertTrue(changed)
+        self.assertEqual(cfg.workflow_preset, WORKFLOW_PRESET_DEFAULT)
+        self.assertTrue(cfg.auto_copy)
+        self.assertFalse(cfg.workflow_auto_save)
+        self.assertFalse(cfg.workflow_auto_ocr)
+        self.assertFalse(cfg.workflow_auto_upload)
+        self.assertFalse(cfg.workflow_copy_markdown)
+        self.assertFalse(cfg.workflow_privacy_first)
+        self.assertEqual(cfg.workflow_uploader, "local")
 
     def test_preset_values_returns_copy(self) -> None:
         values = workflow_preset_values("privacy")

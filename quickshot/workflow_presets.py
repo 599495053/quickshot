@@ -84,6 +84,23 @@ def workflow_preset_values(preset: Any) -> dict[str, bool]:
     return dict(_PRESET_VALUES.get(normalized, {}))
 
 
+def reset_workflow_defaults(config: object) -> bool:
+    defaults = {
+        "workflow_preset": WORKFLOW_PRESET_DEFAULT,
+        "auto_copy": True,
+        "workflow_auto_save": False,
+        "workflow_auto_ocr": False,
+        "workflow_auto_upload": False,
+        "workflow_copy_markdown": False,
+        "workflow_privacy_first": False,
+        "workflow_uploader": "local",
+    }
+    changed = any(getattr(config, key, None) != value for key, value in defaults.items())
+    for key, value in defaults.items():
+        setattr(config, key, value)
+    return changed
+
+
 def workflow_preset_label(preset: Any) -> str:
     normalized = normalize_workflow_preset(preset)
     for key, label in WORKFLOW_PRESET_LABELS:

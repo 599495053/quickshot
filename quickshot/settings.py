@@ -113,6 +113,7 @@ class HotkeyCaptureEdit(QLineEdit):
 
 class SettingsWindow(SettingsHandlers, QWidget):
     hotkeys_changed = pyqtSignal()
+    workflow_changed = pyqtSignal()
     Qt_CHECKED = Qt.CheckState.Checked.value
 
     def __init__(self, config: Config) -> None:
@@ -191,6 +192,14 @@ class SettingsWindow(SettingsHandlers, QWidget):
                 break
         self.workflow_preset_combo.currentIndexChanged.connect(self.on_workflow_preset_changed)
 
+        self.workflow_reset_btn = set_button_role(QPushButton("恢复默认"), compact=True)
+        self.workflow_reset_btn.setToolTip("恢复默认工作流：截图后复制图片，关闭自动保存、OCR、上传和隐私预览。")
+        self.workflow_reset_btn.clicked.connect(self.restore_workflow_defaults)
+
+        self.workflow_summary_label = QLabel()
+        self.workflow_summary_label.setObjectName("helper")
+        self.workflow_summary_label.setWordWrap(True)
+
         self.workflow_auto_save_check = QCheckBox("截图完成后自动保存到默认目录")
         self.workflow_auto_save_check.setChecked(getattr(self.config, "workflow_auto_save", False))
         self.workflow_auto_save_check.stateChanged.connect(self.on_workflow_auto_save_changed)
@@ -221,6 +230,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
                 self.uploader_combo.setCurrentIndex(i)
                 break
         self.uploader_combo.currentIndexChanged.connect(self.on_uploader_changed)
+        self._refresh_workflow_summary()
 
     def _create_github_controls(self) -> None:
         """创建GitHub上传配置相关控件。"""
@@ -556,7 +566,13 @@ class SettingsWindow(SettingsHandlers, QWidget):
     def _build_workflow_page(self) -> QScrollArea:
         page, layout = self._page()
         workflow_card, workflow_layout = self._card("截图后自动化", "把高频后续动作交给 QuickShot。")
-        self._add_field(workflow_layout, "工作流预设", self.workflow_preset_combo)
+        preset_row = QHBoxLayout()
+        preset_row.setContentsMargins(0, 0, 0, 0)
+        preset_row.setSpacing(8)
+        preset_row.addWidget(self.workflow_preset_combo, 1)
+        preset_row.addWidget(self.workflow_reset_btn)
+        self._add_field(workflow_layout, "工作流预设", preset_row)
+        workflow_layout.addWidget(self.workflow_summary_label)
         workflow_layout.addWidget(self.workflow_auto_save_check)
         workflow_layout.addWidget(self.workflow_ocr_check)
         workflow_layout.addWidget(self.workflow_upload_check)

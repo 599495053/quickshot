@@ -112,6 +112,7 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
         _ensure_app()
         cfg = Config()
         win = SettingsWindow(cfg)
+        self.assertIn("当前：自定义", win.workflow_summary_label.text())
         for index in range(win.workflow_preset_combo.count()):
             if win.workflow_preset_combo.itemData(index) == "publish":
                 win.workflow_preset_combo.setCurrentIndex(index)
@@ -125,6 +126,8 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
         self.assertTrue(win.workflow_auto_save_check.isChecked())
         self.assertTrue(win.workflow_upload_check.isChecked())
         self.assertTrue(win.workflow_md_check.isChecked())
+        self.assertIn("发布模式", win.workflow_summary_label.text())
+        self.assertIn("保存、上传并复制 Markdown", win.workflow_summary_label.text())
 
     def test_manual_workflow_toggle_marks_custom(self):
         _ensure_app()
@@ -139,6 +142,39 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
         self.assertEqual(cfg.workflow_preset, "custom")
         self.assertEqual(win.workflow_preset_combo.currentData(), "custom")
         self.assertFalse(cfg.workflow_privacy_first)
+        self.assertIn("自定义", win.workflow_summary_label.text())
+
+    def test_restore_workflow_defaults_resets_controls_and_emits(self):
+        _ensure_app()
+        cfg = Config()
+        cfg.workflow_preset = "publish"
+        cfg.auto_copy = False
+        cfg.workflow_auto_save = True
+        cfg.workflow_auto_ocr = True
+        cfg.workflow_auto_upload = True
+        cfg.workflow_copy_markdown = True
+        cfg.workflow_privacy_first = True
+        cfg.workflow_uploader = "github"
+        win = SettingsWindow(cfg)
+        events = []
+        win.workflow_changed.connect(lambda: events.append("changed"))
+
+        win.restore_workflow_defaults()
+
+        self.assertEqual(cfg.workflow_preset, "custom")
+        self.assertTrue(cfg.auto_copy)
+        self.assertFalse(cfg.workflow_auto_save)
+        self.assertFalse(cfg.workflow_auto_ocr)
+        self.assertFalse(cfg.workflow_auto_upload)
+        self.assertFalse(cfg.workflow_copy_markdown)
+        self.assertFalse(cfg.workflow_privacy_first)
+        self.assertEqual(cfg.workflow_uploader, "local")
+        self.assertEqual(win.workflow_preset_combo.currentData(), "custom")
+        self.assertTrue(win.auto_copy_check.isChecked())
+        self.assertFalse(win.workflow_auto_save_check.isChecked())
+        self.assertEqual(win.uploader_combo.currentData(), "local")
+        self.assertIn("自动复制图片", win.workflow_summary_label.text())
+        self.assertEqual(events, ["changed"])
 
 
 class SettingsGridWatermarkColorTest(_IsolatedConfigMixin, unittest.TestCase):

@@ -435,6 +435,10 @@ class QuickShotApp(QObject):
         except Exception as exc:
             debug_log(f"refresh_tray_menu failed: {exc}")
 
+    def refresh_workflow_tray_state(self) -> None:
+        self.refresh_tray_tooltip()
+        self.refresh_tray_menu()
+
     def on_tray_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.start_region_snip()
@@ -521,6 +525,7 @@ class QuickShotApp(QObject):
             from .settings import SettingsWindow
             self.settings_window = SettingsWindow(self.config)
             self.settings_window.hotkeys_changed.connect(self.re_register_hotkeys)
+            self.settings_window.workflow_changed.connect(self.refresh_workflow_tray_state)
             self.settings_window.destroyed.connect(lambda: setattr(self, "settings_window", None))
         self.present_window(self.settings_window, "show_settings")
 

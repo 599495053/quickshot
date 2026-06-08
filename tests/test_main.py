@@ -78,6 +78,19 @@ class FallbackModifierPollingTest(unittest.TestCase):
 
 class WorkflowPresetTrayTest(unittest.TestCase):
 
+    def test_refresh_workflow_tray_state_refreshes_tooltip_and_menu(self) -> None:
+        from quickshot.main import QuickShotApp
+
+        events: list[str] = []
+        app = SimpleNamespace(
+            refresh_tray_tooltip=lambda: events.append("tooltip"),
+            refresh_tray_menu=lambda: events.append("menu"),
+        )
+
+        QuickShotApp.refresh_workflow_tray_state(app)
+
+        self.assertEqual(events, ["tooltip", "menu"])
+
     def test_set_workflow_preset_applies_saves_and_refreshes(self) -> None:
         from quickshot.main import QuickShotApp
 

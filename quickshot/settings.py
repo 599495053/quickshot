@@ -26,6 +26,7 @@ from .history import CaptureHistoryStore
 from .theme import settings_extras_stylesheet
 from .ui import APP_STYLE, make_card, set_button_role
 from .utils import APP_NAME, APP_VERSION, load_app_icon
+from .workflow_presets import WORKFLOW_PRESET_LABELS, normalize_workflow_preset
 
 
 class HotkeyCaptureEdit(QLineEdit):
@@ -179,6 +180,21 @@ class SettingsWindow(SettingsHandlers, QWidget):
 
     def _create_workflow_controls(self) -> None:
         """创建工作流自动化相关控件。"""
+        self.workflow_preset_combo = QComboBox()
+        _disable_wheel(self.workflow_preset_combo)
+        for preset, label in WORKFLOW_PRESET_LABELS:
+            self.workflow_preset_combo.addItem(label, preset)
+        current_preset = normalize_workflow_preset(getattr(self.config, "workflow_preset", "custom"))
+        for i in range(self.workflow_preset_combo.count()):
+            if self.workflow_preset_combo.itemData(i) == current_preset:
+                self.workflow_preset_combo.setCurrentIndex(i)
+                break
+        self.workflow_preset_combo.currentIndexChanged.connect(self.on_workflow_preset_changed)
+
+        self.workflow_auto_save_check = QCheckBox("截图完成后自动保存到默认目录")
+        self.workflow_auto_save_check.setChecked(getattr(self.config, "workflow_auto_save", False))
+        self.workflow_auto_save_check.stateChanged.connect(self.on_workflow_auto_save_changed)
+
         self.workflow_ocr_check = QCheckBox("截图完成后自动 OCR 并把文本写入剪贴板（会覆盖图片）")
         self.workflow_ocr_check.setChecked(getattr(self.config, "workflow_auto_ocr", False))
         self.workflow_ocr_check.stateChanged.connect(self.on_workflow_ocr_changed)
@@ -190,6 +206,10 @@ class SettingsWindow(SettingsHandlers, QWidget):
         self.workflow_md_check = QCheckBox("上传成功后自动复制 Markdown 链接")
         self.workflow_md_check.setChecked(getattr(self.config, "workflow_copy_markdown", False))
         self.workflow_md_check.stateChanged.connect(self.on_workflow_md_changed)
+
+        self.workflow_privacy_check = QCheckBox("截图后优先进入智能隐私打码预览")
+        self.workflow_privacy_check.setChecked(getattr(self.config, "workflow_privacy_first", False))
+        self.workflow_privacy_check.stateChanged.connect(self.on_workflow_privacy_changed)
 
         self.uploader_combo = QComboBox()
         _disable_wheel(self.uploader_combo)
@@ -536,11 +556,16 @@ class SettingsWindow(SettingsHandlers, QWidget):
     def _build_workflow_page(self) -> QScrollArea:
         page, layout = self._page()
         workflow_card, workflow_layout = self._card("截图后自动化", "把高频后续动作交给 QuickShot。")
+        self._add_field(workflow_layout, "工作流预设", self.workflow_preset_combo)
+        workflow_layout.addWidget(self.workflow_auto_save_check)
         workflow_layout.addWidget(self.workflow_ocr_check)
         workflow_layout.addWidget(self.workflow_upload_check)
         workflow_layout.addWidget(self.workflow_md_check)
+        workflow_layout.addWidget(self.workflow_privacy_check)
         self._add_field(workflow_layout, "上传到", self.uploader_combo)
-        workflow_layout.addWidget(self._helper("自动 OCR 会把识别文本写入剪贴板；自动上传开启后才会使用上传器配置。"))
+        workflow_layout.addWidget(self._helper(
+            "快速复制只写入剪贴板；自动保存写入默认目录；识文模式复制文本；发布模式保存、上传并复制 Markdown；隐私模式先进入智能打码预览。"
+        ))
         page.addWidget(workflow_card)
 
         github_card, github_layout = self._card("GitHub 上传器", "仅在上传器选择 GitHub 仓库时生效。")

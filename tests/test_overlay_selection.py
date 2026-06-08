@@ -6,6 +6,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -284,6 +285,23 @@ class EnterEditModeTest(unittest.TestCase):
         ov.active_tool = "arrow"
         ov.enter_edit_mode(QRect(100, 100, 300, 200), QRect(100, 100, 300, 200))
         self.assertEqual(ov.active_tool, "none")
+
+    def test_privacy_first_skips_auto_copy_and_starts_detection(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov.config.auto_copy = True
+        ov.config.workflow_privacy_first = True
+        calls = []
+        ov.apply_mosaic_to_selection = lambda: calls.append(True)
+
+        with (
+            patch("quickshot.overlay._selection.copy_pixmap_to_clipboard") as copy_clipboard,
+            patch("PyQt6.QtCore.QTimer.singleShot", side_effect=lambda _ms, callback: callback()),
+        ):
+            ov.enter_edit_mode(QRect(100, 100, 300, 200), QRect(100, 100, 300, 200))
+
+        copy_clipboard.assert_not_called()
+        self.assertEqual(calls, [True])
 
 
 # ═══════════════════════════════════════════════════════════════════

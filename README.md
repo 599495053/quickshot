@@ -114,6 +114,7 @@ Get-FileHash .\QuickShot-5.3.5-Setup.exe -Algorithm SHA256
 
 ### 截图后工作流
 
+- 设置页提供“快速复制 / 自动保存 / 识文模式 / 发布模式 / 隐私模式”预设，可一键切换常见截图完成后的动作组合。
 - 截图完成后可自动上传到本地归档或 GitHub 仓库。
 - 上传成功后可自动复制 Markdown 链接。
 - GitHub Personal Access Token 通过系统凭据管理器保存。
@@ -168,7 +169,7 @@ python -m pytest -q
 
 当前验证规模：
 
-- `505 passed`
+- `517 passed`
 - `37 subtests passed`
 
 ## 打包与发布

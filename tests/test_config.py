@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import tempfile
@@ -125,6 +124,12 @@ class ConfigTest(unittest.TestCase):
         cfg2 = Config()
         self.assertFalse(cfg2.workflow_auto_upload)
 
+    def test_workflow_new_flags_default_safe(self) -> None:
+        cfg = Config()
+        self.assertEqual(cfg.workflow_preset, "custom")
+        self.assertFalse(cfg.workflow_auto_save)
+        self.assertFalse(cfg.workflow_privacy_first)
+
     def test_workflow_copy_markdown_roundtrip(self) -> None:
         cfg = Config()
         cfg.workflow_copy_markdown = True
@@ -139,12 +144,28 @@ class ConfigTest(unittest.TestCase):
         cfg2 = Config()
         self.assertEqual(cfg2.workflow_uploader, "local")
 
+    def test_workflow_preset_roundtrip_applies_values(self) -> None:
+        cfg = Config()
+        cfg.workflow_preset = "privacy"
+        cfg.save()
+        cfg2 = Config()
+        self.assertEqual(cfg2.workflow_preset, "privacy")
+        self.assertTrue(cfg2.workflow_privacy_first)
+        self.assertFalse(cfg2.auto_copy)
+
+    def test_invalid_workflow_preset_falls_back_to_custom(self) -> None:
+        cfg = Config()
+        cfg.import_from_dict({"workflow_preset": "unknown"})
+        self.assertEqual(cfg.workflow_preset, "custom")
+
     def test_to_dict_contains_all_serializable_fields(self) -> None:
         cfg = Config()
         d = cfg.to_dict()
         # 关键字段必须存在
         for key in ("save_dir", "auto_copy", "history_limit", "region_hotkey",
-                     "workflow_auto_upload", "github_branch"):
+                     "workflow_preset", "workflow_auto_save",
+                     "workflow_auto_upload", "workflow_privacy_first",
+                     "github_branch"):
             self.assertIn(key, d)
         # 运行时字段不应出现
         self.assertNotIn("app_dir", d)

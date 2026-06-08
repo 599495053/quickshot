@@ -49,16 +49,24 @@ class SelectionMixin:
         self._edit_entered_at = time.monotonic()
         self.rebuild_edit_pixmap()
 
-        if self.config.auto_copy:
+        privacy_first = bool(getattr(self.config, "workflow_privacy_first", False))
+        if self.config.auto_copy and not privacy_first:
             copy_pixmap_to_clipboard(self.edit_pixmap)
             self.message = f"已复制到剪贴板：{self.edit_pixmap.width()} × {self.edit_pixmap.height()}；框内可拖动，边缘可拉伸"
+        elif privacy_first:
+            self.message = "隐私模式：正在识别隐私信息..."
         else:
             self.message = f"已选择区域：{self.edit_pixmap.width()} × {self.edit_pixmap.height()}；框内可拖动，边缘可拉伸"
         self.update_toolbar_layout()
         self.update()
 
+        if privacy_first and hasattr(self, "apply_mosaic_to_selection"):
+            if getattr(self, 'auto_ocr', False):
+                self.auto_ocr = False
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(200, self.apply_mosaic_to_selection)
         # 自动 OCR 模式
-        if getattr(self, 'auto_ocr', False):
+        elif getattr(self, 'auto_ocr', False):
             self.auto_ocr = False
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(200, self.recognize_current_text)

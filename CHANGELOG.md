@@ -4,7 +4,23 @@ All notable changes to QuickShot are tracked here.
 
 ## Unreleased
 
-- No changes yet.
+### Added
+
+- Added screenshot workflow presets for quick copy, auto save, OCR, publish, and privacy-first capture flows.
+- Added silent default-directory auto-save for post-capture workflows.
+
+### Changed
+
+- Privacy-first workflows now start smart masking review before copying any unmasked screenshot to the clipboard.
+
+### Verified
+
+- `python -m pyflakes quickshot launcher.py build_config.py`
+- `python -m compileall -q quickshot launcher.py build_config.py`
+- `python -m pyflakes quickshot tests\test_workflow_presets.py tests\test_config.py tests\test_settings.py tests\test_overlay_export.py tests\test_overlay_selection.py tests\test_pipeline.py`
+- `python -m compileall -q quickshot tests\test_workflow_presets.py tests\test_config.py tests\test_settings.py tests\test_overlay_export.py tests\test_overlay_selection.py tests\test_pipeline.py`
+- `python -m pytest -q tests\test_workflow_presets.py tests\test_config.py tests\test_settings.py tests\test_settings_extended.py tests\test_overlay_export.py tests\test_overlay_selection.py tests\test_pipeline.py`: `125 passed, 4 subtests passed`
+- `python -m pytest -q`: `517 passed, 37 subtests passed`
 
 ## v5.3.5 - 2026-06-08
 

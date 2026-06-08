@@ -6,6 +6,11 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List
 
 from .utils import APP_NAME, REG_NAME, REG_RUN_PATH, debug_log
+from .workflow_presets import (
+    WORKFLOW_PRESET_DEFAULT,
+    apply_workflow_preset,
+    normalize_workflow_preset,
+)
 
 
 def _clamp_int(low: int, high: int) -> Callable[[Any], int]:
@@ -27,6 +32,10 @@ def _presets_loader(v: Any) -> List[dict]:
     if isinstance(v, list) and v:
         return v
     return None
+
+
+def _workflow_preset_loader(v: Any) -> str:
+    return normalize_workflow_preset(v)
 
 
 # 不参与序列化的运行时字段名
@@ -69,9 +78,15 @@ class Config:
     grid_color: str = "#ffffff80"
     watermark_color: str = "#ffffff40"
     # 工作流配置
+    workflow_preset: str = field(
+        default=WORKFLOW_PRESET_DEFAULT,
+        metadata={"loader": _workflow_preset_loader},
+    )
+    workflow_auto_save: bool = False
     workflow_auto_ocr: bool = False
     workflow_auto_upload: bool = False
     workflow_copy_markdown: bool = False
+    workflow_privacy_first: bool = False
     workflow_uploader: str = "local"
     # GitHub 上传器配置（token 不存这里，存 keyring）
     github_owner: str = ""
@@ -125,6 +140,7 @@ class Config:
                 else:
                     value = raw
                 setattr(self, f.name, value)
+            self._apply_loaded_workflow_preset()
         except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
             debug_log(f"config load failed: {exc}")
 
@@ -167,7 +183,15 @@ class Config:
             else:
                 value = raw
             setattr(self, f.name, value)
+        self._apply_loaded_workflow_preset()
         self.save()
+
+    def _apply_loaded_workflow_preset(self) -> None:
+        self.workflow_preset = normalize_workflow_preset(
+            getattr(self, "workflow_preset", WORKFLOW_PRESET_DEFAULT)
+        )
+        if self.workflow_preset != WORKFLOW_PRESET_DEFAULT:
+            apply_workflow_preset(self, self.workflow_preset)
 
     # ── 路径辅助 ──
 

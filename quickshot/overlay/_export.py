@@ -51,9 +51,32 @@ class ExportMixin:
             self.message = "请先按 Enter 应用智能打码预览，或按 Esc 取消"
             self.update()
             return
+        auto_save = bool(getattr(self.config, "workflow_auto_save", False))
+        auto_ocr = bool(getattr(self.config, "workflow_auto_ocr", False))
+        if auto_save and not self.edit_pixmap.isNull():
+            saved_path = self._save_current_to_default_dir(run_pipeline=False)
+            if not saved_path:
+                return
+            self._maybe_run_post_capture_pipeline(saved_path=saved_path)
+            if auto_ocr and not self.ocr_running():
+                self.message = "已保存，正在识别文字..."
+                self.update()
+
+                def _close_after_saved_ocr(_ok: bool) -> None:
+                    try:
+                        self.close()
+                    except Exception as exc:  # noqa: BLE001
+                        debug_log(f"close after saved silent OCR failed: {exc}")
+
+                started = self.start_silent_auto_ocr(on_done=_close_after_saved_ocr)
+                if not started:
+                    self.close()
+                return
+            self.close()
+            return
         # 自动 OCR 时延迟关闭，避免 close 后 OCR 写剪贴板被系统覆盖
         if (
-            getattr(self.config, "workflow_auto_ocr", False)
+            auto_ocr
             and not self.edit_pixmap.isNull()
             and not self.ocr_running()
         ):
@@ -96,6 +119,79 @@ class ExportMixin:
         ".bmp": ("BMP", "BMP"),
     }
 
+    def _default_save_path(self) -> tuple[str, str, str]:
+        save_dir = Path(self.config.ensure_save_dir())
+        default_fmt = str(getattr(self.config, "save_format", "png") or "png").lower()
+        if default_fmt == "jpeg":
+            default_fmt = "jpg"
+        ext = f".{default_fmt}"
+        fmt_name, qt_fmt = self._FORMAT_MAP.get(ext, ("PNG", "PNG"))
+        if ext not in self._FORMAT_MAP:
+            ext = ".png"
+        stem = datetime.datetime.now().strftime("screenshot_%Y%m%d_%H%M%S")
+        filepath = save_dir / f"{stem}{ext}"
+        counter = 1
+        while filepath.exists():
+            filepath = save_dir / f"{stem}_{counter:03d}{ext}"
+            counter += 1
+        return str(filepath), fmt_name, qt_fmt
+
+    def _resolve_save_format(self, filepath: str, selected_filter: str = "") -> tuple[str, str, str]:
+        ext = Path(filepath).suffix.lower()
+        fmt_info = self._FORMAT_MAP.get(ext)
+        if fmt_info is None:
+            if "JPEG" in selected_filter:
+                ext = ".jpg"
+                fmt_info = ("JPEG", "JPEG")
+            elif "WebP" in selected_filter:
+                ext = ".webp"
+                fmt_info = ("WebP", "WEBP")
+            elif "BMP" in selected_filter:
+                ext = ".bmp"
+                fmt_info = ("BMP", "BMP")
+            else:
+                ext = ".png"
+                fmt_info = ("PNG", "PNG")
+            if not filepath.lower().endswith(ext):
+                filepath += ext
+        fmt_name, qt_fmt = fmt_info
+        return filepath, fmt_name, qt_fmt
+
+    def _save_current_to_path(
+        self,
+        filepath: str,
+        fmt_name: str,
+        qt_fmt: str,
+        *,
+        run_pipeline: bool = True,
+    ) -> bool:
+        quality = -1
+        if qt_fmt == "JPEG":
+            quality = getattr(self.config, "jpeg_quality", 90)
+        try:
+            Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+            saved = self.edit_pixmap.save(filepath, qt_fmt, quality)
+            if not saved:
+                raise RuntimeError("pixmap.save returned False")
+            self.record_capture_history("save")
+            self.message = f"已保存（{fmt_name}）：{filepath}"
+            self.maybe_notify(f"已保存：{Path(filepath).name}")
+            if run_pipeline:
+                self._maybe_run_post_capture_pipeline(saved_path=filepath)
+            self.update()
+            return True
+        except Exception as exc:
+            debug_log(f"save_current failed: {exc}")
+            self.message = compact_error_message("保存失败", exc)
+            self.update()
+            return False
+
+    def _save_current_to_default_dir(self, *, run_pipeline: bool = True) -> str:
+        filepath, fmt_name, qt_fmt = self._default_save_path()
+        if self._save_current_to_path(filepath, fmt_name, qt_fmt, run_pipeline=run_pipeline):
+            return filepath
+        return ""
+
     def save_current(self) -> None:
         if self.edit_pixmap.isNull():
             return
@@ -121,41 +217,8 @@ class ExportMixin:
         except Exception as exc:
             debug_log(f"regrabKeyboard after save dialog failed: {exc}")
         if filepath:
-            # 根据文件扩展名确定格式
-            ext = Path(filepath).suffix.lower()
-            fmt_info = self._FORMAT_MAP.get(ext)
-            if fmt_info is None:
-                # 用户没写扩展名或写了未知扩展名，按 filter 推断
-                if "JPEG" in selected_filter:
-                    ext = ".jpg"
-                    fmt_info = ("JPEG", "JPEG")
-                elif "WebP" in selected_filter:
-                    ext = ".webp"
-                    fmt_info = ("WebP", "WEBP")
-                elif "BMP" in selected_filter:
-                    ext = ".bmp"
-                    fmt_info = ("BMP", "BMP")
-                else:
-                    ext = ".png"
-                    fmt_info = ("PNG", "PNG")
-                if not filepath.lower().endswith(ext):
-                    filepath += ext
-            fmt_name, qt_fmt = fmt_info
-            quality = -1  # 默认质量
-            if qt_fmt == "JPEG":
-                quality = getattr(self.config, "jpeg_quality", 90)
-            try:
-                saved = self.edit_pixmap.save(filepath, qt_fmt, quality)
-                if not saved:
-                    raise RuntimeError("pixmap.save returned False")
-                self.record_capture_history("save")
-                self.message = f"已保存（{fmt_name}）：{filepath}"
-                self.maybe_notify(f"已保存：{Path(filepath).name}")
-                self._maybe_run_post_capture_pipeline(saved_path=filepath)
-            except Exception as exc:
-                debug_log(f"save_current failed: {exc}")
-                self.message = compact_error_message("保存失败", exc)
-            self.update()
+            filepath, fmt_name, qt_fmt = self._resolve_save_format(filepath, selected_filter)
+            self._save_current_to_path(filepath, fmt_name, qt_fmt)
 
     def pin_current(self) -> None:
         if self.edit_pixmap.isNull():

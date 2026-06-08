@@ -7,6 +7,11 @@ from pathlib import Path
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 from .hotkey_util import validate_hotkey
+from .workflow_presets import (
+    WORKFLOW_PRESET_DEFAULT,
+    apply_workflow_preset,
+    normalize_workflow_preset,
+)
 
 
 class SettingsHandlers:
@@ -20,6 +25,21 @@ class SettingsHandlers:
                 combo.setCurrentIndex(i)
                 return
 
+    def _set_combo_data_silently(self, combo, value) -> None:
+        combo.blockSignals(True)
+        try:
+            self._set_combo_data(combo, value)
+        finally:
+            combo.blockSignals(False)
+
+    @staticmethod
+    def _set_check_silently(checkbox, checked: bool) -> None:
+        checkbox.blockSignals(True)
+        try:
+            checkbox.setChecked(bool(checked))
+        finally:
+            checkbox.blockSignals(False)
+
     # ── 通用设置回调 ──
 
     def choose_save_dir(self) -> None:
@@ -31,6 +51,7 @@ class SettingsHandlers:
 
     def on_auto_copy_changed(self, state: int) -> None:
         self.config.auto_copy = state == self.Qt_CHECKED
+        self._mark_workflow_custom()
         self._schedule_save()
 
     def on_save_mode_changed(self, index: int) -> None:
@@ -88,16 +109,76 @@ class SettingsHandlers:
 
     # ── 工作流回调 ──
 
+    def _refresh_workflow_controls(self) -> None:
+        self._syncing_workflow_controls = True
+        try:
+            self._set_combo_data_silently(
+                self.workflow_preset_combo,
+                normalize_workflow_preset(getattr(self.config, "workflow_preset", WORKFLOW_PRESET_DEFAULT)),
+            )
+            self._set_check_silently(self.auto_copy_check, getattr(self.config, "auto_copy", True))
+            self._set_check_silently(
+                self.workflow_auto_save_check,
+                getattr(self.config, "workflow_auto_save", False),
+            )
+            self._set_check_silently(self.workflow_ocr_check, getattr(self.config, "workflow_auto_ocr", False))
+            self._set_check_silently(
+                self.workflow_upload_check,
+                getattr(self.config, "workflow_auto_upload", False),
+            )
+            self._set_check_silently(
+                self.workflow_md_check,
+                getattr(self.config, "workflow_copy_markdown", False),
+            )
+            self._set_check_silently(
+                self.workflow_privacy_check,
+                getattr(self.config, "workflow_privacy_first", False),
+            )
+            self._set_combo_data_silently(self.uploader_combo, getattr(self.config, "workflow_uploader", "local"))
+        finally:
+            self._syncing_workflow_controls = False
+
+    def _mark_workflow_custom(self) -> None:
+        if getattr(self, "_syncing_workflow_controls", False):
+            return
+        if getattr(self.config, "workflow_preset", WORKFLOW_PRESET_DEFAULT) == WORKFLOW_PRESET_DEFAULT:
+            return
+        self.config.workflow_preset = WORKFLOW_PRESET_DEFAULT
+        combo = getattr(self, "workflow_preset_combo", None)
+        if combo is not None:
+            self._set_combo_data_silently(combo, WORKFLOW_PRESET_DEFAULT)
+
+    def on_workflow_preset_changed(self, index: int) -> None:
+        preset = normalize_workflow_preset(self.workflow_preset_combo.itemData(index))
+        self.config.workflow_preset = preset
+        if preset != WORKFLOW_PRESET_DEFAULT:
+            apply_workflow_preset(self.config, preset)
+            self._refresh_workflow_controls()
+        self._schedule_save()
+
+    def on_workflow_auto_save_changed(self, state: int) -> None:
+        self.config.workflow_auto_save = state == self.Qt_CHECKED
+        self._mark_workflow_custom()
+        self._schedule_save()
+
     def on_workflow_ocr_changed(self, state: int) -> None:
         self.config.workflow_auto_ocr = state == self.Qt_CHECKED
+        self._mark_workflow_custom()
         self._schedule_save()
 
     def on_workflow_upload_changed(self, state: int) -> None:
         self.config.workflow_auto_upload = state == self.Qt_CHECKED
+        self._mark_workflow_custom()
         self._schedule_save()
 
     def on_workflow_md_changed(self, state: int) -> None:
         self.config.workflow_copy_markdown = state == self.Qt_CHECKED
+        self._mark_workflow_custom()
+        self._schedule_save()
+
+    def on_workflow_privacy_changed(self, state: int) -> None:
+        self.config.workflow_privacy_first = state == self.Qt_CHECKED
+        self._mark_workflow_custom()
         self._schedule_save()
 
     def on_uploader_changed(self, index: int) -> None:
@@ -380,11 +461,7 @@ class SettingsHandlers:
         bulk_data.update(hotkey_data)
         self.config.import_from_dict(bulk_data)
         self.save_dir_edit.setText(self.config.save_dir)
-        self.auto_copy_check.setChecked(self.config.auto_copy)
-        self.workflow_ocr_check.setChecked(self.config.workflow_auto_ocr)
-        self.workflow_upload_check.setChecked(self.config.workflow_auto_upload)
-        self.workflow_md_check.setChecked(self.config.workflow_copy_markdown)
-        self._set_combo_data(self.uploader_combo, self.config.workflow_uploader)
+        self._refresh_workflow_controls()
         self.github_owner_edit.setText(self.config.github_owner)
         self.github_repo_edit.setText(self.config.github_repo)
         self.github_branch_edit.setText(self.config.github_branch)

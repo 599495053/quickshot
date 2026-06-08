@@ -108,6 +108,38 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
         self.assertEqual(win.settings_stack.currentIndex(), 3)
         self.assertIn("箭头=A", win.edit_tool_hotkey_summary_label.text())
 
+    def test_workflow_preset_updates_controls(self):
+        _ensure_app()
+        cfg = Config()
+        win = SettingsWindow(cfg)
+        for index in range(win.workflow_preset_combo.count()):
+            if win.workflow_preset_combo.itemData(index) == "publish":
+                win.workflow_preset_combo.setCurrentIndex(index)
+                break
+
+        self.assertEqual(cfg.workflow_preset, "publish")
+        self.assertTrue(cfg.workflow_auto_save)
+        self.assertTrue(cfg.workflow_auto_upload)
+        self.assertTrue(cfg.workflow_copy_markdown)
+        self.assertFalse(cfg.auto_copy)
+        self.assertTrue(win.workflow_auto_save_check.isChecked())
+        self.assertTrue(win.workflow_upload_check.isChecked())
+        self.assertTrue(win.workflow_md_check.isChecked())
+
+    def test_manual_workflow_toggle_marks_custom(self):
+        _ensure_app()
+        cfg = Config()
+        win = SettingsWindow(cfg)
+        for index in range(win.workflow_preset_combo.count()):
+            if win.workflow_preset_combo.itemData(index) == "privacy":
+                win.workflow_preset_combo.setCurrentIndex(index)
+                break
+        win.workflow_privacy_check.setChecked(False)
+
+        self.assertEqual(cfg.workflow_preset, "custom")
+        self.assertEqual(win.workflow_preset_combo.currentData(), "custom")
+        self.assertFalse(cfg.workflow_privacy_first)
+
 
 class SettingsGridWatermarkColorTest(_IsolatedConfigMixin, unittest.TestCase):
 

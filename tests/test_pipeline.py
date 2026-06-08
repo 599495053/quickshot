@@ -284,6 +284,10 @@ class PostCaptureEntryTest(unittest.TestCase):
     def test_should_run_post_capture_false_by_default(self) -> None:
         self.assertFalse(should_run_post_capture(self.config))
 
+    def test_should_run_post_capture_ignores_auto_save(self) -> None:
+        self.config.workflow_auto_save = True
+        self.assertFalse(should_run_post_capture(self.config))
+
     def test_should_run_post_capture_true_when_upload_enabled(self) -> None:
         self.config.workflow_auto_upload = True
         self.assertTrue(should_run_post_capture(self.config))

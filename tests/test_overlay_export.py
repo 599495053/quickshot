@@ -80,6 +80,22 @@ class SaveCurrentTest(unittest.TestCase):
             self.assertTrue(Path(filepath).exists(), f"PNG not saved to {filepath}")
             self.assertIn("已保存", ov.message)
 
+    def test_finish_auto_save_writes_default_dir(self):
+        ov = _make_overlay()
+        with tempfile.TemporaryDirectory() as tmp:
+            ov.config.save_dir = tmp
+            ov.config.save_format = "png"
+            ov.config.workflow_auto_save = True
+            closed = []
+            ov.close = lambda: closed.append(True)
+
+            ov.finish()
+
+            files = list(Path(tmp).glob("screenshot_*.png"))
+            self.assertEqual(len(files), 1)
+            self.assertEqual(closed, [True])
+            self.assertIn("已保存", ov.message)
+
 
 class RecordCaptureHistoryTest(unittest.TestCase):
 

@@ -167,20 +167,27 @@ class ConfigWorkflowTest(unittest.TestCase):
 
     def test_workflow_defaults(self):
         cfg = Config()
+        self.assertEqual(cfg.workflow_preset, "custom")
+        self.assertFalse(cfg.workflow_auto_save)
         self.assertFalse(cfg.workflow_auto_ocr)
         self.assertFalse(cfg.workflow_auto_upload)
         self.assertFalse(cfg.workflow_copy_markdown)
+        self.assertFalse(cfg.workflow_privacy_first)
         self.assertEqual(cfg.workflow_uploader, "local")
 
     def test_workflow_roundtrip(self):
         cfg = Config()
+        cfg.workflow_auto_save = True
         cfg.workflow_auto_ocr = True
         cfg.workflow_auto_upload = True
+        cfg.workflow_privacy_first = True
         cfg.workflow_uploader = "github"
         cfg.save()
         cfg2 = Config()
+        self.assertTrue(cfg2.workflow_auto_save)
         self.assertTrue(cfg2.workflow_auto_ocr)
         self.assertTrue(cfg2.workflow_auto_upload)
+        self.assertTrue(cfg2.workflow_privacy_first)
         self.assertEqual(cfg2.workflow_uploader, "github")
 
 

@@ -252,6 +252,7 @@ class FloatingSnipOverlay(
             self.grabKeyboard()
         except Exception as exc:
             debug_log(f"grabKeyboard failed: {exc}")
+        self._schedule_snap_prewarm()
 
 
     def closeEvent(self, event) -> None:
@@ -474,6 +475,13 @@ class FloatingSnipOverlay(
         self.draw_snap_guides(painter)
         self.draw_selection_border(painter, rect)
         self.draw_handles(painter, rect)
+        physical_rect = self.logical_to_physical_rect(rect)
+        self.draw_size_label(
+            painter,
+            rect,
+            max(1, physical_rect.width()),
+            max(1, physical_rect.height()),
+        )
 
     def paint_edit_mode(self, painter: QPainter) -> None:
         if self.selection_rect.isNull() or self.edit_pixmap.isNull():

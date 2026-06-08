@@ -140,10 +140,11 @@ class EventMixin:
         self.start = pos
         self.end = pos
         self.selecting = True
-        # 首次拖拽时加载可吸附窗口列表
+        self._snap_edges = []
+        # 吸附窗口列表由覆盖层空闲预热；鼠标按下保持轻量，避免第一帧拖动卡顿。
         if getattr(self.config, 'snap_to_windows', True) and not self._snap_windows_loaded:
-            self._refresh_snap_windows()
-        self.update()
+            self._schedule_snap_prewarm(80)
+        self.request_frame_update()
 
     def _handle_ocr_running_click(self, pos: QPoint) -> bool:
         """OCR运行中时的点击处理。返回True表示已处理。"""
@@ -287,27 +288,40 @@ class EventMixin:
         pos = self.clamp_point(event.position().toPoint())
         if self.mode == "select" and self.selecting:
             old_rect = QRect(self.current_select_rect())
+            old_edges = list(self._snap_edges)
+            new_end = QPoint(pos)
+            new_edges = []
+            if (
+                getattr(self.config, 'snap_to_windows', True)
+                and not self._snap_windows_loaded
+                and not getattr(self, "_snap_refresh_pending", False)
+            ):
+                self._schedule_snap_prewarm(80)
             # 应用窗口吸附
             if self._snap_window_logical_rects:
                 raw_rect = QRect(self.start, pos).normalized()
                 snapped_rect, snap_edges = self._apply_snap(raw_rect)
-                self._snap_edges = snap_edges
+                new_edges = snap_edges
                 if snapped_rect.width() > 0 and snapped_rect.height() > 0:
                     # 根据鼠标拖拽方向选择吸附矩形的对应角点作为 end
                     if pos.x() >= self.start.x():
                         if pos.y() >= self.start.y():
-                            self.end = snapped_rect.bottomRight()
+                            new_end = snapped_rect.bottomRight()
                         else:
-                            self.end = snapped_rect.topRight()
+                            new_end = snapped_rect.topRight()
                     else:
                         if pos.y() >= self.start.y():
-                            self.end = snapped_rect.bottomLeft()
+                            new_end = snapped_rect.bottomLeft()
                         else:
-                            self.end = snapped_rect.topLeft()
-            else:
-                self.end = pos
-                self._snap_edges = []
-            dirty = self.selection_frame_dirty_rect(old_rect, self.current_select_rect())
+                            new_end = snapped_rect.topLeft()
+            if new_end == self.end and new_edges == old_edges:
+                return
+            self.end = new_end
+            self._snap_edges = new_edges
+            new_rect = self.current_select_rect()
+            if new_rect == old_rect and new_edges == old_edges:
+                return
+            dirty = self.selection_frame_dirty_rect(old_rect, new_rect)
             self.request_frame_update(dirty)
             return
 
@@ -395,6 +409,8 @@ class EventMixin:
             logical_rect = self.current_select_rect()
             self.selecting = False
             self._snap_windows_loaded = False
+            self._snap_refresh_pending = False
+            self._snap_window_logical_rects = []
             physical_rect = self.logical_to_physical_rect(logical_rect)
             if physical_rect.width() < 8 or physical_rect.height() < 8:
                 self.close()

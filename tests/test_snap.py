@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -27,6 +27,9 @@ class MockOverlay:
         self._snap_window_logical_rects = []
         self._snap_edges = []
         self._snap_windows_loaded = False
+        self._snap_refresh_pending = False
+        self.mode = "select"
+        self.selecting = False
 
         class Config:
             snap_to_windows = True
@@ -56,6 +59,8 @@ class ApplySnapTest(unittest.TestCase):
         self.overlay._apply_snap = SnapMixin._apply_snap.__get__(self.overlay)
         self.overlay._refresh_snap_windows = SnapMixin._refresh_snap_windows.__get__(self.overlay)
         self.overlay._init_snap_state = SnapMixin._init_snap_state.__get__(self.overlay)
+        self.overlay._schedule_snap_prewarm = SnapMixin._schedule_snap_prewarm.__get__(self.overlay)
+        self.overlay._run_snap_prewarm = SnapMixin._run_snap_prewarm.__get__(self.overlay)
         self.overlay._init_snap_state()
 
     def test_no_windows_returns_original(self):
@@ -130,6 +135,60 @@ class ApplySnapTest(unittest.TestCase):
         self.assertEqual(result.left(), 100)   # 吸附到 Win1
         self.assertEqual(result.top(), 100)    # 吸附到 Win1
         self.assertEqual(result.bottom(), 599)  # 吸附到 Win2
+
+    def test_schedule_snap_prewarm_uses_timer_once(self):
+        """预热应只排队一次，避免重复枚举窗口。"""
+        with patch("quickshot.overlay._snap.QTimer.singleShot") as single_shot:
+            self.overlay._schedule_snap_prewarm(40)
+            self.overlay._schedule_snap_prewarm(40)
+
+        self.assertTrue(self.overlay._snap_refresh_pending)
+        single_shot.assert_called_once()
+
+    def test_schedule_snap_prewarm_skips_edit_mode(self):
+        """非选择模式不应排队吸附预热。"""
+        self.overlay.mode = "edit"
+        with patch("quickshot.overlay._snap.QTimer.singleShot") as single_shot:
+            self.overlay._schedule_snap_prewarm(40)
+
+        self.assertFalse(self.overlay._snap_refresh_pending)
+        single_shot.assert_not_called()
+
+    def test_prewarm_defers_while_selecting(self):
+        """用户正在拖选时不枚举窗口，避免拖动中卡顿。"""
+        self.overlay.selecting = True
+        self.overlay._refresh_snap_windows = MagicMock()
+
+        with patch("quickshot.overlay._snap.QTimer.singleShot") as single_shot:
+            self.overlay._run_snap_prewarm()
+
+        self.overlay._refresh_snap_windows.assert_not_called()
+        self.assertTrue(self.overlay._snap_refresh_pending)
+        single_shot.assert_called_once()
+
+    def test_prewarm_refreshes_when_idle(self):
+        """覆盖层空闲时才真正刷新吸附窗口缓存。"""
+        calls = []
+
+        def refresh():
+            calls.append(True)
+            self.overlay._snap_windows_loaded = True
+
+        self.overlay.selecting = False
+        self.overlay._refresh_snap_windows = refresh
+
+        self.overlay._run_snap_prewarm()
+
+        self.assertEqual(calls, [True])
+        self.assertTrue(self.overlay._snap_windows_loaded)
+
+    def test_refresh_snap_windows_handles_enumeration_failure(self):
+        """窗口枚举失败时应降级为空缓存，不影响截图。"""
+        with patch("quickshot.window_enum.enumerate_visible_windows", side_effect=RuntimeError("boom")):
+            self.overlay._refresh_snap_windows()
+
+        self.assertTrue(self.overlay._snap_windows_loaded)
+        self.assertEqual(self.overlay._snap_window_logical_rects, [])
 
 
 if __name__ == "__main__":

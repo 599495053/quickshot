@@ -6,9 +6,7 @@
 
 from __future__ import annotations
 
-from typing import List, Tuple
-
-from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QRect, QTimer
 
 
 class SnapMixin:
@@ -16,24 +14,57 @@ class SnapMixin:
 
     def _init_snap_state(self) -> None:
         """初始化吸附状态（在 __init__ 中调用）。"""
-        self._snap_window_logical_rects: List[Tuple[int, QRect, str]] = []
-        self._snap_edges: List[Tuple[str, QRect]] = []
+        self._snap_window_logical_rects: list[tuple[int, QRect, str]] = []
+        self._snap_edges: list[tuple[str, QRect]] = []
         self._snap_windows_loaded = False
+        self._snap_refresh_pending = False
+
+    def _schedule_snap_prewarm(self, delay_ms: int = 120) -> None:
+        """在覆盖层空闲时预热窗口吸附数据，避免首次按下鼠标时卡顿。"""
+        if not getattr(self.config, 'snap_to_windows', True):
+            return
+        if getattr(self, "mode", "select") != "select":
+            return
+        if self._snap_windows_loaded or self._snap_refresh_pending:
+            return
+        self._snap_refresh_pending = True
+        QTimer.singleShot(max(0, int(delay_ms)), self._run_snap_prewarm)
+
+    def _run_snap_prewarm(self) -> None:
+        """执行吸附预热；用户正在拖拽时后延，保证拖动跟手。"""
+        self._snap_refresh_pending = False
+        if not getattr(self.config, 'snap_to_windows', True):
+            return
+        if self._snap_windows_loaded or getattr(self, "mode", "select") != "select":
+            return
+        if getattr(self, "selecting", False):
+            self._schedule_snap_prewarm(80)
+            return
+        self._refresh_snap_windows()
 
     def _refresh_snap_windows(self) -> None:
         """刷新可吸附窗口列表（仅在 select 模式首次拖拽时调用，结果缓存）。"""
+        from ..utils import debug_log
         from ..window_enum import enumerate_visible_windows
-        raw_windows = enumerate_visible_windows()
+
+        try:
+            raw_windows = enumerate_visible_windows()
+        except Exception as exc:
+            debug_log(f"snap window enumeration failed: {exc}")
+            raw_windows = []
         self._snap_window_logical_rects = []
         for hwnd, phys_rect, title in raw_windows:
-            log_rect, _ = self.physical_abs_to_logical_rect(
-                (phys_rect.x(), phys_rect.y(), phys_rect.width(), phys_rect.height())
-            )
-            if not log_rect.isNull() and log_rect.width() > 0 and log_rect.height() > 0:
-                self._snap_window_logical_rects.append((hwnd, log_rect, title))
+            try:
+                log_rect, _ = self.physical_abs_to_logical_rect(
+                    (phys_rect.x(), phys_rect.y(), phys_rect.width(), phys_rect.height())
+                )
+                if not log_rect.isNull() and log_rect.width() > 0 and log_rect.height() > 0:
+                    self._snap_window_logical_rects.append((hwnd, log_rect, title))
+            except Exception as exc:
+                debug_log(f"snap window rect skipped: {exc}")
         self._snap_windows_loaded = True
 
-    def _apply_snap(self, raw_rect: QRect) -> Tuple[QRect, List[Tuple[str, QRect]]]:
+    def _apply_snap(self, raw_rect: QRect) -> tuple[QRect, list[tuple[str, QRect]]]:
         """对原始选区矩形应用吸附。
 
         返回 (吸附后矩形, [(吸附边描述, 被吸附窗口rect), ...])。
@@ -82,7 +113,7 @@ class SnapMixin:
 
         snapped = QRect(new_left, new_top, new_right - new_left + 1, new_bottom - new_top + 1)
 
-        snap_edges: List[Tuple[str, QRect]] = []
+        snap_edges: list[tuple[str, QRect]] = []
         if best_left[1] is not None:
             snap_edges.append(("left", best_left[1]))
         if best_top[1] is not None:

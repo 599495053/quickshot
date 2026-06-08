@@ -264,6 +264,47 @@ class KeyPressEventTest(unittest.TestCase):
         self.assertFalse(ov.ocr_region_mode)
 
 
+class SelectModeResponsivenessTest(unittest.TestCase):
+    """选择模式交互应保持轻量，避免首帧拖动卡顿。"""
+
+    def _make_move_event(self, pos: QPoint):
+        evt = MagicMock()
+        evt.position.return_value.toPoint.return_value = pos
+        return evt
+
+    def test_select_press_does_not_refresh_snap_windows_synchronously(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov._snap_windows_loaded = False
+        ov._refresh_snap_windows = MagicMock()
+        ov._schedule_snap_prewarm = MagicMock()
+        ov.request_frame_update = MagicMock()
+        ov.update = MagicMock()
+
+        ov._handle_mouse_press_select_mode(QPoint(120, 130))
+
+        self.assertTrue(ov.selecting)
+        self.assertEqual(ov.start, QPoint(120, 130))
+        ov._refresh_snap_windows.assert_not_called()
+        ov._schedule_snap_prewarm.assert_called_once()
+        ov.request_frame_update.assert_called_once()
+        ov.update.assert_not_called()
+
+    def test_select_move_skips_repaint_when_selection_is_unchanged(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov.selecting = True
+        ov.start = QPoint(120, 130)
+        ov.end = QPoint(120, 130)
+        ov._snap_window_logical_rects = []
+        ov._snap_windows_loaded = True
+        ov.request_frame_update = MagicMock()
+
+        ov._handle_mouse_move(self._make_move_event(QPoint(120, 130)))
+
+        ov.request_frame_update.assert_not_called()
+
+
 class BuildToolKeyMapTest(unittest.TestCase):
 
     def test_conflicting_custom_key_preserves_default_owner(self):

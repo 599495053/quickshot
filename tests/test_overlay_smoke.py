@@ -316,6 +316,56 @@ class OverlayToolSmokeTest(unittest.TestCase):
                     color = canvas.pixelColor(x, y)
                     self.assertNotEqual((color.red(), color.green(), color.blue()), (245, 245, 245))
 
+    def test_select_mode_masks_edge_scanlines_on_fractional_scale(self) -> None:
+        _ensure_app()
+        scale = 1.5
+        logical_w, logical_h = 800, 600
+        raw_w, raw_h = int(logical_w * scale), int(logical_h * scale)
+        cfg = Config()
+        cfg.snap_to_windows = False
+        raw = QPixmap(raw_w, raw_h)
+        raw.fill(QColor(60, 60, 60))
+        start = QPoint(240, 100)
+        end = QPoint(639, 399)
+        raw_painter = QPainter(raw)
+        try:
+            for physical_y in (int(round(start.y() * scale)), int(round(end.y() * scale))):
+                raw_painter.fillRect(QRect(0, physical_y, raw_w, 1), QColor(245, 245, 245))
+        finally:
+            raw_painter.end()
+        display = raw.copy()
+        display.setDevicePixelRatio(scale)
+        overlay = FloatingSnipOverlay(
+            raw, display, QRect(0, 0, logical_w, logical_h), scale, scale, 0, 0, cfg, None
+        )
+        overlay.mode = "select"
+        overlay.selecting = True
+        overlay.start = start
+        overlay.end = end
+        overlay.resize(logical_w, logical_h)
+        rect = overlay.current_select_rect()
+
+        canvas = QImage(raw_w, raw_h, QImage.Format.Format_ARGB32)
+        canvas.setDevicePixelRatio(scale)
+        canvas.fill(QColor(0, 0, 0))
+        painter = QPainter(canvas)
+        try:
+            overlay.clear_canvas(painter)
+            overlay.draw_frozen_desktop(painter)
+            overlay.paint_select_mode(painter)
+        finally:
+            painter.end()
+
+        for logical_y in (rect.top(), rect.bottom()):
+            physical_y = int(round(logical_y * scale))
+            with self.subTest(physical_y=physical_y):
+                for logical_x in (rect.left() - 10, rect.center().x(), rect.right() + 10):
+                    physical_x = int(round(logical_x * scale))
+                    color = canvas.pixelColor(physical_x, physical_y)
+                    self.assertLess(color.red(), 90)
+                    self.assertLess(color.green(), 90)
+                    self.assertLess(color.blue(), 90)
+
     def test_snap_guides_are_hidden_by_default(self) -> None:
         overlay = _make_overlay()
         overlay.mode = "select"

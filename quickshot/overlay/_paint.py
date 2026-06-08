@@ -179,21 +179,25 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             (rect.left(), rect.width(), False),
             (rect.right() + 1, max(0, bounds.right() - rect.right()), True),
         )
+        edge_band = 2 if rect.height() > 2 else 1
         cleanup_rows = (
-            (rect.top(), rect.top() - 1, rect.top() + 1),
-            (rect.bottom(), rect.bottom() + 1, rect.bottom() - 1),
+            (rect.top(), rect.top() - edge_band, rect.top() + edge_band),
+            (rect.bottom() - edge_band + 1, rect.bottom() + 1, rect.bottom() - edge_band * 2 + 1),
         )
+
+        def clamp_band_start(y: int, top: int, bottom: int, height: int) -> int:
+            return max(top, min(bottom - height + 1, y))
 
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
         for target_y, outside_source_y, inside_source_y in cleanup_rows:
-            target_y = max(bounds.top(), min(bounds.bottom(), target_y))
-            outside_source_y = max(bounds.top(), min(bounds.bottom(), outside_source_y))
-            inside_source_y = max(rect.top(), min(rect.bottom(), inside_source_y))
+            target_y = clamp_band_start(target_y, bounds.top(), bounds.bottom(), edge_band)
+            outside_source_y = clamp_band_start(outside_source_y, bounds.top(), bounds.bottom(), edge_band)
+            inside_source_y = clamp_band_start(inside_source_y, rect.top(), rect.bottom(), edge_band)
             for x, width, dimmed in ranges:
                 if width <= 0:
                     continue
-                target = QRect(x, target_y, width, 1).intersected(bounds)
+                target = QRect(x, target_y, width, edge_band).intersected(bounds)
                 if target.isNull():
                     continue
                 source_y = outside_source_y if dimmed else inside_source_y

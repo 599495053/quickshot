@@ -296,7 +296,7 @@ class SettingsHandlers:
         missing = "、".join(uploader.missing_config_items())
         if selected:
             return (
-                f"GitHub 上传器未就绪：缺少{missing}。"
+                f"GitHub 上传器未就绪：缺少：{missing}。"
                 "发布模式会先完成本地保存，但上传和 Markdown 链接会失败。"
             )
         return f"当前未选择 GitHub；若要上传到 GitHub，还需补齐：{missing}。"

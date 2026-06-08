@@ -186,6 +186,7 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
 
         text = win.github_status_label.text()
         self.assertIn("GitHub 上传器未就绪", text)
+        self.assertIn("缺少：GitHub 用户名或组织", text)
         self.assertIn("GitHub 用户名或组织", text)
         self.assertIn("仓库名", text)
         self.assertIn("Personal Access Token", text)

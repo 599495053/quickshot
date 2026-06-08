@@ -118,8 +118,8 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
                 break
 
         self.assertEqual(cfg.screenshot_dim_style, "deep")
-        self.assertEqual(cfg.screenshot_dim_alpha, 172)
-        self.assertEqual(cfg.screenshot_dim_blur, 20)
+        self.assertEqual(cfg.screenshot_dim_alpha, 132)
+        self.assertEqual(cfg.screenshot_dim_blur, 16)
         self.assertFalse(win.screenshot_dim_alpha_spin.isEnabled())
         self.assertFalse(win.screenshot_dim_blur_spin.isEnabled())
 

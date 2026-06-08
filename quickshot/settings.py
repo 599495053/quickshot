@@ -345,9 +345,9 @@ class SettingsWindow(SettingsHandlers, QWidget):
 
         self.screenshot_dim_alpha_spin = QSpinBox()
         _disable_wheel(self.screenshot_dim_alpha_spin)
-        self.screenshot_dim_alpha_spin.setRange(72, 220)
+        self.screenshot_dim_alpha_spin.setRange(48, 220)
         self.screenshot_dim_alpha_spin.setSingleStep(4)
-        self.screenshot_dim_alpha_spin.setValue(getattr(self.config, "screenshot_dim_alpha", 132))
+        self.screenshot_dim_alpha_spin.setValue(getattr(self.config, "screenshot_dim_alpha", 92))
         self.screenshot_dim_alpha_spin.setSuffix(" / 255")
         self.screenshot_dim_alpha_spin.valueChanged.connect(self.on_screenshot_dim_alpha_changed)
 
@@ -355,7 +355,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
         _disable_wheel(self.screenshot_dim_blur_spin)
         self.screenshot_dim_blur_spin.setRange(4, 32)
         self.screenshot_dim_blur_spin.setSingleStep(2)
-        self.screenshot_dim_blur_spin.setValue(getattr(self.config, "screenshot_dim_blur", 16))
+        self.screenshot_dim_blur_spin.setValue(getattr(self.config, "screenshot_dim_blur", 10))
         self.screenshot_dim_blur_spin.setSuffix(" x")
         self.screenshot_dim_blur_spin.valueChanged.connect(self.on_screenshot_dim_blur_changed)
         self._refresh_screenshot_dim_controls()

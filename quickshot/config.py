@@ -93,8 +93,8 @@ class Config:
         default="system",
         metadata={"loader": _choice_loader("system", {"system", "clear", "deep", "custom"})},
     )
-    screenshot_dim_alpha: int = field(default=132, metadata={"loader": _clamp_int(72, 220)})
-    screenshot_dim_blur: int = field(default=16, metadata={"loader": _clamp_int(4, 32)})
+    screenshot_dim_alpha: int = field(default=92, metadata={"loader": _clamp_int(48, 220)})
+    screenshot_dim_blur: int = field(default=10, metadata={"loader": _clamp_int(4, 32)})
     # 工作流配置
     workflow_preset: str = field(
         default=WORKFLOW_PRESET_DEFAULT,

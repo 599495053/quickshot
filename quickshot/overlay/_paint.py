@@ -38,9 +38,9 @@ from ..theme import (
 
 class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
     _DIM_BACKDROP_PRESETS = {
-        "system": (132, 16),
-        "clear": (104, 12),
-        "deep": (172, 20),
+        "system": (92, 10),
+        "clear": (72, 8),
+        "deep": (132, 16),
     }
     _ACTIVE_DIM_ALPHA = _DIM_BACKDROP_PRESETS["system"][0]
     _DIM_BACKDROP_DOWNSCALE = _DIM_BACKDROP_PRESETS["system"][1]
@@ -168,7 +168,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             blur = int(getattr(cfg, "screenshot_dim_blur", self._DIM_BACKDROP_DOWNSCALE))
         else:
             alpha, blur = self._DIM_BACKDROP_PRESETS.get(style, self._DIM_BACKDROP_PRESETS["system"])
-        return max(72, min(220, alpha)), max(4, min(32, blur))
+        return max(48, min(220, alpha)), max(4, min(32, blur))
 
     def dim_backdrop_alpha(self) -> int:
         return self.dim_backdrop_settings()[0]

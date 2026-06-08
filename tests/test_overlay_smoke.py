@@ -449,6 +449,13 @@ class OverlayToolSmokeTest(unittest.TestCase):
         self.assertEqual(system_inside, (245, 245, 245))
         self.assertEqual(deep_inside, (245, 245, 245))
 
+    def test_default_dim_shade_is_snipaste_light(self) -> None:
+        overlay = _make_overlay()
+        overlay.mode = "select"
+        overlay.selecting = True
+
+        self.assertEqual(overlay.dim_shade().alpha(), 56)
+
     def test_select_mode_masks_edge_scanlines_on_fractional_scale(self) -> None:
         _ensure_app()
         scale = 1.5

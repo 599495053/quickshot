@@ -38,9 +38,9 @@ from ..theme import (
 
 class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
     _DIM_BACKDROP_PRESETS = {
-        "system": (92, 10),
-        "clear": (72, 8),
-        "deep": (132, 16),
+        "system": (56, 12),
+        "clear": (36, 8),
+        "deep": (96, 16),
     }
     _ACTIVE_DIM_ALPHA = _DIM_BACKDROP_PRESETS["system"][0]
     _DIM_BACKDROP_DOWNSCALE = _DIM_BACKDROP_PRESETS["system"][1]
@@ -153,7 +153,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
     def dim_shade(self) -> QColor:
         shade = QColor(overlay_dim())
         if self.soft_dim_backdrop_enabled():
-            shade.setAlpha(max(shade.alpha(), self.dim_backdrop_alpha()))
+            shade.setAlpha(self.dim_backdrop_alpha())
         return shade
 
     def soft_dim_backdrop_enabled(self) -> bool:
@@ -168,7 +168,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             blur = int(getattr(cfg, "screenshot_dim_blur", self._DIM_BACKDROP_DOWNSCALE))
         else:
             alpha, blur = self._DIM_BACKDROP_PRESETS.get(style, self._DIM_BACKDROP_PRESETS["system"])
-        return max(48, min(220, alpha)), max(4, min(32, blur))
+        return max(24, min(220, alpha)), max(4, min(32, blur))
 
     def dim_backdrop_alpha(self) -> int:
         return self.dim_backdrop_settings()[0]

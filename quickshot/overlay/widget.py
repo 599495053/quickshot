@@ -15,7 +15,6 @@ from ..history import CaptureHistoryStore
 from ..ocr import OcrJob
 from ..theme import (
     STROKE_DEFAULT,
-    overlay_dim,
     qc,
 )
 from ..utils import APP_NAME, debug_log
@@ -492,7 +491,7 @@ class FloatingSnipOverlay(
                 )
                 return
         if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
-            painter.fillRect(self.rect(), overlay_dim())
+            painter.fillRect(self.rect(), self.dim_shade())
             self.draw_center_hint(painter, self.message)
             return
 
@@ -510,7 +509,7 @@ class FloatingSnipOverlay(
 
     def paint_edit_mode(self, painter: QPainter) -> None:
         if self.selection_rect.isNull() or self.edit_pixmap.isNull():
-            painter.fillRect(self.rect(), overlay_dim())
+            painter.fillRect(self.rect(), self.dim_shade())
             self.draw_center_hint(painter, "没有截图内容")
             return
 

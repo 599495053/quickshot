@@ -194,6 +194,10 @@ class SettingsHandlers:
                 getattr(self.config, "workflow_auto_save", False),
             )
             self._set_check_silently(self.workflow_ocr_check, getattr(self.config, "workflow_auto_ocr", False))
+            self._set_combo_data_silently(
+                self.ocr_cleanup_combo,
+                getattr(self.config, "ocr_cleanup_level", "standard"),
+            )
             self._set_check_silently(
                 self.workflow_upload_check,
                 getattr(self.config, "workflow_auto_upload", False),
@@ -245,6 +249,11 @@ class SettingsHandlers:
         self._refresh_workflow_summary()
         self._schedule_save()
         self.workflow_changed.emit()
+
+    def on_ocr_cleanup_level_changed(self, index: int) -> None:
+        level = self.ocr_cleanup_combo.itemData(index) or "standard"
+        self.config.ocr_cleanup_level = str(level)
+        self._schedule_save()
 
     def on_workflow_upload_changed(self, state: int) -> None:
         self.config.workflow_auto_upload = state == self.Qt_CHECKED

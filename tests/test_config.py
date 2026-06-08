@@ -121,6 +121,18 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(cfg.screenshot_dim_alpha, 220)
         self.assertEqual(cfg.screenshot_dim_blur, 4)
 
+    def test_ocr_cleanup_level_roundtrip(self) -> None:
+        cfg = Config()
+        cfg.ocr_cleanup_level = "off"
+        cfg.save()
+        cfg2 = Config()
+        self.assertEqual(cfg2.ocr_cleanup_level, "off")
+
+    def test_ocr_cleanup_level_is_sanitized(self) -> None:
+        cfg = Config()
+        cfg.import_from_dict({"ocr_cleanup_level": "unknown"})
+        self.assertEqual(cfg.ocr_cleanup_level, "standard")
+
     def test_delay_seconds_bounds(self) -> None:
         cfg = Config()
         cfg.delay_seconds = 15  # Out of range
@@ -188,7 +200,8 @@ class ConfigTest(unittest.TestCase):
                      "workflow_preset", "workflow_auto_save",
                      "workflow_auto_upload", "workflow_privacy_first",
                      "github_branch", "screenshot_dim_style",
-                     "screenshot_dim_alpha", "screenshot_dim_blur"):
+                     "screenshot_dim_alpha", "screenshot_dim_blur",
+                     "ocr_cleanup_level"):
             self.assertIn(key, d)
         # 运行时字段不应出现
         self.assertNotIn("app_dir", d)

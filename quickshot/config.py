@@ -82,6 +82,10 @@ class Config:
     history_hotkey: str = ""
     pin_hotkey: str = ""
     ocr_hotkey: str = ""
+    ocr_cleanup_level: str = field(
+        default="standard",
+        metadata={"loader": _choice_loader("standard", {"standard", "conservative", "off"})},
+    )
     delay_seconds: int = field(default=0, metadata={"loader": _clamp_int(0, 10)})
     grid_color: str = "#ffffff80"
     watermark_color: str = "#ffffff40"

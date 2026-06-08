@@ -208,6 +208,18 @@ class SettingsWindow(SettingsHandlers, QWidget):
         self.workflow_ocr_check.setChecked(getattr(self.config, "workflow_auto_ocr", False))
         self.workflow_ocr_check.stateChanged.connect(self.on_workflow_ocr_changed)
 
+        self.ocr_cleanup_combo = QComboBox()
+        _disable_wheel(self.ocr_cleanup_combo)
+        self.ocr_cleanup_combo.addItem("标准清理（推荐）", "standard")
+        self.ocr_cleanup_combo.addItem("保守清理", "conservative")
+        self.ocr_cleanup_combo.addItem("关闭过滤", "off")
+        current_cleanup = getattr(self.config, "ocr_cleanup_level", "standard")
+        for i in range(self.ocr_cleanup_combo.count()):
+            if self.ocr_cleanup_combo.itemData(i) == current_cleanup:
+                self.ocr_cleanup_combo.setCurrentIndex(i)
+                break
+        self.ocr_cleanup_combo.currentIndexChanged.connect(self.on_ocr_cleanup_level_changed)
+
         self.workflow_upload_check = QCheckBox("截图完成后自动上传")
         self.workflow_upload_check.setChecked(getattr(self.config, "workflow_auto_upload", False))
         self.workflow_upload_check.stateChanged.connect(self.on_workflow_upload_changed)
@@ -622,6 +634,12 @@ class SettingsWindow(SettingsHandlers, QWidget):
         workflow_layout.addWidget(self.workflow_summary_label)
         workflow_layout.addWidget(self.workflow_auto_save_check)
         workflow_layout.addWidget(self.workflow_ocr_check)
+        self._add_field(
+            workflow_layout,
+            "OCR 清理强度",
+            self.ocr_cleanup_combo,
+            "识别代码、公式、命令行时可选“关闭过滤”；普通截图保持标准清理即可。",
+        )
         workflow_layout.addWidget(self.workflow_upload_check)
         workflow_layout.addWidget(self.workflow_md_check)
         workflow_layout.addWidget(self.workflow_privacy_check)

@@ -114,6 +114,7 @@ def _append_config_summary(lines: list[str], config) -> None:
             f"  HistoryHotkey={getattr(config, 'history_hotkey', '')}",
             f"  PinHotkey={getattr(config, 'pin_hotkey', '')}",
             f"  OcrHotkey={getattr(config, 'ocr_hotkey', '')}",
+            f"  OcrCleanupLevel={getattr(config, 'ocr_cleanup_level', '')}",
             f"  WorkflowPreset={getattr(config, 'workflow_preset', '')}",
             f"  WorkflowAutoSave={_bool(getattr(config, 'workflow_auto_save', False))}",
             f"  WorkflowAutoOcr={_bool(getattr(config, 'workflow_auto_ocr', False))}",

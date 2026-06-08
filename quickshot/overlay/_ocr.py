@@ -13,6 +13,9 @@ from ..utils import copy_text_to_clipboard, debug_log
 
 class OcrMixin:
 
+    def _ocr_cleanup_level(self) -> str:
+        return getattr(self.config, "ocr_cleanup_level", "standard")
+
     def _clear_ocr_dialog_ref(self) -> None:
         """OCR 对话框关闭后清除引用。"""
         if hasattr(self, "_ocr_dialog"):
@@ -52,7 +55,7 @@ class OcrMixin:
         self.drag_path = []
         self.message = "正在识别文字，首次使用可能稍慢..."
         self.detach_ocr_job()
-        self.ocr_job = create_ocr_job(self.edit_pixmap.toImage())
+        self.ocr_job = create_ocr_job(self.edit_pixmap.toImage(), self._ocr_cleanup_level())
         self.ocr_job.succeeded.connect(self.on_ocr_job_succeeded)
         self.ocr_job.failed.connect(self.on_ocr_job_failed)
         self.ocr_job.finished.connect(self.on_ocr_job_finished)
@@ -77,7 +80,7 @@ class OcrMixin:
         self.drag_path = []
         self.message = "正在识别选区文字..."
         self.detach_ocr_job()
-        self.ocr_job = create_ocr_job(crop.toImage())
+        self.ocr_job = create_ocr_job(crop.toImage(), self._ocr_cleanup_level())
         self.ocr_job.succeeded.connect(self.on_ocr_job_succeeded)
         self.ocr_job.failed.connect(self.on_ocr_job_failed)
         self.ocr_job.finished.connect(self.on_ocr_job_finished)
@@ -109,7 +112,7 @@ class OcrMixin:
         if self.edit_pixmap.isNull() or self.ocr_running():
             return False
         self.detach_ocr_job()
-        self.ocr_job = create_ocr_job(self.edit_pixmap.toImage())
+        self.ocr_job = create_ocr_job(self.edit_pixmap.toImage(), self._ocr_cleanup_level())
         # 用 store 和 history_id 的本地引用，避免 widget 关闭后回调里访问 self.* 崩溃
         history_store = self.history_store
         history_id = self.history_item_id

@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -256,6 +257,23 @@ class OcrStepTest(unittest.TestCase):
         step.run(ctx, self.config)
         self.assertEqual(ctx.ocr_text, "hello world")
         self.assertEqual(self.clipboard.last_text, "hello world")
+
+    def test_default_recognizer_uses_configured_cleanup_level(self) -> None:
+        from PyQt6.QtGui import QColor, QImage
+
+        image = QImage(16, 16, QImage.Format.Format_RGB32)
+        image.fill(QColor("white"))
+        image.save(str(self.image), "PNG")
+
+        self.config.workflow_auto_ocr = True
+        self.config.ocr_cleanup_level = "off"
+        step = OcrStep(clipboard_writer=self.clipboard)
+        with patch("quickshot.ocr.recognize_text", return_value=_FakeOcrResult("raw")) as recognize:
+            ctx = PipelineContext(image_path=str(self.image))
+            step.run(ctx, self.config)
+
+        self.assertEqual(ctx.ocr_text, "raw")
+        self.assertEqual(recognize.call_args.kwargs["cleanup_level"], "off")
 
     def test_empty_text_does_not_write_clipboard(self) -> None:
         self.config.workflow_auto_ocr = True

@@ -33,7 +33,11 @@ class OcrEngine(ABC):
         """引擎是否可用（依赖已安装等）。"""
 
     @abstractmethod
-    def recognize(self, prepared_image: QImage) -> str | tuple[str, str]:
+    def recognize(
+        self,
+        prepared_image: QImage,
+        cleanup_level: str = "standard",
+    ) -> str | tuple[str, str]:
         """对预处理后的 QImage 执行 OCR，返回清理文本或（清理文本，原始文本）。
 
         prepared_image 已经过 prepare_ocr_image() 处理。
@@ -54,11 +58,15 @@ class RapidOcrEngine(OcrEngine):
         from .ocr import is_rapidocr_available
         return is_rapidocr_available()
 
-    def recognize(self, prepared_image: QImage) -> str | tuple[str, str]:
+    def recognize(
+        self,
+        prepared_image: QImage,
+        cleanup_level: str = "standard",
+    ) -> str | tuple[str, str]:
         from .ocr import _qimage_to_numpy, rapidocr_engine
         from .ocr_utils import clean_ocr_text, format_rapidocr_result
         result, _elapsed = rapidocr_engine()(_qimage_to_numpy(prepared_image))
-        cleaned = clean_ocr_text(format_rapidocr_result(result))
+        cleaned = clean_ocr_text(format_rapidocr_result(result, cleanup_level=cleanup_level))
         raw = clean_ocr_text(format_rapidocr_result(result, filter_symbols=False))
         return cleaned, raw
 
@@ -76,9 +84,13 @@ class WindowsOcrEngine(OcrEngine):
         import shutil
         return bool(shutil.which("powershell") or shutil.which("pwsh"))
 
-    def recognize(self, prepared_image: QImage) -> str | tuple[str, str]:
+    def recognize(
+        self,
+        prepared_image: QImage,
+        cleanup_level: str = "standard",
+    ) -> str | tuple[str, str]:
         from .ocr import recognize_text_with_windows_ocr
-        return recognize_text_with_windows_ocr(prepared_image, with_raw=True)
+        return recognize_text_with_windows_ocr(prepared_image, with_raw=True, cleanup_level=cleanup_level)
 
 
 class OcrEngineRegistry:
@@ -91,7 +103,7 @@ class OcrEngineRegistry:
         """注册引擎（后注册的优先级更低）。"""
         self._engines.append(engine)
 
-    def recognize(self, prepared_image: QImage) -> OcrResult:
+    def recognize(self, prepared_image: QImage, cleanup_level: str = "standard") -> OcrResult:
         """按优先级尝试各引擎，返回统一的 OcrResult。"""
         from .ocr import OcrResult
         started = time.perf_counter()
@@ -101,7 +113,12 @@ class OcrEngineRegistry:
             if not engine.is_available():
                 continue
             try:
-                recognized = engine.recognize(prepared_image)
+                try:
+                    recognized = engine.recognize(prepared_image, cleanup_level=cleanup_level)
+                except TypeError as exc:
+                    if "cleanup_level" not in str(exc):
+                        raise
+                    recognized = engine.recognize(prepared_image)
                 if isinstance(recognized, tuple):
                     text, raw_text = recognized
                 else:

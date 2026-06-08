@@ -29,6 +29,7 @@ from quickshot.ocr import (
     has_cjk,
     has_meaningful_ocr_text,
     is_likely_icon_symbol_artifact,
+    normalize_ocr_cleanup_level,
     normalize_ocr_symbols,
     should_join_with_space,
 )
@@ -96,6 +97,11 @@ class IconSymbolArtifactFilterTest(unittest.TestCase):
     def test_filter_removes_symbol_only_lines(self) -> None:
         text = "Settings\n□\n---\n100%\nDone"
         self.assertEqual(filter_icon_symbol_artifacts(text), "Settings\n100%\nDone")
+
+    def test_cleanup_level_is_sanitized(self) -> None:
+        self.assertEqual(normalize_ocr_cleanup_level("conservative"), "conservative")
+        self.assertEqual(normalize_ocr_cleanup_level("off"), "off")
+        self.assertEqual(normalize_ocr_cleanup_level("unknown"), "standard")
 
 
 class ShouldJoinWithSpaceTest(unittest.TestCase):
@@ -175,6 +181,15 @@ class FormatRapidocrResultTest(unittest.TestCase):
         ]
         self.assertEqual(format_rapidocr_result(result), "Settings")
         self.assertEqual(format_rapidocr_result(result, filter_symbols=False), "□ Settings\n|||")
+        self.assertEqual(format_rapidocr_result(result, cleanup_level="off"), "□ Settings\n|||")
+
+    def test_conservative_cleanup_keeps_symbols_close_to_text(self) -> None:
+        result = [
+            [[[8, 10], [22, 10], [22, 30], [8, 30]], "□"],
+            [[[28, 10], [100, 10], [100, 30], [28, 30]], "Settings"],
+        ]
+        self.assertEqual(format_rapidocr_result(result, cleanup_level="standard"), "Settings")
+        self.assertEqual(format_rapidocr_result(result, cleanup_level="conservative"), "□ Settings")
 
     def test_close_text_punctuation_is_preserved(self) -> None:
         result = [

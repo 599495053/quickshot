@@ -75,7 +75,7 @@ class OcrStep(PipelineStep):
     def is_enabled(self, config: Config) -> bool:
         return bool(getattr(config, "workflow_auto_ocr", False))
 
-    def _recognize(self, image_path: str):
+    def _recognize(self, image_path: str, config: Config):
         if self._recognize_fn is not None:
             return self._recognize_fn(image_path)
         # 延迟导入：Pipeline 在不需要时不应付出 OCR 模块加载代价
@@ -84,14 +84,14 @@ class OcrStep(PipelineStep):
         image = QImage(image_path)
         if image.isNull():
             return None
-        return recognize_text(image)
+        return recognize_text(image, cleanup_level=getattr(config, "ocr_cleanup_level", "standard"))
 
     def run(self, ctx: PipelineContext, config: Config) -> None:  # noqa: ARG002
         if not ctx.image_path:
             ctx.log_error("OCR 跳过：缺少 image_path")
             return
         try:
-            result = self._recognize(ctx.image_path)
+            result = self._recognize(ctx.image_path, config)
         except Exception as exc:  # noqa: BLE001
             ctx.log_error(f"OCR 失败：{exc}")
             return

@@ -11,6 +11,7 @@ from typing import List
 
 OCR_TEXT_CONTENT_RE = re.compile(r"[A-Za-z0-9\u4e00-\u9fff]")
 OCR_COMMON_PUNCTUATION = set(".,;:!?)]}([{'\"<>%-+/#@&\\$¥€=~")
+OCR_CLEANUP_LEVELS = {"standard", "conservative", "off"}
 
 
 OCR_SYMBOL_TRANSLATION = str.maketrans({
@@ -30,6 +31,10 @@ OCR_SYMBOL_TRANSLATION = str.maketrans({
 def normalize_ocr_symbols(text: str) -> str:
     return text.translate(OCR_SYMBOL_TRANSLATION).replace(" ", " ")
 
+def normalize_ocr_cleanup_level(value: object) -> str:
+    level = str(value) if value is not None else "standard"
+    return level if level in OCR_CLEANUP_LEVELS else "standard"
+
 def has_meaningful_ocr_text(text: str) -> bool:
     return OCR_TEXT_CONTENT_RE.search(text) is not None
 
@@ -44,9 +49,12 @@ def is_likely_icon_symbol_artifact(text: str) -> bool:
         return True
     return len(compact) <= 8 and len(set(compact)) <= 2
 
-def filter_icon_symbol_artifacts(text: str) -> str:
+def filter_icon_symbol_artifacts(text: str, *, cleanup_level: str = "standard") -> str:
     if not text:
         return ""
+    cleanup_level = normalize_ocr_cleanup_level(cleanup_level)
+    if cleanup_level == "off":
+        return normalize_ocr_symbols(text).strip()
     lines = []
     for raw_line in normalize_ocr_symbols(text).splitlines():
         line = " ".join(raw_line.split())
@@ -85,7 +93,14 @@ def _nearest_meaningful_block_gap(blocks: list[dict], index: int) -> float | Non
             break
     return min(gaps) if gaps else None
 
-def _should_drop_icon_symbol_block(blocks: list[dict], index: int, line_height: float) -> bool:
+def _should_drop_icon_symbol_block(
+    blocks: list[dict],
+    index: int,
+    line_height: float,
+    cleanup_level: str,
+) -> bool:
+    if cleanup_level == "off":
+        return False
     text = str(blocks[index]["text"]).strip()
     if not is_likely_icon_symbol_artifact(text):
         return False
@@ -96,19 +111,34 @@ def _should_drop_icon_symbol_block(blocks: list[dict], index: int, line_height: 
     gap = _nearest_meaningful_block_gap(blocks, index)
     if gap is None:
         return True
+    compact = _compact_ocr_text(text)
+    if cleanup_level == "conservative":
+        return len(compact) <= 3 and gap > max(24.0, line_height * 1.6)
     if set(text).issubset(OCR_COMMON_PUNCTUATION) and gap <= max(3.0, line_height * 0.35):
         return False
     return True
 
-def _filter_icon_symbol_blocks(blocks: list[dict], line_height: float) -> list[dict]:
+def _filter_icon_symbol_blocks(
+    blocks: list[dict],
+    line_height: float,
+    cleanup_level: str,
+) -> list[dict]:
     return [
         block for index, block in enumerate(blocks)
-        if not _should_drop_icon_symbol_block(blocks, index, line_height)
+        if not _should_drop_icon_symbol_block(blocks, index, line_height, cleanup_level)
     ]
 
-def format_rapidocr_result(result, *, filter_symbols: bool = True) -> str:
+def format_rapidocr_result(
+    result,
+    *,
+    filter_symbols: bool = True,
+    cleanup_level: str = "standard",
+) -> str:
     if not result:
         return ""
+    cleanup_level = normalize_ocr_cleanup_level(cleanup_level)
+    if not filter_symbols:
+        cleanup_level = "off"
 
     blocks = []
     for item in result:
@@ -161,8 +191,8 @@ def format_rapidocr_result(result, *, filter_symbols: bool = True) -> str:
     text_lines = []
     for line in lines:
         line_blocks = sorted(line["blocks"], key=lambda item: item["left"])
-        if filter_symbols:
-            line_blocks = _filter_icon_symbol_blocks(line_blocks, line["height"])
+        if cleanup_level != "off":
+            line_blocks = _filter_icon_symbol_blocks(line_blocks, line["height"], cleanup_level)
         if not line_blocks:
             continue
         parts: List[str] = []
@@ -178,7 +208,7 @@ def format_rapidocr_result(result, *, filter_symbols: bool = True) -> str:
         text_lines.append("".join(parts).strip())
 
     text = normalize_ocr_symbols("\n".join(line for line in text_lines if line)).strip()
-    return filter_icon_symbol_artifacts(text) if filter_symbols else text
+    return filter_icon_symbol_artifacts(text, cleanup_level=cleanup_level)
 
 def clean_ocr_text(text: str) -> str:
     """对 OCR 结果做轻量自动清洗：去首尾空格、合并连续空行、规范内部空格。"""

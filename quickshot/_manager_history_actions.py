@@ -145,7 +145,10 @@ class HistoryActions:
             self.ocr_hint.setText("正在重新识别...")
         else:
             self.ocr_edit.setPlainText("正在识别文字，首次使用可能稍慢...")
-        self._ocr_job = OcrJob(pixmap.toImage())
+        self._ocr_job = OcrJob(
+            pixmap.toImage(),
+            getattr(self.config, "ocr_cleanup_level", "standard"),
+        )
         self._ocr_job.succeeded.connect(self._on_ocr_done)
         self._ocr_job.failed.connect(self._on_ocr_failed)
         self._ocr_job.finished.connect(self._on_ocr_finished)

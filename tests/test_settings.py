@@ -136,6 +136,17 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
         self.assertTrue(win.screenshot_dim_alpha_spin.isEnabled())
         self.assertTrue(win.screenshot_dim_blur_spin.isEnabled())
 
+    def test_ocr_cleanup_level_updates_config(self):
+        _ensure_app()
+        cfg = Config()
+        win = SettingsWindow(cfg)
+        for index in range(win.ocr_cleanup_combo.count()):
+            if win.ocr_cleanup_combo.itemData(index) == "off":
+                win.ocr_cleanup_combo.setCurrentIndex(index)
+                break
+
+        self.assertEqual(cfg.ocr_cleanup_level, "off")
+
     def test_workflow_preset_updates_controls(self):
         _ensure_app()
         cfg = Config()

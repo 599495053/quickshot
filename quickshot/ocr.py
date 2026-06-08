@@ -35,6 +35,7 @@ from .ocr_utils import (
     has_cjk,
     has_meaningful_ocr_text,
     is_likely_icon_symbol_artifact,
+    normalize_ocr_cleanup_level,
     normalize_ocr_symbols,
     should_join_with_space,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "has_cjk",
     "has_meaningful_ocr_text",
     "is_likely_icon_symbol_artifact",
+    "normalize_ocr_cleanup_level",
     "normalize_ocr_symbols",
     "should_join_with_space",
     "OcrResult",
@@ -160,14 +162,15 @@ class _OcrWorker(QObject):
     failed = pyqtSignal(str)
     finished = pyqtSignal()
 
-    def __init__(self, source_image: QImage) -> None:
+    def __init__(self, source_image: QImage, cleanup_level: str = "standard") -> None:
         super().__init__()
         self._source_image = source_image.copy()
+        self._cleanup_level = normalize_ocr_cleanup_level(cleanup_level)
 
     @pyqtSlot()
     def run(self) -> None:
         try:
-            self.succeeded.emit(recognize_text(self._source_image))
+            self.succeeded.emit(recognize_text(self._source_image, cleanup_level=self._cleanup_level))
         except Exception as exc:
             debug_log(f"OCR worker failed: {exc}")
             self.failed.emit(str(exc))
@@ -180,10 +183,10 @@ class OcrJob(QObject):
     failed = pyqtSignal(str)
     finished = pyqtSignal()
 
-    def __init__(self, source_image: QImage) -> None:
+    def __init__(self, source_image: QImage, cleanup_level: str = "standard") -> None:
         super().__init__()
         self._thread = QThread()
-        self._worker = _OcrWorker(source_image)
+        self._worker = _OcrWorker(source_image, cleanup_level)
         self._running = False
 
         self._worker.moveToThread(self._thread)
@@ -254,8 +257,8 @@ def schedule_rapidocr_prewarm() -> None:
         _PREWARM_FUTURE = _get_ocr_executor().submit(prewarm_rapidocr)
 
 
-def create_ocr_job(source_image: QImage) -> OcrJob:
-    return OcrJob(source_image)
+def create_ocr_job(source_image: QImage, cleanup_level: str = "standard") -> OcrJob:
+    return OcrJob(source_image, cleanup_level)
 
 
 def shutdown_ocr_executor() -> None:
@@ -288,14 +291,17 @@ def _is_null_image(image: Union[QPixmap, QImage]) -> bool:
     return image.isNull()
 
 
-def recognize_text_with_rapidocr(source_image: Union[QPixmap, QImage]) -> str:
+def recognize_text_with_rapidocr(
+    source_image: Union[QPixmap, QImage],
+    cleanup_level: str = "standard",
+) -> str:
     if _is_null_image(source_image):
         return ""
     if not is_rapidocr_available():
         raise RuntimeError(RAPIDOCR_OPTIONAL_MESSAGE)
     image = prepare_ocr_image(source_image)
     result, _elapsed = rapidocr_engine()(_qimage_to_numpy(image))
-    return clean_ocr_text(format_rapidocr_result(result))
+    return clean_ocr_text(format_rapidocr_result(result, cleanup_level=cleanup_level))
 
 
 # 隐私信息匹配模式（延迟编译，仅在首次 detect_privacy_info 时加载）
@@ -625,6 +631,7 @@ def recognize_text_with_windows_ocr(
     source_image: Union[QPixmap, QImage],
     *,
     with_raw: bool = False,
+    cleanup_level: str = "standard",
 ) -> str | tuple[str, str]:
     import base64
     import json
@@ -709,7 +716,7 @@ def recognize_text_with_windows_ocr(
     try:
         lines = json.loads(base64.b64decode(encoded_text).decode("utf-8"))
         cleaned_result = _windows_ocr_lines_to_rapidocr_result(lines, prefer_words=True)
-        cleaned_text = clean_ocr_text(format_rapidocr_result(cleaned_result))
+        cleaned_text = clean_ocr_text(format_rapidocr_result(cleaned_result, cleanup_level=cleanup_level))
         if not with_raw:
             return cleaned_text
         raw_result = _windows_ocr_lines_to_rapidocr_result(lines, prefer_words=False)
@@ -725,10 +732,13 @@ def recognize_text_with_windows_ocr(
         ) from exc
 
 
-def recognize_text(source_image: Union[QPixmap, QImage]) -> OcrResult:
+def recognize_text(
+    source_image: Union[QPixmap, QImage],
+    cleanup_level: str = "standard",
+) -> OcrResult:
     """识别图片中的文字，按优先级尝试各引擎。"""
     if _is_null_image(source_image):
         return OcrResult(text="", engine_key="none", engine_label="OCR", note="空图片")
     prepared = prepare_ocr_image(source_image)
     from .ocr_engine import get_default_registry
-    return get_default_registry().recognize(prepared)
+    return get_default_registry().recognize(prepared, cleanup_level=cleanup_level)

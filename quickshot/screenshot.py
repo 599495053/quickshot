@@ -407,6 +407,33 @@ def _grab_virtual_screen_with_dxcam(prefer_dxgi: bool = False, hdr_desktop: bool
     return None
 
 
+def _qt_screen_count() -> int:
+    app = QApplication.instance()
+    if app is None:
+        return 0
+    try:
+        return len(app.screens())
+    except Exception as exc:
+        debug_log(f"screen count unavailable: {exc}")
+        return 0
+
+
+def _can_use_single_output_hdr_capture() -> bool:
+    screen_count = _qt_screen_count()
+    if screen_count > 1:
+        debug_log("HDR capture skipped on multi-monitor desktop; using mss virtual desktop capture")
+        return False
+    return True
+
+
+def _grab_virtual_screen_with_hdr_if_safe(hdr_color_accurate: bool) -> Optional[Tuple[QPixmap, int, int]]:
+    if not hdr_color_accurate:
+        return None
+    if not _can_use_single_output_hdr_capture():
+        return None
+    return _grab_virtual_screen_with_wgc_hdr() or _grab_virtual_screen_with_dxcam()
+
+
 _GEOMETRY_INVALIDATION_SETUP = False
 _MSS_INSTANCE = None
 
@@ -420,9 +447,7 @@ def grab_virtual_screen(hdr_color_accurate: bool = False) -> Tuple[QPixmap, QPix
     if not _GEOMETRY_INVALIDATION_SETUP:
         _GEOMETRY_INVALIDATION_SETUP = True
         _setup_geometry_cache_invalidation()
-    dx_capture = None
-    if hdr_color_accurate:
-        dx_capture = _grab_virtual_screen_with_wgc_hdr() or _grab_virtual_screen_with_dxcam()
+    dx_capture = _grab_virtual_screen_with_hdr_if_safe(hdr_color_accurate)
     # hdr_color_accurate=False 时直接走 mss（GDI 抓屏，无金色边框）
     if dx_capture is not None:
         raw_pixmap, physical_left, physical_top = dx_capture

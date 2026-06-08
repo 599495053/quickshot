@@ -319,6 +319,35 @@ class SettingsWindow(SettingsHandlers, QWidget):
         self.hdr_accurate_check.setChecked(self.config.hdr_color_accurate)
         self.hdr_accurate_check.stateChanged.connect(self.on_hdr_color_accurate_changed)
 
+        self.screenshot_dim_style_combo = QComboBox()
+        _disable_wheel(self.screenshot_dim_style_combo)
+        self.screenshot_dim_style_combo.addItem("系统风格（推荐）", "system")
+        self.screenshot_dim_style_combo.addItem("更清晰", "clear")
+        self.screenshot_dim_style_combo.addItem("更深色", "deep")
+        self.screenshot_dim_style_combo.addItem("自定义", "custom")
+        for i in range(self.screenshot_dim_style_combo.count()):
+            if self.screenshot_dim_style_combo.itemData(i) == getattr(self.config, "screenshot_dim_style", "system"):
+                self.screenshot_dim_style_combo.setCurrentIndex(i)
+                break
+        self.screenshot_dim_style_combo.currentIndexChanged.connect(self.on_screenshot_dim_style_changed)
+
+        self.screenshot_dim_alpha_spin = QSpinBox()
+        _disable_wheel(self.screenshot_dim_alpha_spin)
+        self.screenshot_dim_alpha_spin.setRange(72, 220)
+        self.screenshot_dim_alpha_spin.setSingleStep(4)
+        self.screenshot_dim_alpha_spin.setValue(getattr(self.config, "screenshot_dim_alpha", 132))
+        self.screenshot_dim_alpha_spin.setSuffix(" / 255")
+        self.screenshot_dim_alpha_spin.valueChanged.connect(self.on_screenshot_dim_alpha_changed)
+
+        self.screenshot_dim_blur_spin = QSpinBox()
+        _disable_wheel(self.screenshot_dim_blur_spin)
+        self.screenshot_dim_blur_spin.setRange(4, 32)
+        self.screenshot_dim_blur_spin.setSingleStep(2)
+        self.screenshot_dim_blur_spin.setValue(getattr(self.config, "screenshot_dim_blur", 16))
+        self.screenshot_dim_blur_spin.setSuffix(" x")
+        self.screenshot_dim_blur_spin.valueChanged.connect(self.on_screenshot_dim_blur_changed)
+        self._refresh_screenshot_dim_controls()
+
     def _create_behavior_controls(self) -> None:
         """创建行为相关控件（启动、通知、吸附、延迟）。"""
         self.startup_check = QCheckBox("开机自动启动")
@@ -551,6 +580,19 @@ class SettingsWindow(SettingsHandlers, QWidget):
         capture_layout.addWidget(self.hdr_accurate_check)
         capture_layout.addWidget(self._helper("默认关闭：HDR 截图无边框，适合日常截图。开启后色彩更准确，但 Windows 会显示金色录制边框。"))
         page.addWidget(capture_card)
+
+        dim_card, dim_layout = self._card("选区外观", "截图时选区外的背景风格，默认接近 Windows / 微信截图。")
+        self._add_field(dim_layout, "遮罩风格", self.screenshot_dim_style_combo)
+        dim_row = QHBoxLayout()
+        dim_row.setContentsMargins(0, 0, 0, 0)
+        dim_row.setSpacing(8)
+        dim_row.addWidget(self._field_label("暗度"))
+        dim_row.addWidget(self.screenshot_dim_alpha_spin)
+        dim_row.addWidget(self._field_label("柔化"))
+        dim_row.addWidget(self.screenshot_dim_blur_spin)
+        dim_row.addStretch(1)
+        self._add_field(dim_layout, "自定义参数", dim_row, "数值越大，选区外越暗、越柔和；更能压住细线，但背景会更朦胧。")
+        page.addWidget(dim_card)
 
         snap_card, snap_layout = self._card("选区吸附", "拖拽选区时自动吸附到窗口边缘。")
         snap_layout.addWidget(self.snap_check)

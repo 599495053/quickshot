@@ -84,6 +84,64 @@ class SettingsHandlers:
         self.config.hdr_color_accurate = state == self.Qt_CHECKED
         self._schedule_save()
 
+    @staticmethod
+    def _screenshot_dim_preset_values(style: str) -> tuple[int, int]:
+        presets = {
+            "system": (132, 16),
+            "clear": (104, 12),
+            "deep": (172, 20),
+        }
+        return presets.get(style, presets["system"])
+
+    def _refresh_screenshot_dim_controls(self) -> None:
+        combo = getattr(self, "screenshot_dim_style_combo", None)
+        alpha_spin = getattr(self, "screenshot_dim_alpha_spin", None)
+        blur_spin = getattr(self, "screenshot_dim_blur_spin", None)
+        if combo is None or alpha_spin is None or blur_spin is None:
+            return
+        style = getattr(self.config, "screenshot_dim_style", "system")
+        if style != "custom":
+            alpha, blur = self._screenshot_dim_preset_values(style)
+        else:
+            alpha = int(getattr(self.config, "screenshot_dim_alpha", 132))
+            blur = int(getattr(self.config, "screenshot_dim_blur", 16))
+
+        combo.blockSignals(True)
+        alpha_spin.blockSignals(True)
+        blur_spin.blockSignals(True)
+        try:
+            self._set_combo_data(combo, style)
+            alpha_spin.setValue(alpha)
+            blur_spin.setValue(blur)
+            alpha_spin.setEnabled(style == "custom")
+            blur_spin.setEnabled(style == "custom")
+        finally:
+            blur_spin.blockSignals(False)
+            alpha_spin.blockSignals(False)
+            combo.blockSignals(False)
+
+    def on_screenshot_dim_style_changed(self, index: int) -> None:
+        style = self.screenshot_dim_style_combo.itemData(index) or "system"
+        self.config.screenshot_dim_style = style
+        if style != "custom":
+            alpha, blur = self._screenshot_dim_preset_values(style)
+            self.config.screenshot_dim_alpha = alpha
+            self.config.screenshot_dim_blur = blur
+        self._refresh_screenshot_dim_controls()
+        self._schedule_save()
+
+    def on_screenshot_dim_alpha_changed(self, value: int) -> None:
+        self.config.screenshot_dim_style = "custom"
+        self.config.screenshot_dim_alpha = int(value)
+        self._refresh_screenshot_dim_controls()
+        self._schedule_save()
+
+    def on_screenshot_dim_blur_changed(self, value: int) -> None:
+        self.config.screenshot_dim_style = "custom"
+        self.config.screenshot_dim_blur = int(value)
+        self._refresh_screenshot_dim_controls()
+        self._schedule_save()
+
     def on_snap_changed(self, state: int) -> None:
         self.config.snap_to_windows = state == self.Qt_CHECKED
         self._schedule_save()
@@ -555,6 +613,7 @@ class SettingsHandlers:
         self._refresh_github_status()
         self.notification_check.setChecked(self.config.show_notifications)
         self.hdr_accurate_check.setChecked(self.config.hdr_color_accurate)
+        self._refresh_screenshot_dim_controls()
         self.snap_check.setChecked(self.config.snap_to_windows)
         self.snap_threshold_spin.setValue(self.config.snap_threshold_px)
         self.history_check.setChecked(self.config.auto_history)

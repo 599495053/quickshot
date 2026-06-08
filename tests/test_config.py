@@ -99,6 +99,28 @@ class ConfigTest(unittest.TestCase):
         cfg2 = Config()
         self.assertEqual(cfg2.watermark_color, "#ff000060")
 
+    def test_screenshot_dim_settings_roundtrip(self) -> None:
+        cfg = Config()
+        cfg.screenshot_dim_style = "custom"
+        cfg.screenshot_dim_alpha = 148
+        cfg.screenshot_dim_blur = 18
+        cfg.save()
+        cfg2 = Config()
+        self.assertEqual(cfg2.screenshot_dim_style, "custom")
+        self.assertEqual(cfg2.screenshot_dim_alpha, 148)
+        self.assertEqual(cfg2.screenshot_dim_blur, 18)
+
+    def test_screenshot_dim_settings_are_sanitized(self) -> None:
+        cfg = Config()
+        cfg.import_from_dict({
+            "screenshot_dim_style": "unknown",
+            "screenshot_dim_alpha": 999,
+            "screenshot_dim_blur": 1,
+        })
+        self.assertEqual(cfg.screenshot_dim_style, "system")
+        self.assertEqual(cfg.screenshot_dim_alpha, 220)
+        self.assertEqual(cfg.screenshot_dim_blur, 4)
+
     def test_delay_seconds_bounds(self) -> None:
         cfg = Config()
         cfg.delay_seconds = 15  # Out of range
@@ -165,7 +187,8 @@ class ConfigTest(unittest.TestCase):
         for key in ("save_dir", "auto_copy", "history_limit", "region_hotkey",
                      "workflow_preset", "workflow_auto_save",
                      "workflow_auto_upload", "workflow_privacy_first",
-                     "github_branch"):
+                     "github_branch", "screenshot_dim_style",
+                     "screenshot_dim_alpha", "screenshot_dim_blur"):
             self.assertIn(key, d)
         # 运行时字段不应出现
         self.assertNotIn("app_dir", d)

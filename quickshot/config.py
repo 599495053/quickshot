@@ -38,6 +38,14 @@ def _workflow_preset_loader(v: Any) -> str:
     return normalize_workflow_preset(v)
 
 
+def _choice_loader(default: str, choices: set[str]) -> Callable[[Any], str]:
+    """Return a loader that keeps only known string choices."""
+    def _convert(v: Any) -> str:
+        value = str(v) if v is not None else default
+        return value if value in choices else default
+    return _convert
+
+
 # 不参与序列化的运行时字段名
 _RUNTIME_FIELDS = frozenset({"app_dir", "config_path"})
 
@@ -77,6 +85,12 @@ class Config:
     delay_seconds: int = field(default=0, metadata={"loader": _clamp_int(0, 10)})
     grid_color: str = "#ffffff80"
     watermark_color: str = "#ffffff40"
+    screenshot_dim_style: str = field(
+        default="system",
+        metadata={"loader": _choice_loader("system", {"system", "clear", "deep", "custom"})},
+    )
+    screenshot_dim_alpha: int = field(default=132, metadata={"loader": _clamp_int(72, 220)})
+    screenshot_dim_blur: int = field(default=16, metadata={"loader": _clamp_int(4, 32)})
     # 工作流配置
     workflow_preset: str = field(
         default=WORKFLOW_PRESET_DEFAULT,

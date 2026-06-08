@@ -37,8 +37,13 @@ from ..theme import (
 
 
 class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
-    _ACTIVE_DIM_ALPHA = 132
-    _DIM_BACKDROP_DOWNSCALE = 16
+    _DIM_BACKDROP_PRESETS = {
+        "system": (132, 16),
+        "clear": (104, 12),
+        "deep": (172, 20),
+    }
+    _ACTIVE_DIM_ALPHA = _DIM_BACKDROP_PRESETS["system"][0]
+    _DIM_BACKDROP_DOWNSCALE = _DIM_BACKDROP_PRESETS["system"][1]
 
     # ── pen / 颜色缓存（懒初始化；主题切换时调 invalidate_paint_cache）──
 
@@ -148,23 +153,40 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
     def dim_shade(self) -> QColor:
         shade = QColor(overlay_dim())
         if self.soft_dim_backdrop_enabled():
-            shade.setAlpha(max(shade.alpha(), self._ACTIVE_DIM_ALPHA))
+            shade.setAlpha(max(shade.alpha(), self.dim_backdrop_alpha()))
         return shade
 
     def soft_dim_backdrop_enabled(self) -> bool:
         mode = getattr(self, "mode", "")
         return mode in {"select", "edit"} or getattr(self, "selecting", False) or getattr(self, "adjusting_selection", False)
 
+    def dim_backdrop_settings(self) -> tuple[int, int]:
+        cfg = getattr(self, "config", None)
+        style = getattr(cfg, "screenshot_dim_style", "system")
+        if style == "custom":
+            alpha = int(getattr(cfg, "screenshot_dim_alpha", self._ACTIVE_DIM_ALPHA))
+            blur = int(getattr(cfg, "screenshot_dim_blur", self._DIM_BACKDROP_DOWNSCALE))
+        else:
+            alpha, blur = self._DIM_BACKDROP_PRESETS.get(style, self._DIM_BACKDROP_PRESETS["system"])
+        return max(72, min(220, alpha)), max(4, min(32, blur))
+
+    def dim_backdrop_alpha(self) -> int:
+        return self.dim_backdrop_settings()[0]
+
+    def dim_backdrop_downscale(self) -> int:
+        return self.dim_backdrop_settings()[1]
+
     def dim_backdrop_pixmap(self, bounds: QRect) -> QPixmap:
         if self.raw_pixmap.isNull() or bounds.isNull() or bounds.width() <= 0 or bounds.height() <= 0:
             return QPixmap()
-        key = (self.raw_pixmap.cacheKey(), bounds.width(), bounds.height())
+        downscale = self.dim_backdrop_downscale()
+        key = (self.raw_pixmap.cacheKey(), bounds.width(), bounds.height(), downscale)
         cached = getattr(self, "_dim_backdrop_cache", None)
         if cached is not None and cached[0] == key:
             return cached[1]
 
-        small_w = max(1, bounds.width() // self._DIM_BACKDROP_DOWNSCALE)
-        small_h = max(1, bounds.height() // self._DIM_BACKDROP_DOWNSCALE)
+        small_w = max(1, bounds.width() // downscale)
+        small_h = max(1, bounds.height() // downscale)
         small = self.raw_pixmap.scaled(
             small_w,
             small_h,

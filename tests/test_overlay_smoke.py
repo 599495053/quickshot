@@ -402,6 +402,49 @@ class OverlayToolSmokeTest(unittest.TestCase):
                     self.assertLessEqual(abs(color.blue() - adjacent.blue()), 2)
         self.assertEqual(canvas.pixelColor(rect.center().x(), 250).getRgb()[:3], (245, 245, 245))
 
+    def test_dim_style_controls_outside_brightness(self) -> None:
+        _ensure_app()
+        raw = QPixmap(800, 600)
+        raw.fill(QColor(80, 80, 80))
+        raw_painter = QPainter(raw)
+        try:
+            raw_painter.fillRect(QRect(0, 250, 800, 1), QColor(245, 245, 245))
+        finally:
+            raw_painter.end()
+
+        def render(style: str) -> tuple[int, tuple[int, int, int]]:
+            cfg = Config()
+            cfg.snap_to_windows = False
+            cfg.screenshot_dim_style = style
+            overlay = FloatingSnipOverlay(
+                raw, raw.copy(), QRect(0, 0, 800, 600), 1.0, 1.0, 0, 0, cfg, None
+            )
+            overlay.mode = "select"
+            overlay.selecting = True
+            overlay.start = QPoint(240, 100)
+            overlay.end = QPoint(639, 399)
+            overlay.resize(800, 600)
+            rect = overlay.current_select_rect()
+            canvas = QImage(overlay.width(), overlay.height(), QImage.Format.Format_ARGB32)
+            canvas.fill(QColor(0, 0, 0))
+            painter = QPainter(canvas)
+            try:
+                overlay.clear_canvas(painter)
+                overlay.draw_frozen_desktop(painter)
+                overlay.paint_select_mode(painter)
+            finally:
+                painter.end()
+            return (
+                canvas.pixelColor(40, 250).red(),
+                canvas.pixelColor(rect.center().x(), 250).getRgb()[:3],
+            )
+
+        clear_outside, clear_inside = render("clear")
+        deep_outside, deep_inside = render("deep")
+        self.assertGreater(clear_outside, deep_outside)
+        self.assertEqual(clear_inside, (245, 245, 245))
+        self.assertEqual(deep_inside, (245, 245, 245))
+
     def test_select_mode_masks_edge_scanlines_on_fractional_scale(self) -> None:
         _ensure_app()
         scale = 1.5

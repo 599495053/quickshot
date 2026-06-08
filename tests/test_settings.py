@@ -108,6 +108,34 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
         self.assertEqual(win.settings_stack.currentIndex(), 3)
         self.assertIn("箭头=A", win.edit_tool_hotkey_summary_label.text())
 
+    def test_screenshot_dim_style_updates_controls(self):
+        _ensure_app()
+        cfg = Config()
+        win = SettingsWindow(cfg)
+        for index in range(win.screenshot_dim_style_combo.count()):
+            if win.screenshot_dim_style_combo.itemData(index) == "deep":
+                win.screenshot_dim_style_combo.setCurrentIndex(index)
+                break
+
+        self.assertEqual(cfg.screenshot_dim_style, "deep")
+        self.assertEqual(cfg.screenshot_dim_alpha, 172)
+        self.assertEqual(cfg.screenshot_dim_blur, 20)
+        self.assertFalse(win.screenshot_dim_alpha_spin.isEnabled())
+        self.assertFalse(win.screenshot_dim_blur_spin.isEnabled())
+
+        for index in range(win.screenshot_dim_style_combo.count()):
+            if win.screenshot_dim_style_combo.itemData(index) == "custom":
+                win.screenshot_dim_style_combo.setCurrentIndex(index)
+                break
+        win.screenshot_dim_alpha_spin.setValue(140)
+        win.screenshot_dim_blur_spin.setValue(18)
+
+        self.assertEqual(cfg.screenshot_dim_style, "custom")
+        self.assertEqual(cfg.screenshot_dim_alpha, 140)
+        self.assertEqual(cfg.screenshot_dim_blur, 18)
+        self.assertTrue(win.screenshot_dim_alpha_spin.isEnabled())
+        self.assertTrue(win.screenshot_dim_blur_spin.isEnabled())
+
     def test_workflow_preset_updates_controls(self):
         _ensure_app()
         cfg = Config()

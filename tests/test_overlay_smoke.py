@@ -223,6 +223,32 @@ class OverlayToolSmokeTest(unittest.TestCase):
 
         self.assertEqual(white_pixels, 0)
 
+    def test_select_border_has_no_horizontal_glow_rows(self) -> None:
+        overlay = _make_overlay()
+        overlay.mode = "select"
+        overlay.selecting = True
+        overlay.start = QPoint(240, 100)
+        overlay.end = QPoint(639, 399)
+        rect = overlay.current_select_rect()
+
+        canvas = QImage(overlay.width(), overlay.height(), QImage.Format.Format_ARGB32)
+        canvas.fill(QColor(0, 0, 0))
+        painter = QPainter(canvas)
+        try:
+            overlay.clear_canvas(painter)
+            overlay.draw_frozen_desktop(painter)
+            overlay.paint_select_mode(painter)
+        finally:
+            painter.end()
+
+        probe_x = rect.left() + 80
+        self.assertEqual(canvas.pixelColor(probe_x, rect.top() - 1).getRgb()[:3], (34, 34, 34))
+        self.assertEqual(canvas.pixelColor(probe_x, rect.top()).getRgb()[:3], (79, 70, 229))
+        self.assertEqual(canvas.pixelColor(probe_x, rect.top() + 1).getRgb()[:3], (60, 60, 60))
+        self.assertEqual(canvas.pixelColor(probe_x, rect.bottom() - 1).getRgb()[:3], (60, 60, 60))
+        self.assertEqual(canvas.pixelColor(probe_x, rect.bottom()).getRgb()[:3], (79, 70, 229))
+        self.assertEqual(canvas.pixelColor(probe_x, rect.bottom() + 1).getRgb()[:3], (34, 34, 34))
+
     def test_select_mode_masks_horizontal_desktop_lines_at_dim_edges(self) -> None:
         overlay = _make_select_overlay_with_horizontal_desktop_lines()
         rect = overlay.current_select_rect()

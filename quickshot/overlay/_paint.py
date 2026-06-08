@@ -435,17 +435,17 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
     def draw_selection_border(self, painter: QPainter, rect: QRect) -> None:
         self._ensure_paint_cache()
         painter.save()
-        stable = QRectF(rect).adjusted(0.5, 0.5, -0.5, -0.5)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        painter.setPen(Qt.PenStyle.NoPen)
+        color = qc("accent.base")
+        painter.setBrush(color)
 
-        painter.setPen(self._pen_selection_glow)
-        painter.drawRect(stable.adjusted(-1.0, -1.0, 1.0, 1.0))
-
-        painter.setPen(self._pen_selection_outer)
-        painter.drawRect(stable)
-
-        painter.setPen(self._pen_selection_border)
-        painter.drawRect(stable.adjusted(1.0, 1.0, -1.0, -1.0))
+        crisp = rect.normalized().intersected(self.rect())
+        if crisp.width() > 0 and crisp.height() > 0:
+            painter.fillRect(QRect(crisp.left(), crisp.top(), crisp.width(), 1), color)
+            painter.fillRect(QRect(crisp.left(), crisp.bottom(), crisp.width(), 1), color)
+            painter.fillRect(QRect(crisp.left(), crisp.top(), 1, crisp.height()), color)
+            painter.fillRect(QRect(crisp.right(), crisp.top(), 1, crisp.height()), color)
         painter.restore()
 
     def draw_handles(self, painter: QPainter, rect: QRect) -> None:

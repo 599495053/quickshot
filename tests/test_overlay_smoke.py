@@ -241,6 +241,12 @@ class OverlayToolSmokeTest(unittest.TestCase):
                     self.assertLess(color.green(), 90)
                     self.assertLess(color.blue(), 90)
 
+        for y in (rect.top() - 2, rect.top(), rect.bottom(), rect.bottom() + 2):
+            with self.subTest(adjacent_y=y):
+                for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
+                    color = canvas.pixelColor(x, y)
+                    self.assertNotEqual((color.red(), color.green(), color.blue()), (245, 245, 245))
+
     def test_edit_mode_skips_selection_snapshot_by_default(self) -> None:
         overlay = _make_overlay()
         calls = []

@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QRect, Qt  # noqa: E402
+from PyQt6.QtCore import QPoint, QRect, Qt  # noqa: E402
 from PyQt6.QtGui import QColor, QPixmap  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
@@ -315,6 +315,76 @@ class FailureFeedbackTest(unittest.TestCase):
         ov._on_privacy_blur_failed("RapidOCR down")
         self.assertIn("智能隐私打码失败", ov.message)
         self.assertIn("可复制诊断信息后反馈", ov.message)
+
+
+# ── 智能隐私打码预览 ──
+
+class PrivacyPreviewTest(unittest.TestCase):
+
+    def test_privacy_blur_success_creates_preview_without_applying_mosaic(self):
+        ov = _make_overlay()
+        ov._on_privacy_blur_succeeded([(10, 20, 80, 24), (140, 70, 90, 28)])
+        self.assertEqual(len(ov.privacy_preview_rects), 2)
+        self.assertEqual(ov.privacy_preview_selected_index, 0)
+        self.assertEqual(ov.annotations, [])
+        self.assertIn("Enter 应用", ov.message)
+
+    def test_apply_privacy_preview_commits_mosaic_once(self):
+        ov = _make_overlay()
+        ov._on_privacy_blur_succeeded([(10, 20, 80, 24), (140, 70, 90, 28)])
+        ov.apply_privacy_preview()
+        self.assertFalse(ov.privacy_preview_active())
+        self.assertEqual([item["type"] for item in ov.annotations], ["mosaic", "mosaic"])
+        self.assertEqual(len(ov.history), 1)
+        self.assertIn("已对 2 处", ov.message)
+
+    def test_delete_selected_privacy_preview_rect(self):
+        ov = _make_overlay()
+        ov._on_privacy_blur_succeeded([(10, 20, 80, 24), (140, 70, 90, 28)])
+        ov.privacy_preview_selected_index = 0
+        ov.delete_selected_privacy_preview_rect()
+        self.assertEqual(len(ov.privacy_preview_rects), 1)
+        self.assertIn("剩余 1 处", ov.message)
+
+    def test_escape_cancels_privacy_preview(self):
+        ov = _make_overlay()
+        ov._on_privacy_blur_succeeded([(10, 20, 80, 24)])
+        self.assertTrue(ov.privacy_preview_active())
+        ov._handle_escape_key()
+        self.assertFalse(ov.privacy_preview_active())
+        self.assertIn("已取消", ov.message)
+
+    def test_export_is_blocked_while_privacy_preview_is_active(self):
+        ov = _make_overlay()
+        ov._on_privacy_blur_succeeded([(10, 20, 80, 24)])
+        ov.copy_current()
+        self.assertTrue(ov.privacy_preview_active())
+        self.assertIn("请先按 Enter", ov.message)
+
+    def test_arrow_key_nudges_selected_privacy_preview_rect(self):
+        ov = _make_overlay()
+        ov._on_privacy_blur_succeeded([(10, 20, 80, 24)])
+        ov.handle_privacy_preview_key(Qt.Key.Key_Right, Qt.KeyboardModifier.ShiftModifier)
+        self.assertEqual(ov.privacy_preview_rects[0].x(), 20)
+        self.assertIn("已微调", ov.message)
+
+    def test_mouse_drag_moves_privacy_preview_rect(self):
+        ov = _make_overlay()
+        ov._on_privacy_blur_succeeded([(10, 20, 80, 24)])
+        self.assertTrue(ov.begin_privacy_preview_drag(QPoint(120, 130)))
+        self.assertTrue(ov.update_privacy_preview_drag(QPoint(140, 150)))
+        self.assertTrue(ov.finish_privacy_preview_drag(QPoint(140, 150)))
+        rect = ov.privacy_preview_rects[0]
+        self.assertEqual((rect.x(), rect.y()), (30, 40))
+
+    def test_mouse_drag_resizes_privacy_preview_rect(self):
+        ov = _make_overlay()
+        ov._on_privacy_blur_succeeded([(10, 20, 80, 24)])
+        self.assertTrue(ov.begin_privacy_preview_drag(QPoint(190, 144)))
+        self.assertTrue(ov.update_privacy_preview_drag(QPoint(200, 154)))
+        self.assertTrue(ov.finish_privacy_preview_drag(QPoint(200, 154)))
+        rect = ov.privacy_preview_rects[0]
+        self.assertEqual((rect.width(), rect.height()), (90, 34))
 
 
 # ── 选区微调 ──

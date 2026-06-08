@@ -37,6 +37,9 @@ class UndoMixin:
     def clear_annotations(self) -> None:
         if self.edit_pixmap.isNull():
             return
+        if getattr(self, "privacy_preview_active", lambda: False)():
+            self.cancel_privacy_preview()
+            return
         if not self.annotations and not self.history:
             self.message = "当前没有标注可清空"
             self.update()
@@ -84,6 +87,9 @@ class UndoMixin:
         self.update()
 
     def undo(self) -> None:
+        if getattr(self, "privacy_preview_active", lambda: False)():
+            self.cancel_privacy_preview()
+            return
         if not self.history:
             self.message = "没有可撤销的操作"
             self.update()
@@ -104,6 +110,9 @@ class UndoMixin:
         self.update()
 
     def redo(self) -> None:
+        if getattr(self, "privacy_preview_active", lambda: False)():
+            self.cancel_privacy_preview()
+            return
         if not self.redo_stack:
             self.message = "没有可重做的操作"
             self.update()

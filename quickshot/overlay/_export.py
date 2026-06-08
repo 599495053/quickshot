@@ -27,6 +27,10 @@ class ExportMixin:
     def copy_current(self) -> None:
         if self.edit_pixmap.isNull():
             return
+        if getattr(self, "privacy_preview_active", lambda: False)():
+            self.message = "请先按 Enter 应用智能打码预览，或按 Esc 取消"
+            self.update()
+            return
         try:
             copy_pixmap_to_clipboard(self.edit_pixmap)
             self.record_capture_history("copy")
@@ -43,6 +47,10 @@ class ExportMixin:
         self.update()
 
     def finish(self) -> None:
+        if getattr(self, "privacy_preview_active", lambda: False)():
+            self.message = "请先按 Enter 应用智能打码预览，或按 Esc 取消"
+            self.update()
+            return
         # 自动 OCR 时延迟关闭，避免 close 后 OCR 写剪贴板被系统覆盖
         if (
             getattr(self.config, "workflow_auto_ocr", False)
@@ -90,6 +98,10 @@ class ExportMixin:
 
     def save_current(self) -> None:
         if self.edit_pixmap.isNull():
+            return
+        if getattr(self, "privacy_preview_active", lambda: False)():
+            self.message = "请先按 Enter 应用智能打码预览，或按 Esc 取消"
+            self.update()
             return
         save_dir = self.config.ensure_save_dir()
         default_fmt = getattr(self.config, "save_format", "png")
@@ -147,6 +159,10 @@ class ExportMixin:
 
     def pin_current(self) -> None:
         if self.edit_pixmap.isNull():
+            return
+        if getattr(self, "privacy_preview_active", lambda: False)():
+            self.message = "请先按 Enter 应用智能打码预览，或按 Esc 取消"
+            self.update()
             return
         try:
             self.record_capture_history("pin")

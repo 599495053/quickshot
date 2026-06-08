@@ -397,6 +397,8 @@ class ToolbarMixin:
 
     def select_tool(self, tool: str) -> None:
         style_tools = STYLE_TOOLS
+        if getattr(self, "privacy_preview_active", lambda: False)():
+            self.cancel_privacy_preview()
         if self.text_panel_visible():
             if tool == "text":
                 self.settle_inline_text()

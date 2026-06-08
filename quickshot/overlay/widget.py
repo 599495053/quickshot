@@ -26,6 +26,7 @@ from ._events import EventMixin
 from ._history import HistoryMixin
 from ._ocr import OcrMixin
 from ._paint import PaintMixin
+from ._privacy_preview import PrivacyPreviewMixin
 from ._selection import SelectionMixin
 from ._snap import SnapMixin
 from ._text_drag import TextDragState
@@ -36,6 +37,7 @@ from ._tool_strategies import TOOL_STRATEGIES
 
 class FloatingSnipOverlay(
     TextEditorMixin,
+    PrivacyPreviewMixin,
     EventMixin,
     SelectionMixin,
     DrawingMixin,
@@ -109,6 +111,7 @@ class FloatingSnipOverlay(
         self.history: List[Tuple[QPixmap, List[Dict[str, object]], bool]] = []
         self.redo_stack: List[Tuple[QPixmap, List[Dict[str, object]], bool]] = []
         self.annotations: List[Dict[str, object]] = []
+        self._init_privacy_preview_state()
 
         self.active_tool = "none"
         self.last_tool = "none"
@@ -483,6 +486,7 @@ class FloatingSnipOverlay(
             if self.selection_snapshot_required:
                 self.draw_selection_snapshot(painter)
             self.draw_annotations_overlay(painter)
+            self.draw_privacy_preview(painter)
         if self.grid_visible:
             self.draw_grid(painter)
         self.draw_selection_border(painter, self.selection_rect)

@@ -96,6 +96,7 @@ Get-FileHash .\QuickShot-5.3.4-Setup.exe -Algorithm SHA256
 - 文字、序号、马赛克、模糊打码、取色器。
 - 标注颜色、线宽和样式预设。
 - 智能隐私打码可使用默认系统 OCR；安装 RapidOCR 可选组件后会优先使用本地 RapidOCR 引擎。
+- 智能隐私打码会先显示可调整预览框，确认后才应用马赛克，避免误识别直接改坏截图。
 
 ### OCR 与翻译
 

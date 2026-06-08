@@ -239,6 +239,11 @@ class EventMixin:
         if self.style_panel_kind and not self.style_panel_rect.contains(pos):
             self.close_style_panel()
 
+        if self.privacy_preview_active():
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.begin_privacy_preview_drag(pos)
+            return
+
         if self.text_panel_visible():
             if self._handle_text_panel_click(pos, event):
                 return
@@ -314,6 +319,10 @@ class EventMixin:
             if self.adjusting_selection:
                 self.update_selection_adjust(pos)
                 return
+
+            if self.privacy_preview_active():
+                if self.update_privacy_preview_drag(pos):
+                    return
 
             hover = self.button_at(pos)
             hover_style = self.style_panel_option_at(pos) if self.style_panel_kind else ""
@@ -397,6 +406,10 @@ class EventMixin:
             self.update_selection_adjust(pos)
             self.finish_selection_adjust()
             return
+
+        if self.mode == "edit" and event.button() == Qt.MouseButton.LeftButton and self.privacy_preview_active():
+            if self.finish_privacy_preview_drag(pos):
+                return
 
         if self.mode == "edit" and event.button() == Qt.MouseButton.LeftButton and self.dragging_annotation:
             image_pos = self.widget_to_image(pos)
@@ -543,6 +556,9 @@ class EventMixin:
             self.update_toolbar_layout()
             self.update()
             return True
+        if self.privacy_preview_active():
+            self.cancel_privacy_preview()
+            return True
         self.close()
         return True
 
@@ -653,6 +669,10 @@ class EventMixin:
             self._handle_ocr_running_key(key)
             return
 
+        if self.privacy_preview_active():
+            self.handle_privacy_preview_key(key, event.modifiers())
+            return
+
         # Ctrl 组合键
         if ctrl:
             if self._handle_ctrl_key(key):
@@ -688,6 +708,17 @@ class EventMixin:
         if self.ocr_running() and key != "cancel":
             self.message = "正在识别当前截图，请稍候..."
             self.update()
+            return
+        if self.privacy_preview_active():
+            if key == "done":
+                self.apply_privacy_preview()
+            elif key == "cancel":
+                self.cancel_privacy_preview()
+            elif key == "clear":
+                self.delete_selected_privacy_preview_rect()
+            else:
+                self.message = "请先按 Enter 应用智能打码预览，或按 Esc 取消"
+                self.update()
             return
         if self.text_panel_visible() and key not in ("text", "cancel"):
             self.commit_inline_text()
@@ -769,6 +800,10 @@ class EventMixin:
             self.message = "请先选择截图区域"
             self.update()
             return
+        if self.privacy_preview_active():
+            self.message = "已有智能打码预览；请先按 Enter 应用或 Esc 取消"
+            self.update()
+            return
         if getattr(self, '_privacy_blur_running', False):
             self.message = "正在识别隐私信息，请稍候..."
             self.update()
@@ -788,11 +823,9 @@ class EventMixin:
             self.message = "未检测到隐私信息（手机号、身份证、邮箱、银行卡）"
             self.update()
             return
-        self.push_history()
-        for (x, y, w, h) in rects:
-            self.apply_mosaic(QRect(x, y, w, h))
-        self.message = f"已对 {len(rects)} 处隐私信息打码"
-        self.update()
+        if not self.start_privacy_preview(rects):
+            self.message = "检测结果太小或超出截图区域，未生成可用打码框"
+            self.update()
 
     def _on_privacy_blur_failed(self, error: str) -> None:
         from ..feedback import compact_error_message

@@ -36,6 +36,8 @@ class SelectionMixin:
         self.selection_snapshot_required = False
         self.history.clear()
         self.annotations.clear()
+        if hasattr(self, "cancel_privacy_preview"):
+            self.cancel_privacy_preview(silent=True)
         self.active_tool = "none"
         self.dragging_annotation = False
         self.drag_start = None
@@ -181,6 +183,8 @@ class SelectionMixin:
             self.edit_pixmap = QPixmap()
             self.selection_display_pixmap = QPixmap()
             self.selection_snapshot_required = False
+            if hasattr(self, "cancel_privacy_preview"):
+                self.cancel_privacy_preview(silent=True)
             # 使缓存失效
             self.invalidate_image_cache()
             return

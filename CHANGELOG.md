@@ -4,7 +4,19 @@ All notable changes to QuickShot are tracked here.
 
 ## Unreleased
 
-- No changes yet.
+### Added
+
+- Added a smart privacy masking review step: detected privacy regions are shown as editable preview boxes and are only mosaicked after confirmation.
+
+### Changed
+
+- Screenshot export actions now block while smart privacy masking preview is active, preventing accidental copy/save/pin of an unmasked image.
+
+### Verified
+
+- `python -m pyflakes quickshot launcher.py build_config.py tests\test_overlay_events.py tests\test_selftest.py`
+- `python -m compileall -q quickshot launcher.py build_config.py tests\test_overlay_events.py`
+- `python -m pytest -q`: `505 passed, 37 subtests passed`
 
 ## v5.3.4 - 2026-06-08
 

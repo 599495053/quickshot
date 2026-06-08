@@ -327,9 +327,11 @@ class OverlayToolSmokeTest(unittest.TestCase):
         raw.fill(QColor(60, 60, 60))
         start = QPoint(240, 100)
         end = QPoint(639, 399)
+        top_physical = int(round(start.y() * scale))
+        bottom_physical = int(round(end.y() * scale))
         raw_painter = QPainter(raw)
         try:
-            for physical_y in (int(round(start.y() * scale)), int(round(end.y() * scale))):
+            for physical_y in (top_physical, bottom_physical - 1, bottom_physical):
                 raw_painter.fillRect(QRect(0, physical_y, raw_w, 1), QColor(245, 245, 245))
         finally:
             raw_painter.end()
@@ -356,8 +358,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
         finally:
             painter.end()
 
-        for logical_y in (rect.top(), rect.bottom()):
-            physical_y = int(round(logical_y * scale))
+        for physical_y in (top_physical, bottom_physical - 1, bottom_physical):
             with self.subTest(physical_y=physical_y):
                 for logical_x in (rect.left() - 10, rect.center().x(), rect.right() + 10):
                     physical_x = int(round(logical_x * scale))

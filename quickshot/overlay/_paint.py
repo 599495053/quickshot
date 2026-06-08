@@ -179,7 +179,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             (rect.left(), rect.width(), False),
             (rect.right() + 1, max(0, bounds.right() - rect.right()), True),
         )
-        edge_band = 2 if rect.height() > 2 else 1
+        edge_band = min(3, max(1, rect.height()))
         cleanup_rows = (
             (rect.top(), rect.top() - edge_band, rect.top() + edge_band),
             (rect.bottom() - edge_band + 1, rect.bottom() + 1, rect.bottom() - edge_band * 2 + 1),

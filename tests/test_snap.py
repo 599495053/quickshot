@@ -25,9 +25,12 @@ class MockOverlay:
 
     def __init__(self, threshold=10):
         self._snap_window_logical_rects = []
+        self._window_candidates = []
         self._snap_edges = []
         self._snap_windows_loaded = False
         self._snap_refresh_pending = False
+        self._hover_window_candidate = None
+        self._press_hover_window_candidate = None
         self.mode = "select"
         self.selecting = False
 
@@ -45,14 +48,26 @@ class MockOverlay:
     def logical_to_physical_rect(self, rect):
         return QRect(rect)
 
+    def rect(self):
+        return QRect(0, 0, 800, 600)
+
     def _init_snap_state(self):
         self._snap_window_logical_rects = []
+        self._window_candidates = []
         self._snap_edges = []
         self._snap_windows_loaded = False
+        self._snap_refresh_pending = False
+        self._hover_window_candidate = None
+        self._press_hover_window_candidate = None
 
 
 # 导入 mixin 方法
 from quickshot.overlay._snap import SnapMixin  # noqa: E402
+from quickshot.overlay._window_candidates import (  # noqa: E402
+    build_window_candidates,
+    candidate_at,
+    legacy_logical_rects,
+)
 
 
 class ApplySnapTest(unittest.TestCase):
@@ -60,11 +75,14 @@ class ApplySnapTest(unittest.TestCase):
         self.overlay = MockOverlay(threshold=10)
         # 手动绑定 mixin 方法
         self.overlay._apply_snap = SnapMixin._apply_snap.__get__(self.overlay)
+        self.overlay._window_logical_rects_for_snap = SnapMixin._window_logical_rects_for_snap.__get__(self.overlay)
         self.overlay._refresh_snap_windows = SnapMixin._refresh_snap_windows.__get__(self.overlay)
         self.overlay._init_snap_state = SnapMixin._init_snap_state.__get__(self.overlay)
         self.overlay._schedule_snap_prewarm = SnapMixin._schedule_snap_prewarm.__get__(self.overlay)
         self.overlay._run_snap_prewarm = SnapMixin._run_snap_prewarm.__get__(self.overlay)
+        self.overlay._hover_window_candidate_at = SnapMixin._hover_window_candidate_at.__get__(self.overlay)
         self.overlay._hover_window_at = SnapMixin._hover_window_at.__get__(self.overlay)
+        self.overlay._hover_window_physical_rect = SnapMixin._hover_window_physical_rect.__get__(self.overlay)
         self.overlay._clear_hover_window = SnapMixin._clear_hover_window.__get__(self.overlay)
         self.overlay._update_hover_window = SnapMixin._update_hover_window.__get__(self.overlay)
         self.overlay._init_snap_state()
@@ -200,6 +218,25 @@ class ApplySnapTest(unittest.TestCase):
         self.assertEqual(rect, QRect(100, 100, 300, 200))
         self.assertEqual(title, "Front")
 
+    def test_refresh_snap_windows_builds_candidates(self):
+        """刷新窗口缓存时应保留逻辑和物理候选，供悬停点击复用。"""
+        self.overlay.physical_abs_to_logical_rect = MagicMock(
+            return_value=(QRect(10, 20, 200, 120), QRect(20, 40, 400, 240))
+        )
+        with patch(
+            "quickshot.window_enum.enumerate_visible_windows",
+            return_value=[(7, QRect(20, 40, 400, 240), "  App  Window  ")],
+        ):
+            self.overlay._refresh_snap_windows()
+
+        self.assertTrue(self.overlay._snap_windows_loaded)
+        self.assertEqual(len(self.overlay._window_candidates), 1)
+        self.assertEqual(self.overlay._snap_window_logical_rects, [(7, QRect(10, 20, 200, 120), "App Window")])
+
+        changed = self.overlay._update_hover_window(QPoint(30, 40))
+        self.assertTrue(changed)
+        self.assertEqual(self.overlay._hover_window_physical_rect(), QRect(20, 40, 400, 240))
+
     def test_update_hover_window_clears_when_snap_disabled(self):
         """关闭窗口吸附时，悬停候选也应同步清空。"""
         self.overlay._hover_window_logical_rect = QRect(100, 100, 300, 200)
@@ -219,6 +256,59 @@ class ApplySnapTest(unittest.TestCase):
 
         self.assertTrue(self.overlay._snap_windows_loaded)
         self.assertEqual(self.overlay._snap_window_logical_rects, [])
+        self.assertEqual(self.overlay._window_candidates, [])
+
+
+class WindowCandidateTest(unittest.TestCase):
+
+    def test_build_window_candidates_preserves_z_order_for_hit_testing(self):
+        raw_windows = [
+            (1, QRect(0, 0, 300, 200), " Front "),
+            (2, QRect(40, 40, 80, 80), "Behind"),
+        ]
+
+        candidates = build_window_candidates(
+            raw_windows,
+            lambda rect: (QRect(*rect), QRect(*rect)),
+            QRect(0, 0, 400, 300),
+        )
+
+        self.assertEqual([candidate.hwnd for candidate in candidates], [1, 2])
+        self.assertEqual(candidates[0].title, "Front")
+        self.assertEqual(candidate_at(candidates, QPoint(50, 50)).hwnd, 1)
+
+    def test_build_window_candidates_clips_logical_bounds_and_filters_invalid(self):
+        raw_windows = [
+            (1, QRect(-20, 10, 60, 50), "Partial"),
+            (2, QRect(500, 500, 100, 100), "Offscreen"),
+            (3, QRect(20, 20, 4, 80), "Tiny"),
+            (4, QRect(30, 30, 80, 80), "   "),
+        ]
+
+        candidates = build_window_candidates(
+            raw_windows,
+            lambda rect: (QRect(*rect), QRect(*rect)),
+            QRect(0, 0, 200, 120),
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].logical_rect, QRect(0, 10, 40, 50))
+        self.assertEqual(legacy_logical_rects(candidates), [(1, QRect(0, 10, 40, 50), "Partial")])
+
+    def test_build_window_candidates_skips_failed_conversions(self):
+        raw_windows = [
+            (1, QRect(0, 0, 100, 80), "Bad"),
+            (2, QRect(20, 20, 120, 90), "Good"),
+        ]
+
+        def convert(rect):
+            if rect[0] == 0:
+                raise RuntimeError("bad geometry")
+            return QRect(*rect), QRect(*rect)
+
+        candidates = build_window_candidates(raw_windows, convert, QRect(0, 0, 200, 160))
+
+        self.assertEqual([candidate.hwnd for candidate in candidates], [2])
 
 
 if __name__ == "__main__":

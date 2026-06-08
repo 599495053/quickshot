@@ -10,6 +10,8 @@ from typing import Optional
 
 from PyQt6.QtCore import QPoint, QRect, QTimer
 
+from ._window_candidates import WindowCandidate, build_window_candidates, candidate_at, legacy_logical_rects
+
 
 class SnapMixin:
     """选区吸附窗口边缘。"""
@@ -17,11 +19,14 @@ class SnapMixin:
     def _init_snap_state(self) -> None:
         """初始化吸附状态（在 __init__ 中调用）。"""
         self._snap_window_logical_rects: list[tuple[int, QRect, str]] = []
+        self._window_candidates: list[WindowCandidate] = []
         self._snap_edges: list[tuple[str, QRect]] = []
         self._snap_windows_loaded = False
         self._snap_refresh_pending = False
+        self._hover_window_candidate: Optional[WindowCandidate] = None
         self._hover_window_logical_rect = QRect()
         self._hover_window_title = ""
+        self._press_hover_window_candidate: Optional[WindowCandidate] = None
         self._press_hover_window_logical_rect = QRect()
         self._press_hover_window_physical_rect = QRect()
 
@@ -58,24 +63,31 @@ class SnapMixin:
         except Exception as exc:
             debug_log(f"snap window enumeration failed: {exc}")
             raw_windows = []
-        self._snap_window_logical_rects = []
-        for hwnd, phys_rect, title in raw_windows:
-            try:
-                log_rect, _ = self.physical_abs_to_logical_rect(
-                    (phys_rect.x(), phys_rect.y(), phys_rect.width(), phys_rect.height())
-                )
-                if not log_rect.isNull() and log_rect.width() > 0 and log_rect.height() > 0:
-                    self._snap_window_logical_rects.append((hwnd, log_rect, title))
-            except Exception as exc:
-                debug_log(f"snap window rect skipped: {exc}")
+        try:
+            self._window_candidates = build_window_candidates(
+                raw_windows,
+                self.physical_abs_to_logical_rect,
+                self.rect(),
+            )
+            self._snap_window_logical_rects = legacy_logical_rects(self._window_candidates)
+        except Exception as exc:
+            debug_log(f"snap window candidates failed: {exc}")
+            self._window_candidates = []
+            self._snap_window_logical_rects = []
         self._snap_windows_loaded = True
+
+    def _window_logical_rects_for_snap(self) -> list[tuple[int, QRect, str]]:
+        if self._window_candidates:
+            return legacy_logical_rects(self._window_candidates)
+        return self._snap_window_logical_rects
 
     def _apply_snap(self, raw_rect: QRect) -> tuple[QRect, list[tuple[str, QRect]]]:
         """对原始选区矩形应用吸附。
 
         返回 (吸附后矩形, [(吸附边描述, 被吸附窗口rect), ...])。
         """
-        if not self._snap_window_logical_rects:
+        window_rects = self._window_logical_rects_for_snap()
+        if not window_rects:
             return raw_rect, []
 
         threshold = getattr(self.config, 'snap_threshold_px', 10)
@@ -91,7 +103,7 @@ class SnapMixin:
         best_right = (right, None)
         best_bottom = (bottom, None)
 
-        for _hwnd, wrect, _title in self._snap_window_logical_rects:
+        for _hwnd, wrect, _title in window_rects:
             wl, wt, wr, wb = wrect.left(), wrect.top(), wrect.right(), wrect.bottom()
 
             # 水平方向：选区左边/右边 吸附到 窗口左边/右边
@@ -131,24 +143,38 @@ class SnapMixin:
 
         return snapped, snap_edges
 
+    def _hover_window_candidate_at(self, pos: QPoint) -> Optional[WindowCandidate]:
+        """Return the topmost cached candidate containing pos."""
+        if self._window_candidates:
+            return candidate_at(self._window_candidates, pos)
+        for index, (hwnd, rect, title) in enumerate(self._snap_window_logical_rects):
+            if rect.contains(pos):
+                return WindowCandidate(hwnd, rect, self.logical_to_physical_rect(rect), title, index)
+        return None
+
     def _hover_window_at(self, pos: QPoint) -> tuple[QRect, str]:
         """Return the topmost cached window containing pos."""
-        if not self._snap_window_logical_rects:
-            return QRect(), ""
-        for _hwnd, rect, title in self._snap_window_logical_rects:
-            if rect.contains(pos):
-                return QRect(rect), title
+        candidate = self._hover_window_candidate_at(pos)
+        if candidate is not None:
+            return QRect(candidate.logical_rect), candidate.title
         return QRect(), ""
 
     def _hover_window_physical_rect(self, logical_rect: Optional[QRect] = None) -> QRect:
+        if logical_rect is None and self._hover_window_candidate is not None:
+            return QRect(self._hover_window_candidate.physical_rect)
+        if logical_rect is not None and self._hover_window_candidate is not None:
+            if QRect(logical_rect) == self._hover_window_candidate.logical_rect:
+                return QRect(self._hover_window_candidate.physical_rect)
         rect = logical_rect if logical_rect is not None else self._hover_window_logical_rect
         if rect is None or rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
             return QRect()
         return self.logical_to_physical_rect(rect)
 
     def _clear_hover_window(self) -> None:
+        self._hover_window_candidate = None
         self._hover_window_logical_rect = QRect()
         self._hover_window_title = ""
+        self._press_hover_window_candidate = None
         self._press_hover_window_logical_rect = QRect()
         self._press_hover_window_physical_rect = QRect()
 
@@ -164,9 +190,12 @@ class SnapMixin:
                 self._schedule_snap_prewarm(40)
             return False
 
-        rect, title = self._hover_window_at(pos)
+        candidate = self._hover_window_candidate_at(pos)
+        rect = QRect(candidate.logical_rect) if candidate is not None else QRect()
+        title = candidate.title if candidate is not None else ""
         if rect == self._hover_window_logical_rect and title == self._hover_window_title:
             return False
+        self._hover_window_candidate = candidate
         self._hover_window_logical_rect = rect
         self._hover_window_title = title
         return True

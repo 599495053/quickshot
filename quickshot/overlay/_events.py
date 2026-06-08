@@ -148,9 +148,11 @@ class EventMixin:
             and hover_rect.height() > 0
             and hover_rect.contains(pos)
         ):
+            self._press_hover_window_candidate = getattr(self, "_hover_window_candidate", None)
             self._press_hover_window_logical_rect = QRect(hover_rect)
             self._press_hover_window_physical_rect = self._hover_window_physical_rect(hover_rect)
         else:
+            self._press_hover_window_candidate = None
             self._press_hover_window_logical_rect = QRect()
             self._press_hover_window_physical_rect = QRect()
         self.start = pos
@@ -438,6 +440,7 @@ class EventMixin:
             self.selecting = False
             self._snap_windows_loaded = False
             self._snap_refresh_pending = False
+            self._window_candidates = []
             self._snap_window_logical_rects = []
             physical_rect = self.logical_to_physical_rect(logical_rect)
             if physical_rect.width() < 8 or physical_rect.height() < 8:
@@ -455,6 +458,7 @@ class EventMixin:
                     self.selecting = False
                     self._snap_windows_loaded = False
                     self._snap_refresh_pending = False
+                    self._window_candidates = []
                     self._snap_window_logical_rects = []
                     self._clear_hover_window()
                     self.enter_edit_mode(hover_logical, hover_physical)

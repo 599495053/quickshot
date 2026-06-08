@@ -161,6 +161,17 @@ class ToolbarButtonTest(unittest.TestCase):
         result = overlay.button_at(QPoint(0, 0))
         self.assertEqual(result, "")
 
+    def test_toolbar_tip_rect_tracks_hover_anchor(self) -> None:
+        overlay = _make_overlay()
+        overlay.update_toolbar_layout()
+        anchor = overlay.toolbar_buttons["arrow"].center()
+
+        tip_rect = overlay.toolbar_tip_rect("Arrow tool", anchor)
+
+        self.assertFalse(tip_rect.isNull())
+        self.assertLess(abs(tip_rect.left() - (anchor.x() + 14)), 3)
+        self.assertNotEqual(tip_rect.center().x(), overlay.toolbar_rect.center().x())
+
 
 class StylePanelTest(unittest.TestCase):
     """测试样式面板功能。"""

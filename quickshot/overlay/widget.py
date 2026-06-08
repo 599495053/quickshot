@@ -134,6 +134,7 @@ class FloatingSnipOverlay(
         self.hover_drag_button = False
         self.hover_button = ""
         self.hover_style_option = ""
+        self._toolbar_tip_anchor_pos = QPoint()
         self.last_message_rect = QRect()
         self.message = "拖动鼠标选择截图区域   点击窗口可直接截取   R 复用上次   Esc 取消"
         self.text_font_size = TEXT_FONT_SIZE_DEFAULT

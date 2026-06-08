@@ -497,6 +497,24 @@ class ToolbarActionTest(unittest.TestCase):
         self.assertIn("请稍候", ov.message)
 
 
+class ToolbarHoverTipTest(unittest.TestCase):
+
+    def test_toolbar_tip_anchor_tracks_mouse_inside_same_button(self):
+        ov = _make_overlay()
+        ov.update_toolbar_layout()
+        button = ov.toolbar_buttons["arrow"]
+        first_pos = button.center()
+        second_pos = QPoint(button.right() - 4, button.center().y())
+
+        ov._handle_mouse_move(_make_mouse_event(first_pos))
+        self.assertEqual(ov.hover_button, "arrow")
+        self.assertEqual(ov._toolbar_tip_anchor_pos, first_pos)
+
+        ov._handle_mouse_move(_make_mouse_event(second_pos))
+        self.assertEqual(ov.hover_button, "arrow")
+        self.assertEqual(ov._toolbar_tip_anchor_pos, second_pos)
+
+
 class FailureFeedbackTest(unittest.TestCase):
 
     def test_ocr_failure_message_points_to_diagnostics(self):

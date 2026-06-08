@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from PyQt6.QtCore import QPoint, QRect, QRectF, Qt
 from PyQt6.QtGui import QColor, QPainter, QPen
 
@@ -161,30 +163,51 @@ class ToolbarPaintMixin:
         if self.hover_button:
             for key, _label, _icon, tip in items:
                 if key == self.hover_button:
-                    self.draw_toolbar_tip(painter, tip)
+                    anchor_pos = getattr(self, "_toolbar_tip_anchor_pos", QPoint())
+                    button_rect = self.toolbar_buttons.get(key)
+                    if button_rect is not None and (anchor_pos.isNull() or not button_rect.contains(anchor_pos)):
+                        anchor_pos = button_rect.center()
+                    self.draw_toolbar_tip(painter, tip, anchor_pos)
                     break
 
         painter.restore()
 
-    def draw_toolbar_tip(self, painter: QPainter, text: str) -> None:
+    def toolbar_tip_rect(self, text: str, anchor_pos: Optional[QPoint] = None) -> QRect:
         if self.toolbar_rect.isNull() or not text or self.style_panel_kind:
-            return
+            return QRect()
         self._ensure_paint_cache()
-        font = self._font_tip
         metrics = self._fm_tip
         w = metrics.horizontalAdvance(text) + 22
         h = 28
-        x = self.toolbar_rect.center().x() - w // 2
-        y = self.toolbar_rect.top() - h - 10
-        if y < 8:
-            y = self.toolbar_rect.bottom() + 10
+        anchor = QPoint(anchor_pos) if anchor_pos is not None else self.toolbar_rect.center()
+        if anchor.isNull() or not self.rect().contains(anchor):
+            anchor = self.toolbar_rect.center()
+
+        x = anchor.x() + 14
+        if x + w > self.width() - 8:
+            x = anchor.x() - w - 14
         x = max(8, min(self.width() - w - 8, x))
-        r = QRect(x, y, w, h)
+
+        if self.toolbar_rect.contains(anchor):
+            y = self.toolbar_rect.top() - h - 10
+            if y < 8:
+                y = self.toolbar_rect.bottom() + 10
+        else:
+            y = anchor.y() - h - 14
+            if y < 8:
+                y = anchor.y() + 18
+        y = max(8, min(self.height() - h - 8, y))
+        return QRect(x, y, w, h)
+
+    def draw_toolbar_tip(self, painter: QPainter, text: str, anchor_pos: Optional[QPoint] = None) -> None:
+        r = self.toolbar_tip_rect(text, anchor_pos)
+        if r.isNull():
+            return
         self.draw_floating_bubble(
             painter,
             r,
             text,
-            font=font,
+            font=self._font_tip,
             radius=9,
             bg=overlay_tip_bg(),
             border=overlay_tip_border(),

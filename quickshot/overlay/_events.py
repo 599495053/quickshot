@@ -385,10 +385,15 @@ class EventMixin:
             hover = self.button_at(pos)
             hover_style = self.style_panel_option_at(pos) if self.style_panel_kind else ""
             hover_text = self.text_annotation_at(pos) if self.active_tool == "none" and not self.text_panel_visible() else -1
+            toolbar_tip_moved = bool(hover) and QPoint(pos) != getattr(self, "_toolbar_tip_anchor_pos", QPoint())
             if hover != self.hover_button or hover_style != self.hover_style_option:
                 self.hover_button = hover
                 self.hover_style_option = hover_style
                 self.hover_drag_button = False
+                self._toolbar_tip_anchor_pos = QPoint(pos) if hover else QPoint()
+                self.update()
+            elif toolbar_tip_moved:
+                self._toolbar_tip_anchor_pos = QPoint(pos)
                 self.update()
             elif self.active_tool == "picker" and self.selection_rect.contains(pos):
                 self.request_frame_update()  # 取色器需要持续刷新以显示放大镜

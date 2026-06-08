@@ -248,10 +248,15 @@ class PrivacyPreviewMixin:
             return True
 
         hover = self.button_at(pos)
+        toolbar_tip_moved = bool(hover) and QPoint(pos) != getattr(self, "_toolbar_tip_anchor_pos", QPoint())
         if hover != getattr(self, "hover_button", ""):
             self.hover_button = hover
             self.hover_style_option = ""
             self.hover_drag_button = False
+            self._toolbar_tip_anchor_pos = QPoint(pos) if hover else QPoint()
+            self.update()
+        elif toolbar_tip_moved:
+            self._toolbar_tip_anchor_pos = QPoint(pos)
             self.update()
         index, handle = self._privacy_preview_hit_test(pos)
         cursor = Qt.CursorShape.PointingHandCursor if hover else self._privacy_preview_cursor_for_handle(handle)

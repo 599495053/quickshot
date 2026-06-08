@@ -599,6 +599,52 @@ class OverlayToolSmokeTest(unittest.TestCase):
                 self.assertNotEqual(canvas.pixelColor(rect.left() - 1, y).getRgb()[:3], (245, 245, 245))
                 self.assertNotEqual(canvas.pixelColor(rect.right() + 1, y).getRgb()[:3], (245, 245, 245))
 
+    def test_select_sample_maps_logical_cursor_to_raw_pixel_on_fractional_scale(self) -> None:
+        _ensure_app()
+        scale = 1.5
+        cfg = Config()
+        raw = QPixmap(1200, 900)
+        raw.fill(QColor(10, 20, 30))
+        painter = QPainter(raw)
+        try:
+            painter.fillRect(QRect(150, 120, 1, 1), QColor(18, 52, 86))
+        finally:
+            painter.end()
+        display = raw.copy()
+        display.setDevicePixelRatio(scale)
+        overlay = FloatingSnipOverlay(
+            raw, display, QRect(0, 0, 800, 600), scale, scale, 0, 0, cfg, None
+        )
+        overlay.mode = "select"
+        overlay.resize(800, 600)
+
+        sample = overlay.select_sample_at(QPoint(100, 80))
+
+        self.assertIsNotNone(sample)
+        raw_point, color = sample
+        self.assertEqual(raw_point, QPoint(150, 120))
+        self.assertEqual(color.name().upper(), "#123456")
+
+    def test_select_magnifier_draws_sampled_color_swatch(self) -> None:
+        overlay = _make_overlay()
+        overlay.mode = "select"
+        overlay.selecting = True
+        overlay._select_cursor_pos = QPoint(180, 160)
+        overlay._select_cursor_visible = True
+        overlay.resize(800, 600)
+
+        canvas = QImage(overlay.width(), overlay.height(), QImage.Format.Format_ARGB32)
+        canvas.fill(QColor(0, 0, 0, 0))
+        painter = QPainter(canvas)
+        try:
+            overlay.draw_select_magnifier(painter)
+        finally:
+            painter.end()
+
+        panel = overlay.select_magnifier_rect(QPoint(180, 160))
+        swatch_center = QPoint(panel.left() + 156, panel.top() + 34)
+        self.assertEqual(canvas.pixelColor(swatch_center).name().upper(), "#3C3C3C")
+
     def test_snap_guides_are_hidden_by_default(self) -> None:
         overlay = _make_overlay()
         overlay.mode = "select"

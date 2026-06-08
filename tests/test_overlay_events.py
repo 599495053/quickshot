@@ -303,6 +303,8 @@ class SelectModeResponsivenessTest(unittest.TestCase):
         ov.selecting = True
         ov.start = QPoint(120, 130)
         ov.end = QPoint(120, 130)
+        ov._select_cursor_pos = QPoint(120, 130)
+        ov._select_cursor_visible = True
         ov._snap_window_logical_rects = []
         ov._snap_windows_loaded = True
         ov.request_frame_update = MagicMock()
@@ -310,6 +312,36 @@ class SelectModeResponsivenessTest(unittest.TestCase):
         ov._handle_mouse_move(self._make_move_event(QPoint(120, 130)))
 
         ov.request_frame_update.assert_not_called()
+
+    def test_select_move_repaints_when_magnifier_first_appears(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov.selecting = True
+        ov.start = QPoint(120, 130)
+        ov.end = QPoint(120, 130)
+        ov._snap_window_logical_rects = []
+        ov._snap_windows_loaded = True
+        ov.request_frame_update = MagicMock()
+
+        ov._handle_mouse_move(self._make_move_event(QPoint(120, 130)))
+
+        ov.request_frame_update.assert_called_once()
+
+    def test_select_mode_c_copies_current_cursor_color(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov._select_cursor_pos = QPoint(120, 130)
+        ov._select_cursor_visible = True
+        QApplication.clipboard().clear()
+        evt = MagicMock()
+        evt.key.return_value = Qt.Key.Key_C
+        evt.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+
+        ov._handle_key_press(evt)
+
+        self.assertEqual(QApplication.clipboard().text(), "#3C3C3C")
+        self.assertEqual(ov.stroke_color_name, "#3C3C3C")
+        self.assertIn("已复制颜色 #3C3C3C", ov.message)
 
 
 class SelectModeWindowHoverTest(unittest.TestCase):

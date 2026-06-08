@@ -298,6 +298,7 @@ class EventMixin:
 
         pos = self.clamp_point(event.position().toPoint())
         if self.mode == "select":
+            self.update_select_cursor_pos(pos)
             if event.button() != Qt.MouseButton.LeftButton:
                 return
             self._handle_mouse_press_select_mode(pos)
@@ -308,6 +309,9 @@ class EventMixin:
 
     def _handle_mouse_move(self, event) -> None:
         pos = self.clamp_point(event.position().toPoint())
+        select_magnifier_dirty = QRect()
+        if self.mode == "select":
+            select_magnifier_dirty = self.update_select_cursor_pos(pos)
         if self.mode == "select" and self.selecting:
             old_rect = QRect(self.current_select_rect())
             old_edges = list(self._snap_edges)
@@ -337,13 +341,19 @@ class EventMixin:
                         else:
                             new_end = snapped_rect.topLeft()
             if new_end == self.end and new_edges == old_edges:
+                if not select_magnifier_dirty.isNull():
+                    self.request_frame_update(select_magnifier_dirty)
                 return
             self.end = new_end
             self._snap_edges = new_edges
             new_rect = self.current_select_rect()
             if new_rect == old_rect and new_edges == old_edges:
+                if not select_magnifier_dirty.isNull():
+                    self.request_frame_update(select_magnifier_dirty)
                 return
             dirty = self.selection_frame_dirty_rect(old_rect, new_rect)
+            if not select_magnifier_dirty.isNull():
+                dirty = dirty.united(select_magnifier_dirty) if not dirty.isNull() else select_magnifier_dirty
             self.request_frame_update(dirty)
             return
 
@@ -352,7 +362,11 @@ class EventMixin:
             if self._update_hover_window(pos):
                 new_rect = QRect(getattr(self, "_hover_window_logical_rect", QRect()))
                 dirty = self.selection_frame_dirty_rect(old_rect, new_rect)
+                if not select_magnifier_dirty.isNull():
+                    dirty = dirty.united(select_magnifier_dirty) if not dirty.isNull() else select_magnifier_dirty
                 self.request_frame_update(dirty if not dirty.isNull() else None)
+            elif not select_magnifier_dirty.isNull():
+                self.request_frame_update(select_magnifier_dirty)
             return
 
         if self.mode == "edit":
@@ -636,6 +650,9 @@ class EventMixin:
             physical_rect = self.logical_to_physical_rect(logical_rect)
             if physical_rect.width() >= 8 and physical_rect.height() >= 8:
                 self.enter_edit_mode(logical_rect, physical_rect)
+            return True
+        if key == Qt.Key.Key_C:
+            self.copy_select_cursor_color()
             return True
         if key == Qt.Key.Key_R:
             self.reuse_last_selection()

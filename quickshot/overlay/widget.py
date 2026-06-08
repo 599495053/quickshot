@@ -15,6 +15,9 @@ from ..history import CaptureHistoryStore
 from ..ocr import OcrJob
 from ..theme import (
     STROKE_DEFAULT,
+    floating_bg,
+    floating_border,
+    floating_text,
     qc,
 )
 from ..utils import APP_NAME, debug_log
@@ -168,6 +171,10 @@ class FloatingSnipOverlay(
         # QPixmap.toImage() 缓存：避免频繁转换导致性能瓶颈
         self._cached_edit_image: Optional[QImage] = None
         self._last_pixmap_id: int = 0
+        self._cached_raw_image: Optional[QImage] = None
+        self._last_raw_pixmap_id: int = 0
+        self._select_cursor_pos = QPoint()
+        self._select_cursor_visible = False
 
         self.setWindowTitle(APP_NAME)
         self.setWindowFlags(
@@ -363,6 +370,15 @@ class FloatingSnipOverlay(
     def logical_to_physical_rect(self, rect: QRect) -> QRect:
         return self.coords.logical_to_physical_rect(rect, self.raw_pixmap.size())
 
+    def raw_point_from_widget(self, pos: QPoint) -> Optional[QPoint]:
+        if self.raw_pixmap.isNull() or not self.rect().contains(pos):
+            return None
+        x = int(round(pos.x() * self.scale_x))
+        y = int(round(pos.y() * self.scale_y))
+        x = max(0, min(self.raw_pixmap.width() - 1, x))
+        y = max(0, min(self.raw_pixmap.height() - 1, y))
+        return QPoint(x, y)
+
     def physical_abs_to_logical_rect(self, abs_rect: Tuple[int, int, int, int]) -> Tuple[QRect, QRect]:
         return self.coords.physical_abs_to_logical_rect(abs_rect, self.raw_pixmap.size(), self.rect())
 
@@ -409,10 +425,83 @@ class FloatingSnipOverlay(
 
         return self._cached_edit_image
 
+    def _get_cached_raw_image(self) -> Optional[QImage]:
+        if self.raw_pixmap.isNull():
+            self._cached_raw_image = None
+            self._last_raw_pixmap_id = 0
+            return None
+
+        current_id = self.raw_pixmap.cacheKey()
+        if self._cached_raw_image is None or self._last_raw_pixmap_id != current_id:
+            self._cached_raw_image = self.raw_pixmap.toImage().convertToFormat(
+                QImage.Format.Format_ARGB32
+            )
+            self._last_raw_pixmap_id = current_id
+        return self._cached_raw_image
+
+    def select_sample_at(self, pos: QPoint) -> Optional[Tuple[QPoint, QColor]]:
+        raw_point = self.raw_point_from_widget(pos)
+        if raw_point is None:
+            return None
+        raw_image = self._get_cached_raw_image()
+        if raw_image is None:
+            return None
+        return raw_point, raw_image.pixelColor(raw_point)
+
+    @staticmethod
+    def format_sample_color(color: QColor) -> Tuple[str, str]:
+        hex_str = color.name().upper()
+        rgb_str = f"rgb({color.red()}, {color.green()}, {color.blue()})"
+        return hex_str, rgb_str
+
     def invalidate_image_cache(self) -> None:
         """使图像缓存失效，在 edit_pixmap 变化后调用。"""
         self._cached_edit_image = None
         self._last_pixmap_id = 0
+
+    def select_magnifier_rect(self, pos: Optional[QPoint] = None) -> QRect:
+        if pos is None:
+            pos = self._select_cursor_pos
+        if pos.isNull() and not self._select_cursor_visible:
+            return QRect()
+        w, h = 190, 170
+        gap = 18
+        x = pos.x() + gap
+        y = pos.y() + gap
+        if x + w > self.width() - 8:
+            x = pos.x() - w - gap
+        if y + h > self.height() - 8:
+            y = pos.y() - h - gap
+        x = max(8, min(self.width() - w - 8, x))
+        y = max(8, min(self.height() - h - 8, y))
+        return QRect(x, y, w, h)
+
+    def update_select_cursor_pos(self, pos: QPoint) -> QRect:
+        old_rect = self.select_magnifier_rect() if self._select_cursor_visible else QRect()
+        if self._select_cursor_visible and pos == self._select_cursor_pos:
+            return QRect()
+        self._select_cursor_pos = QPoint(pos)
+        self._select_cursor_visible = True
+        new_rect = self.select_magnifier_rect()
+        dirty = QRect(new_rect)
+        if not old_rect.isNull():
+            dirty = dirty.united(old_rect)
+        return dirty.adjusted(-8, -8, 8, 8).intersected(self.rect())
+
+    def copy_select_cursor_color(self) -> bool:
+        pos = self._select_cursor_pos if self._select_cursor_visible else self.clamp_point(self.mapFromGlobal(self.cursor().pos()))
+        sample = self.select_sample_at(pos)
+        if sample is None:
+            self.message = "当前鼠标位置没有可复制的颜色"
+            self.request_frame_update()
+            return False
+        _raw_point, color = sample
+        hex_str, rgb_str = self.format_sample_color(color)
+        self.stroke_color_name = hex_str
+        self.clipboard_text_requested.emit(hex_str)
+        self.message = f"已复制颜色 {hex_str} ({rgb_str})，已设为标注颜色"
+        self.request_frame_update()
+        return True
 
     # ── 事件薄壳委托 ──
 
@@ -489,10 +578,12 @@ class FloatingSnipOverlay(
                     hover_rect,
                     getattr(self, "_hover_window_title", ""),
                 )
+                self.draw_select_magnifier(painter)
                 return
         if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
             painter.fillRect(self.rect(), self.dim_shade())
             self.draw_center_hint(painter, self.message)
+            self.draw_select_magnifier(painter)
             return
 
         self.draw_dim_outside(painter, rect)
@@ -506,6 +597,87 @@ class FloatingSnipOverlay(
             max(1, physical_rect.width()),
             max(1, physical_rect.height()),
         )
+        self.draw_select_magnifier(painter)
+
+    def draw_select_magnifier(self, painter: QPainter) -> None:
+        """选择截图时的像素放大镜和取色提示。"""
+        if self.mode != "select" or not self._select_cursor_visible:
+            return
+        sample = self.select_sample_at(self._select_cursor_pos)
+        if sample is None:
+            return
+
+        raw_point, color = sample
+        hex_str, rgb_str = self.format_sample_color(color)
+        panel = self.select_magnifier_rect()
+        if panel.isNull():
+            return
+
+        self._ensure_paint_cache()
+        preview = QRect(panel.left() + 10, panel.top() + 10, 112, 112)
+        swatch = QRect(panel.left() + 134, panel.top() + 12, 44, 44)
+        text_rect = QRect(panel.left() + 10, panel.top() + 128, panel.width() - 20, 32)
+        coord_rect = QRect(panel.left() + 130, panel.top() + 62, 54, 50)
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(Qt.PenStyle.NoPen)
+        panel_box = QRectF(panel)
+        painter.setBrush(QColor(0, 0, 0, 36))
+        painter.drawRoundedRect(panel_box.adjusted(-5, -5, 5, 5), 14, 14)
+        painter.setBrush(floating_bg())
+        painter.setPen(QPen(floating_border(), 1))
+        painter.drawRoundedRect(panel_box, 10, 10)
+
+        painter.save()
+        from PyQt6.QtGui import QPainterPath
+        clip_path = QPainterPath()
+        clip_path.addRoundedRect(QRectF(preview), 7, 7)
+        painter.setClipPath(clip_path)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        radius = 7
+        source = QRect(raw_point.x() - radius, raw_point.y() - radius, radius * 2 + 1, radius * 2 + 1)
+        source = source.intersected(QRect(0, 0, self.raw_pixmap.width(), self.raw_pixmap.height()))
+        painter.drawPixmap(preview, self.raw_pixmap, source)
+        painter.setClipping(False)
+        painter.restore()
+
+        painter.setPen(QPen(QColor(255, 255, 255, 72), 1))
+        cell_w = preview.width() / max(1, source.width())
+        cell_h = preview.height() / max(1, source.height())
+        for i in range(1, source.width()):
+            x = preview.left() + int(round(i * cell_w))
+            painter.drawLine(x, preview.top(), x, preview.bottom())
+        for i in range(1, source.height()):
+            y = preview.top() + int(round(i * cell_h))
+            painter.drawLine(preview.left(), y, preview.right(), y)
+
+        center = preview.center()
+        painter.setPen(QPen(QColor(0, 0, 0, 170), 2))
+        painter.drawLine(center.x() - 8, center.y(), center.x() + 8, center.y())
+        painter.drawLine(center.x(), center.y() - 8, center.x(), center.y() + 8)
+        painter.setPen(QPen(QColor(255, 255, 255, 210), 1))
+        painter.drawLine(center.x() - 8, center.y(), center.x() + 8, center.y())
+        painter.drawLine(center.x(), center.y() - 8, center.x(), center.y() + 8)
+
+        painter.setPen(QPen(floating_border(), 1))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(QRectF(preview), 7, 7)
+
+        painter.setPen(QPen(QColor(255, 255, 255, 210), 1))
+        painter.setBrush(color)
+        painter.drawRoundedRect(QRectF(swatch), 7, 7)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(floating_border(), 1))
+        painter.drawRoundedRect(QRectF(swatch), 7, 7)
+
+        painter.setFont(self._font_tip)
+        painter.setPen(floating_text())
+        painter.drawText(text_rect.adjusted(0, -2, 0, -15), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, hex_str)
+        painter.setPen(qc("text.secondary"))
+        painter.drawText(text_rect.adjusted(0, 14, 0, 0), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, rgb_str)
+        painter.drawText(coord_rect, Qt.AlignmentFlag.AlignCenter, f"{raw_point.x()}\n{raw_point.y()}")
+        painter.restore()
 
     def paint_edit_mode(self, painter: QPainter) -> None:
         if self.selection_rect.isNull() or self.edit_pixmap.isNull():

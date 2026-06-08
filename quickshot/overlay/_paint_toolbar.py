@@ -59,8 +59,8 @@ class ToolbarPaintMixin:
         for group in groups:
             left = group[0][1].left() - 3
             right = group[-1][1].right() + 3
-            top = self.toolbar_rect.top() + 4
-            bottom = self.toolbar_rect.bottom() - 4
+            top = min(rect.top() for _key, rect in group) - 2
+            bottom = max(rect.bottom() for _key, rect in group) + 2
             group_rect = QRectF(left, top, right - left + 1, bottom - top + 1)
             is_cta_group = any(k in ("cancel", "done") for k, _ in group)
             painter.setPen(QPen(self._tb_cta_group_border if is_cta_group else self._tb_group_border, 1))
@@ -82,8 +82,12 @@ class ToolbarPaintMixin:
                     right_button = self.toolbar_buttons[next_key]
                     break
             if left_button is not None and right_button is not None:
+                if abs(left_button.center().y() - right_button.center().y()) > max(4, left_button.height() // 2):
+                    continue
                 sx = (left_button.right() + right_button.left()) // 2
-                painter.drawLine(QPoint(sx, self.toolbar_rect.top() + 10), QPoint(sx, self.toolbar_rect.bottom() - 10))
+                top = min(left_button.top(), right_button.top()) + 6
+                bottom = max(left_button.bottom(), right_button.bottom()) - 6
+                painter.drawLine(QPoint(sx, top), QPoint(sx, bottom))
 
         for key, label, _icon, _tip in items:
             if key == 'sep':

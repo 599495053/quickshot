@@ -107,19 +107,42 @@ class ToolbarMixin:
             sep_w = 4
             pad_x = 5
 
-        toolbar_w = pad_x * 2
-        prev_button = False
-        for key, _label, _icon, _tip in items:
-            if key == "sep":
-                toolbar_w += sep_w
-                prev_button = False
-            else:
-                if prev_button:
-                    toolbar_w += spacing
-                toolbar_w += button_size
-                prev_button = True
+        groups = []
+        current_group = []
+        for item in items:
+            if item[0] == "sep":
+                if current_group:
+                    groups.append(current_group)
+                    current_group = []
+                continue
+            current_group.append(item)
+        if current_group:
+            groups.append(current_group)
 
-        toolbar_h = button_size + pad_y * 2
+        def group_width(group) -> int:
+            return len(group) * button_size + max(0, len(group) - 1) * spacing
+
+        max_content_w = max(button_size, compact_width - pad_x * 2)
+        rows = []
+        row = []
+        row_w = 0
+        for group in groups:
+            width = group_width(group)
+            extra = sep_w if row else 0
+            if row and row_w + extra + width > max_content_w:
+                rows.append((row, row_w))
+                row = []
+                row_w = 0
+                extra = 0
+            row.append(group)
+            row_w += extra + width
+        if row:
+            rows.append((row, row_w))
+
+        row_gap = 6 if len(rows) > 1 else 0
+        content_w = max((row_width for _row, row_width in rows), default=0)
+        toolbar_w = content_w + pad_x * 2
+        toolbar_h = len(rows) * button_size + max(0, len(rows) - 1) * row_gap + pad_y * 2
         x = self.selection_rect.center().x() - toolbar_w // 2
         x = max(10, min(self.width() - toolbar_w - 10, x))
         y = self.selection_rect.bottom() + 12
@@ -129,19 +152,17 @@ class ToolbarMixin:
             y = 10
 
         self.toolbar_rect = QRect(x, y, toolbar_w, toolbar_h)
-        bx = x + pad_x
-        by = y + pad_y
-        prev_button = False
-        for key, _label, _icon, _tip in items:
-            if key == "sep":
-                bx += sep_w
-                prev_button = False
-                continue
-            if prev_button:
-                bx += spacing
-            self.toolbar_buttons[key] = QRect(bx, by, button_size, button_size)
-            bx += button_size
-            prev_button = True
+        for row_index, (row_groups, row_width) in enumerate(rows):
+            bx = x + pad_x + (content_w - row_width) // 2
+            by = y + pad_y + row_index * (button_size + row_gap)
+            for group_index, group in enumerate(row_groups):
+                if group_index:
+                    bx += sep_w
+                for index, (key, _label, _icon, _tip) in enumerate(group):
+                    if index:
+                        bx += spacing
+                    self.toolbar_buttons[key] = QRect(bx, by, button_size, button_size)
+                    bx += button_size
 
     def button_at(self, pos: QPoint) -> str:
         self._update_toolbar_layout_if_needed()

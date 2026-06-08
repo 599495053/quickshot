@@ -513,15 +513,12 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             text = self._fm_tip.elidedText(text, Qt.TextElideMode.ElideMiddle, max_w - 28)
         label_w = min(max_w, self._fm_tip.horizontalAdvance(text) + 28)
         label_h = 30
-        x = rect.left()
-        y = rect.bottom() + 10
-        if y + label_h > self.height() - 8:
-            y = rect.top() - label_h - 10
-        x = max(8, min(self.width() - label_w - 8, x))
-        y = max(8, min(self.height() - label_h - 8, y))
+        bubble_rect = self.window_hover_label_rect(rect, label_w, label_h)
+        if bubble_rect.isNull():
+            return
         self.draw_floating_bubble(
             painter,
-            QRect(x, y, label_w, label_h),
+            bubble_rect,
             text,
             font=self._font_tip,
             radius=9,
@@ -627,6 +624,27 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
                 total += overlap.width() * overlap.height()
         return total
 
+    def window_hover_label_rect(self, rect: QRect, label_w: int, label_h: int) -> QRect:
+        if rect.isNull() or rect.width() <= 0 or rect.height() <= 0 or label_w <= 0 or label_h <= 0:
+            return QRect()
+        raw_candidates = (
+            QRect(rect.left(), rect.bottom() + 10, label_w, label_h),
+            QRect(rect.right() - label_w + 1, rect.bottom() + 10, label_w, label_h),
+            QRect(rect.left(), rect.top() - label_h - 10, label_w, label_h),
+            QRect(rect.right() - label_w + 1, rect.top() - label_h - 10, label_w, label_h),
+            QRect(rect.left() + 10, rect.top() + 10, label_w, label_h),
+            QRect(rect.right() - label_w - 9, rect.bottom() - label_h - 9, label_w, label_h),
+        )
+        blockers = [QRect(rect)]
+        size_label = self.size_label_rect(rect, rect.width(), rect.height())
+        if not size_label.isNull():
+            blockers.append(size_label.adjusted(-4, -4, 4, 4))
+        scored = []
+        for order, candidate in enumerate(raw_candidates):
+            placed = self._clamped_bubble_rect(candidate)
+            scored.append((self._bubble_overlap_area(placed, tuple(blockers)), order, placed))
+        return min(scored, key=lambda item: (item[0], item[1]))[2]
+
     def size_label_rect(self, rect: QRect, width: int, height: int) -> QRect:
         if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
             return QRect()
@@ -662,9 +680,9 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             scored.append((self._bubble_overlap_area(placed, tuple(blockers)), order, placed))
         return min(scored, key=lambda item: (item[0], item[1]))[2]
 
-    def current_message_rect(self) -> QRect:
+    def _message_bubble_layout(self) -> tuple[QRect, str]:
         if not self.message:
-            return QRect()
+            return QRect(), ""
         self._update_toolbar_layout_if_needed()
         self._ensure_paint_cache()
         metrics = self._fm_tip
@@ -674,13 +692,34 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             text = metrics.elidedText(text, Qt.TextElideMode.ElideMiddle, max_w - 28)
         label_w = min(max_w, metrics.horizontalAdvance(text) + 28)
         label_h = 30
-        x = self.toolbar_rect.left() if not self.toolbar_rect.isNull() else self.selection_rect.left()
-        y = (self.toolbar_rect.bottom() + 10) if not self.toolbar_rect.isNull() else (self.selection_rect.bottom() + 10)
-        if y + label_h > self.height() - 8:
-            y = self.toolbar_rect.top() - label_h - 10 if not self.toolbar_rect.isNull() else self.selection_rect.top() - label_h - 10
-        x = max(8, min(self.width() - label_w - 8, x))
-        y = max(8, min(self.height() - label_h - 8, y))
-        return QRect(x, y, label_w, label_h)
+        anchors = []
+        if not self.toolbar_rect.isNull():
+            anchors.append(QRect(self.toolbar_rect))
+        if not self.selection_rect.isNull():
+            anchors.append(QRect(self.selection_rect))
+        if not anchors:
+            anchors.append(self.rect())
+
+        raw_candidates = []
+        for anchor in anchors:
+            x_values = (anchor.left(), anchor.right() - label_w + 1)
+            y_values = (anchor.bottom() + 10, anchor.top() - label_h - 10)
+            for y in y_values:
+                for x in x_values:
+                    raw_candidates.append(QRect(x, y, label_w, label_h))
+
+        blockers = []
+        for maybe_blocker in (getattr(self, "toolbar_rect", QRect()), getattr(self, "style_panel_rect", QRect()), getattr(self, "selection_rect", QRect())):
+            if not maybe_blocker.isNull() and maybe_blocker.width() > 0 and maybe_blocker.height() > 0:
+                blockers.append(QRect(maybe_blocker).adjusted(-4, -4, 4, 4))
+        scored = []
+        for order, candidate in enumerate(raw_candidates):
+            placed = self._clamped_bubble_rect(candidate)
+            scored.append((self._bubble_overlap_area(placed, tuple(blockers)), order, placed))
+        return min(scored, key=lambda item: (item[0], item[1]))[2], text
+
+    def current_message_rect(self) -> QRect:
+        return self._message_bubble_layout()[0]
 
     def edit_repaint_rect(self) -> QRect:
         if self.selection_rect.isNull():
@@ -707,29 +746,16 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         if not self.message:
             self.last_message_rect = QRect()
             return
-        self._update_toolbar_layout_if_needed()
-        self._ensure_paint_cache()
-        font = self._font_tip
-        fm = self._fm_tip
-        max_w = min(self.width() - 16, 560)
-        text = self.message
-        if fm.horizontalAdvance(text) + 28 > max_w:
-            text = fm.elidedText(text, Qt.TextElideMode.ElideMiddle, max_w - 28)
-        label_w = min(max_w, fm.horizontalAdvance(text) + 28)
-        label_h = 30
-        x = self.toolbar_rect.left() if not self.toolbar_rect.isNull() else self.selection_rect.left()
-        y = (self.toolbar_rect.bottom() + 10) if not self.toolbar_rect.isNull() else (self.selection_rect.bottom() + 10)
-        if y + label_h > self.height() - 8:
-            y = self.toolbar_rect.top() - label_h - 10 if not self.toolbar_rect.isNull() else self.selection_rect.top() - label_h - 10
-        x = max(8, min(self.width() - label_w - 8, x))
-        y = max(8, min(self.height() - label_h - 8, y))
-        rect = QRect(x, y, label_w, label_h)
+        rect, text = self._message_bubble_layout()
+        if rect.isNull():
+            self.last_message_rect = QRect()
+            return
         self.last_message_rect = QRect(rect)
         self.draw_floating_bubble(
             painter,
             rect,
             text,
-            font=font,
+            font=self._font_tip,
             radius=9,
             bg=overlay_tip_bg(),
             border=overlay_tip_border(),

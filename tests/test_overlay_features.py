@@ -161,6 +161,29 @@ class ToolbarButtonTest(unittest.TestCase):
         result = overlay.button_at(QPoint(0, 0))
         self.assertEqual(result, "")
 
+    def test_toolbar_wraps_inside_narrow_overlay(self) -> None:
+        overlay = _make_overlay()
+        overlay.resize(640, 520)
+        overlay.selection_rect = QRect(80, 120, 420, 220)
+
+        overlay.update_toolbar_layout()
+
+        self.assertGreater(overlay.toolbar_rect.height(), 50)
+        self.assertGreaterEqual(overlay.toolbar_rect.left(), 10)
+        self.assertLessEqual(overlay.toolbar_rect.right(), overlay.width() - 10)
+        for rect in overlay.toolbar_buttons.values():
+            self.assertTrue(overlay.toolbar_rect.contains(rect))
+
+    def test_button_at_works_after_toolbar_wrap(self) -> None:
+        overlay = _make_overlay()
+        overlay.resize(640, 520)
+        overlay.selection_rect = QRect(80, 120, 420, 220)
+        overlay.update_toolbar_layout()
+
+        for key, rect in overlay.toolbar_buttons.items():
+            with self.subTest(key=key):
+                self.assertEqual(overlay.button_at(rect.center()), key)
+
     def test_toolbar_tip_rect_tracks_hover_anchor(self) -> None:
         overlay = _make_overlay()
         overlay.update_toolbar_layout()
@@ -194,6 +217,43 @@ class FloatingBubbleLayoutTest(unittest.TestCase):
 
         self.assertFalse(label.intersects(overlay.toolbar_rect))
         self.assertTrue(overlay.rect().contains(label))
+
+    def test_message_rect_avoids_wrapped_toolbar(self) -> None:
+        overlay = _make_overlay()
+        overlay.resize(640, 520)
+        overlay.selection_rect = QRect(80, 120, 420, 220)
+        overlay.message = "Toolbar message"
+        overlay.update_toolbar_layout()
+
+        message_rect = overlay.current_message_rect()
+
+        self.assertFalse(message_rect.isNull())
+        self.assertFalse(message_rect.intersects(overlay.toolbar_rect))
+        self.assertTrue(overlay.rect().contains(message_rect))
+
+    def test_message_rect_avoids_bottom_selection_when_space_is_tight(self) -> None:
+        overlay = _make_overlay()
+        overlay.resize(640, 520)
+        overlay.selection_rect = QRect(80, 420, 420, 80)
+        overlay.message = "Bottom message"
+        overlay.update_toolbar_layout()
+
+        message_rect = overlay.current_message_rect()
+
+        self.assertTrue(overlay.rect().contains(message_rect))
+        self.assertFalse(message_rect.intersects(overlay.selection_rect))
+
+    def test_window_hover_label_avoids_size_label_and_target_rect(self) -> None:
+        overlay = _make_overlay()
+        target = QRect(100, 430, 250, 80)
+        size_label = overlay.size_label_rect(target, target.width(), target.height())
+
+        hover_label = overlay.window_hover_label_rect(target, 220, 30)
+
+        self.assertFalse(hover_label.isNull())
+        self.assertFalse(hover_label.intersects(target))
+        self.assertFalse(hover_label.intersects(size_label))
+        self.assertTrue(overlay.rect().contains(hover_label))
 
 
 class StylePanelTest(unittest.TestCase):

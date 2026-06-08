@@ -389,6 +389,8 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
 
     def draw_snap_guides(self, painter: QPainter) -> None:
         """绘制吸附参考线（蓝色虚线标记被吸附的窗口边缘）。"""
+        if not getattr(self.config, "show_snap_guides", False):
+            return
         snap_edges = getattr(self, '_snap_edges', [])
         if not snap_edges:
             return

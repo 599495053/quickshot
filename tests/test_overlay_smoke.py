@@ -249,6 +249,29 @@ class OverlayToolSmokeTest(unittest.TestCase):
                     color = canvas.pixelColor(x, y)
                     self.assertNotEqual((color.red(), color.green(), color.blue()), (245, 245, 245))
 
+    def test_snap_guides_are_hidden_by_default(self) -> None:
+        overlay = _make_overlay()
+        overlay.mode = "select"
+        overlay.start = QPoint(240, 100)
+        overlay.end = QPoint(639, 399)
+        overlay._snap_edges = [
+            ("top", QRect(0, 100, 800, 300)),
+            ("bottom", QRect(0, 100, 800, 300)),
+        ]
+
+        canvas = QImage(overlay.width(), overlay.height(), QImage.Format.Format_ARGB32)
+        canvas.fill(QColor(0, 0, 0, 0))
+        painter = QPainter(canvas)
+        try:
+            overlay.draw_snap_guides(painter)
+        finally:
+            painter.end()
+
+        for y in (100, 399):
+            with self.subTest(y=y):
+                for x in (40, overlay.width() // 2, overlay.width() - 40):
+                    self.assertEqual(canvas.pixelColor(x, y).alpha(), 0)
+
     def test_edit_mode_skips_selection_snapshot_by_default(self) -> None:
         overlay = _make_overlay()
         calls = []

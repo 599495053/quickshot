@@ -35,9 +35,13 @@ class OcrResultDialog(QDialog):
         engine_label: str = "",
         elapsed_seconds: float = 0.0,
         note: str = "",
+        raw_text: str = "",
     ) -> None:
         super().__init__(parent)
-        self.text = text
+        self.cleaned_text = text
+        self.raw_text = raw_text or text
+        self.text = self.raw_text
+        self._showing_raw_text = False
         self.setWindowTitle("文字识别结果")
         self.setWindowIcon(load_app_icon())
         self.resize(900, 720)
@@ -117,6 +121,9 @@ class OcrResultDialog(QDialog):
         search_btn.clicked.connect(self.search_text)
         translate_btn = set_button_role(QPushButton("翻译"))
         translate_btn.clicked.connect(self.translate_text)
+        self.raw_toggle_btn = set_button_role(QPushButton("查看原始结果"))
+        self.raw_toggle_btn.clicked.connect(self.toggle_raw_text)
+        self.raw_toggle_btn.setVisible(self.raw_text.strip() != self.cleaned_text.strip())
 
         # 更多操作下拉菜单
         more_btn = QToolButton()
@@ -155,6 +162,7 @@ class OcrResultDialog(QDialog):
         action_row.addWidget(copy_btn)
         action_row.addWidget(search_btn)
         action_row.addWidget(translate_btn)
+        action_row.addWidget(self.raw_toggle_btn)
         action_row.addWidget(more_btn)
         action_row.addStretch(1)
         action_row.addWidget(close_btn)
@@ -197,8 +205,20 @@ class OcrResultDialog(QDialog):
         self.title_label.setText("已复制校对后的文本")
 
     def copy_raw_text(self) -> None:
-        QApplication.clipboard().setText(self.text)
+        QApplication.clipboard().setText(self.raw_text)
         self.title_label.setText("已复制原始识别文本")
+
+    def toggle_raw_text(self) -> None:
+        if self._showing_raw_text:
+            self.text_edit.setPlainText(self.cleaned_text)
+            self.raw_toggle_btn.setText("查看原始结果")
+            self.title_label.setText("已切回清理结果")
+            self._showing_raw_text = False
+            return
+        self.text_edit.setPlainText(self.raw_text)
+        self.raw_toggle_btn.setText("使用清理结果")
+        self.title_label.setText("正在查看原始识别结果")
+        self._showing_raw_text = True
 
     def copy_single_line(self) -> None:
         QApplication.clipboard().setText(self.single_line_text())

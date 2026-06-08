@@ -33,8 +33,8 @@ class OcrEngine(ABC):
         """引擎是否可用（依赖已安装等）。"""
 
     @abstractmethod
-    def recognize(self, prepared_image: QImage) -> str:
-        """对预处理后的 QImage 执行 OCR，返回纯文本。
+    def recognize(self, prepared_image: QImage) -> str | tuple[str, str]:
+        """对预处理后的 QImage 执行 OCR，返回清理文本或（清理文本，原始文本）。
 
         prepared_image 已经过 prepare_ocr_image() 处理。
         抛异常表示引擎失败，空字符串表示未识别到文字。
@@ -54,11 +54,13 @@ class RapidOcrEngine(OcrEngine):
         from .ocr import is_rapidocr_available
         return is_rapidocr_available()
 
-    def recognize(self, prepared_image: QImage) -> str:
+    def recognize(self, prepared_image: QImage) -> str | tuple[str, str]:
         from .ocr import _qimage_to_numpy, rapidocr_engine
         from .ocr_utils import clean_ocr_text, format_rapidocr_result
         result, _elapsed = rapidocr_engine()(_qimage_to_numpy(prepared_image))
-        return clean_ocr_text(format_rapidocr_result(result))
+        cleaned = clean_ocr_text(format_rapidocr_result(result))
+        raw = clean_ocr_text(format_rapidocr_result(result, filter_symbols=False))
+        return cleaned, raw
 
 
 class WindowsOcrEngine(OcrEngine):
@@ -74,9 +76,9 @@ class WindowsOcrEngine(OcrEngine):
         import shutil
         return bool(shutil.which("powershell") or shutil.which("pwsh"))
 
-    def recognize(self, prepared_image: QImage) -> str:
+    def recognize(self, prepared_image: QImage) -> str | tuple[str, str]:
         from .ocr import recognize_text_with_windows_ocr
-        return recognize_text_with_windows_ocr(prepared_image)
+        return recognize_text_with_windows_ocr(prepared_image, with_raw=True)
 
 
 class OcrEngineRegistry:
@@ -99,13 +101,19 @@ class OcrEngineRegistry:
             if not engine.is_available():
                 continue
             try:
-                text = engine.recognize(prepared_image)
+                recognized = engine.recognize(prepared_image)
+                if isinstance(recognized, tuple):
+                    text, raw_text = recognized
+                else:
+                    text = recognized
+                    raw_text = recognized
                 if text.strip():
                     return OcrResult(
                         text=text,
                         engine_key=engine.identifier(),
                         engine_label=engine.display_name(),
                         elapsed_seconds=time.perf_counter() - started,
+                        raw_text=raw_text,
                     )
                 errors.append(f"{engine.display_name()} 未识别到文字")
             except Exception as exc:

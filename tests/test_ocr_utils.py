@@ -174,6 +174,7 @@ class FormatRapidocrResultTest(unittest.TestCase):
             [[[8, 60], [22, 60], [22, 80], [8, 80]], "|||"],
         ]
         self.assertEqual(format_rapidocr_result(result), "Settings")
+        self.assertEqual(format_rapidocr_result(result, filter_symbols=False), "□ Settings\n|||")
 
     def test_close_text_punctuation_is_preserved(self) -> None:
         result = [
@@ -281,6 +282,27 @@ class OcrEngineRegistryTest(unittest.TestCase):
         self.assertEqual(calls, ["a", "b"])
         self.assertEqual(result.text, "hello")
         self.assertEqual(result.engine_key, "b")
+        self.assertEqual(result.raw_text, "hello")
+
+    def test_registry_preserves_raw_text_when_engine_returns_pair(self):
+        from quickshot.ocr_engine import OcrEngine, OcrEngineRegistry
+
+        class PairEngine(OcrEngine):
+            def identifier(self):
+                return "pair"
+            def display_name(self):
+                return "pair"
+            def is_available(self):
+                return True
+            def recognize(self, prepared_image):
+                return "Settings", "□ Settings"
+
+        reg = OcrEngineRegistry()
+        reg.register(PairEngine())
+        from PyQt6.QtGui import QImage
+        result = reg.recognize(QImage())
+        self.assertEqual(result.text, "Settings")
+        self.assertEqual(result.raw_text, "□ Settings")
 
     def test_registry_skips_unavailable_engine(self):
         from quickshot.ocr_engine import OcrEngine, OcrEngineRegistry

@@ -202,6 +202,7 @@ class OcrMixin:
             engine_label=result.engine_label,
             elapsed_seconds=result.elapsed_seconds,
             note=result.note,
+            raw_text=result.raw_text,
         )
         dialog.setWindowTitle(f"{result.engine_label} 识别结果")
         dialog.title_label.setText(f"{result.engine_label} 识别结果已复制，可校对后再复制")

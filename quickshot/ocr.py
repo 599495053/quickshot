@@ -19,6 +19,7 @@ class OcrResult:
     engine_label: str
     elapsed_seconds: float = 0.0
     note: str = ""
+    raw_text: str = ""
 
 from .ocr_utils import (
     OCR_SYMBOL_TRANSLATION,
@@ -620,7 +621,11 @@ def _recognize_privacy_lines_with_windows_ocr(prepared_image: QImage) -> list:
     return _windows_ocr_lines_to_rapidocr_result(lines)
 
 
-def recognize_text_with_windows_ocr(source_image: Union[QPixmap, QImage]) -> str:
+def recognize_text_with_windows_ocr(
+    source_image: Union[QPixmap, QImage],
+    *,
+    with_raw: bool = False,
+) -> str | tuple[str, str]:
     import base64
     import json
     import shutil
@@ -628,7 +633,7 @@ def recognize_text_with_windows_ocr(source_image: Union[QPixmap, QImage]) -> str
     import tempfile
 
     if _is_null_image(source_image):
-        return ""
+        return ("", "") if with_raw else ""
 
     powershell = shutil.which("powershell") or shutil.which("pwsh")
     if not powershell:
@@ -700,11 +705,16 @@ def recognize_text_with_windows_ocr(source_image: Union[QPixmap, QImage]) -> str
 
     encoded_text = completed.stdout.strip()
     if not encoded_text:
-        return ""
+        return ("", "") if with_raw else ""
     try:
         lines = json.loads(base64.b64decode(encoded_text).decode("utf-8"))
-        result = _windows_ocr_lines_to_rapidocr_result(lines, prefer_words=True)
-        return clean_ocr_text(format_rapidocr_result(result))
+        cleaned_result = _windows_ocr_lines_to_rapidocr_result(lines, prefer_words=True)
+        cleaned_text = clean_ocr_text(format_rapidocr_result(cleaned_result))
+        if not with_raw:
+            return cleaned_text
+        raw_result = _windows_ocr_lines_to_rapidocr_result(lines, prefer_words=False)
+        raw_text = clean_ocr_text(format_rapidocr_result(raw_result, filter_symbols=False))
+        return cleaned_text, raw_text
     except Exception as exc:
         raise RuntimeError(
             "文字识别结果解析失败。\n\n"

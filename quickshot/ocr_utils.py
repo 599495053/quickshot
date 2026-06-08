@@ -106,7 +106,7 @@ def _filter_icon_symbol_blocks(blocks: list[dict], line_height: float) -> list[d
         if not _should_drop_icon_symbol_block(blocks, index, line_height)
     ]
 
-def format_rapidocr_result(result) -> str:
+def format_rapidocr_result(result, *, filter_symbols: bool = True) -> str:
     if not result:
         return ""
 
@@ -161,7 +161,8 @@ def format_rapidocr_result(result) -> str:
     text_lines = []
     for line in lines:
         line_blocks = sorted(line["blocks"], key=lambda item: item["left"])
-        line_blocks = _filter_icon_symbol_blocks(line_blocks, line["height"])
+        if filter_symbols:
+            line_blocks = _filter_icon_symbol_blocks(line_blocks, line["height"])
         if not line_blocks:
             continue
         parts: List[str] = []
@@ -176,7 +177,8 @@ def format_rapidocr_result(result) -> str:
             previous = block
         text_lines.append("".join(parts).strip())
 
-    return filter_icon_symbol_artifacts("\n".join(line for line in text_lines if line))
+    text = normalize_ocr_symbols("\n".join(line for line in text_lines if line)).strip()
+    return filter_icon_symbol_artifacts(text) if filter_symbols else text
 
 def clean_ocr_text(text: str) -> str:
     """对 OCR 结果做轻量自动清洗：去首尾空格、合并连续空行、规范内部空格。"""

@@ -397,6 +397,67 @@ class OverlayToolSmokeTest(unittest.TestCase):
                 color = canvas.pixelColor(physical_x, physical_y)
                 self.assertEqual(color.getRgb()[:3], (245, 245, 245))
 
+    def test_select_mode_edge_cleanup_does_not_paint_wide_bands(self) -> None:
+        _ensure_app()
+        cfg = Config()
+        cfg.snap_to_windows = False
+        raw = QPixmap(800, 600)
+        painter = QPainter(raw)
+        try:
+            for y in range(600):
+                painter.fillRect(QRect(0, y, 800, 1), QColor(44 + y // 6, 56 + y // 8, 68 + y // 10))
+            painter.fillRect(QRect(0, 108, 800, 1), QColor(245, 245, 245))
+            painter.fillRect(QRect(0, 391, 800, 1), QColor(245, 245, 245))
+        finally:
+            painter.end()
+        display = raw.copy()
+        overlay = FloatingSnipOverlay(
+            raw, display, QRect(0, 0, 800, 600), 1.0, 1.0, 0, 0, cfg, None
+        )
+        overlay.mode = "select"
+        overlay.selecting = True
+        overlay.start = QPoint(240, 100)
+        overlay.end = QPoint(639, 399)
+        overlay.resize(800, 600)
+        rect = overlay.current_select_rect()
+
+        def render(with_cleanup: bool) -> QImage:
+            original_cleanup = overlay.draw_dim_edge_cleanup
+            if not with_cleanup:
+                overlay.draw_dim_edge_cleanup = lambda *_args: None
+            canvas = QImage(overlay.width(), overlay.height(), QImage.Format.Format_ARGB32)
+            canvas.fill(QColor(0, 0, 0))
+            canvas_painter = QPainter(canvas)
+            try:
+                overlay.clear_canvas(canvas_painter)
+                overlay.draw_frozen_desktop(canvas_painter)
+                overlay.paint_select_mode(canvas_painter)
+            finally:
+                canvas_painter.end()
+                overlay.draw_dim_edge_cleanup = original_cleanup
+            return canvas
+
+        baseline = render(False)
+        cleaned = render(True)
+        outside_xs = (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40)
+        for y in (rect.top() + 4, rect.bottom() - 4):
+            with self.subTest(non_scanline_y=y):
+                for x in outside_xs:
+                    self.assertEqual(
+                        cleaned.pixelColor(x, y).getRgb()[:3],
+                        baseline.pixelColor(x, y).getRgb()[:3],
+                    )
+
+        for y in (rect.top() + 8, rect.bottom() - 8):
+            with self.subTest(scanline_y=y):
+                for x in outside_xs:
+                    cleaned_color = cleaned.pixelColor(x, y)
+                    baseline_color = baseline.pixelColor(x, y)
+                    self.assertLess(cleaned_color.red(), baseline_color.red())
+                    self.assertLess(cleaned_color.green(), baseline_color.green())
+                    self.assertLess(cleaned_color.blue(), baseline_color.blue())
+                self.assertEqual(cleaned.pixelColor(rect.center().x(), y).getRgb()[:3], (245, 245, 245))
+
     def test_snap_guides_are_hidden_by_default(self) -> None:
         overlay = _make_overlay()
         overlay.mode = "select"

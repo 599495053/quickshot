@@ -159,32 +159,85 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         self.draw_dim_edge_cleanup(painter, rect, shade)
 
     def draw_dim_edge_cleanup(self, painter: QPainter, rect: QRect, shade: QColor) -> None:
-        """Heal outside-only desktop scanlines near the selection top/bottom edges."""
+        """Heal outside-only 1px desktop scanlines near selection top/bottom edges."""
         if self.raw_pixmap.isNull() or rect.width() <= 0 or rect.height() <= 0:
             return
         bounds = self.rect()
         if bounds.isNull() or bounds.width() <= 0 or bounds.height() <= 0:
             return
+        raw_key = self.raw_pixmap.cacheKey()
+        cached = getattr(self, "_dim_edge_scan_cache", None)
+        if cached is not None and cached[0] == raw_key:
+            raw_image = cached[1]
+        else:
+            raw_image = self.raw_pixmap.toImage()
+            self._dim_edge_scan_cache = (raw_key, raw_image)
+        if raw_image.isNull():
+            return
+        scale_x = max(0.001, float(getattr(self, "scale_x", 1.0)))
         scale_y = max(0.001, float(getattr(self, "scale_y", 1.0)))
-        edge_band = min(max(6, int(round(18 / scale_y))), max(1, rect.height()))
-        target_h = min(max(1, edge_band * 2), max(1, bounds.height()))
+        physical_rect = self.logical_to_physical_rect(rect)
+        if physical_rect.isNull() or physical_rect.width() <= 0 or physical_rect.height() <= 0:
+            return
+        edge_radius = min(14, max(1, raw_image.height()))
+        outside_xs = (
+            bounds.left() + 40,
+            rect.left() - 10,
+            rect.right() + 10,
+            bounds.right() - 40,
+        )
+        sample_xs = tuple(
+            max(0, min(raw_image.width() - 1, int(round(x * scale_x))))
+            for x in outside_xs
+            if bounds.left() <= x <= bounds.right() and not rect.left() <= x <= rect.right()
+        )
+        if not sample_xs:
+            return
 
-        def clamped_band(y: int, height: int) -> QRect:
-            if bounds.height() <= height:
-                return QRect(bounds)
-            y = max(bounds.top(), min(bounds.bottom() - height + 1, y))
-            return QRect(bounds.left(), y, bounds.width(), height)
+        line_cache: dict[int, bool] = {}
 
-        def clamped_source_y(y: int, height: int) -> int:
-            if bounds.height() <= height:
-                return bounds.top()
-            return max(bounds.top(), min(bounds.bottom() - height + 1, y))
+        def pixel_diff(x: int, y1: int, y2: int) -> int:
+            c1 = raw_image.pixelColor(x, y1)
+            c2 = raw_image.pixelColor(x, y2)
+            return (
+                abs(c1.red() - c2.red())
+                + abs(c1.green() - c2.green())
+                + abs(c1.blue() - c2.blue())
+            )
 
-        top_target = clamped_band(rect.top() - edge_band, target_h)
-        bottom_target = clamped_band(rect.bottom() - edge_band + 1, target_h)
-        bands = (
-            (top_target, clamped_source_y(top_target.top() - edge_band * 2, top_target.height())),
-            (bottom_target, clamped_source_y(bottom_target.bottom() + 1 + edge_band * 2, bottom_target.height())),
+        def is_horizontal_scanline(physical_y: int) -> bool:
+            if physical_y in line_cache:
+                return line_cache[physical_y]
+            if physical_y <= 0 or physical_y >= raw_image.height() - 1:
+                line_cache[physical_y] = False
+                return False
+            hits = 0
+            for px in sample_xs:
+                contrast = max(
+                    pixel_diff(px, physical_y, physical_y - 1),
+                    pixel_diff(px, physical_y, physical_y + 1),
+                )
+                if contrast >= 45:
+                    hits += 1
+            line_cache[physical_y] = hits >= max(1, len(sample_xs) // 2)
+            return line_cache[physical_y]
+
+        def replacement_y(physical_y: int, direction: int) -> int:
+            max_offset = max(edge_radius * 4, 8)
+            for offset in range(edge_radius + 1, max_offset + 1):
+                candidate = physical_y + direction * offset
+                if 0 <= candidate < raw_image.height() and not is_horizontal_scanline(candidate):
+                    return candidate
+            fallback = physical_y - direction
+            return max(0, min(raw_image.height() - 1, fallback))
+
+        top_rows = range(
+            max(0, physical_rect.top() - edge_radius),
+            min(raw_image.height() - 1, physical_rect.top() + edge_radius) + 1,
+        )
+        bottom_rows = range(
+            max(0, physical_rect.bottom() - edge_radius),
+            min(raw_image.height() - 1, physical_rect.bottom() + edge_radius) + 1,
         )
 
         painter.save()
@@ -192,13 +245,18 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
         outside = QRegion(bounds).subtracted(QRegion(rect))
         painter.setClipRegion(outside)
-        for target, source_y in bands:
-            target = target.intersected(bounds)
-            if target.isNull() or target.width() <= 0 or target.height() <= 0:
+        for physical_y in tuple(top_rows) + tuple(bottom_rows):
+            if not is_horizontal_scanline(physical_y):
                 continue
-            source = self.logical_to_physical_rect(QRect(target.x(), source_y, target.width(), target.height()))
-            if source.width() <= 0 or source.height() <= 0:
-                continue
+            direction = -1 if abs(physical_y - physical_rect.top()) <= abs(physical_y - physical_rect.bottom()) else 1
+            target = QRectF(
+                float(bounds.left()),
+                physical_y / scale_y,
+                float(bounds.width()),
+                1.0 / scale_y,
+            )
+            source_y = replacement_y(physical_y, direction)
+            source = QRectF(0.0, float(source_y), float(raw_image.width()), 1.0)
             painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
             painter.drawPixmap(target, self.raw_pixmap, source)
             painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)

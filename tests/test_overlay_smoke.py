@@ -223,7 +223,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
 
         self.assertEqual(white_pixels, 0)
 
-    def test_select_border_has_no_horizontal_glow_rows(self) -> None:
+    def test_select_frame_uses_corner_marks_without_long_edges(self) -> None:
         overlay = _make_overlay()
         overlay.mode = "select"
         overlay.selecting = True
@@ -241,13 +241,27 @@ class OverlayToolSmokeTest(unittest.TestCase):
         finally:
             painter.end()
 
-        probe_x = rect.left() + 80
-        self.assertEqual(canvas.pixelColor(probe_x, rect.top() - 1).getRgb()[:3], (34, 34, 34))
-        self.assertEqual(canvas.pixelColor(probe_x, rect.top()).getRgb()[:3], (79, 70, 229))
-        self.assertEqual(canvas.pixelColor(probe_x, rect.top() + 1).getRgb()[:3], (60, 60, 60))
-        self.assertEqual(canvas.pixelColor(probe_x, rect.bottom() - 1).getRgb()[:3], (60, 60, 60))
-        self.assertEqual(canvas.pixelColor(probe_x, rect.bottom()).getRgb()[:3], (79, 70, 229))
-        self.assertEqual(canvas.pixelColor(probe_x, rect.bottom() + 1).getRgb()[:3], (34, 34, 34))
+        top_mid = canvas.pixelColor(rect.center().x(), rect.top()).getRgb()[:3]
+        bottom_mid = canvas.pixelColor(rect.center().x(), rect.bottom()).getRgb()[:3]
+        left_mid = canvas.pixelColor(rect.left(), rect.center().y()).getRgb()[:3]
+        right_mid = canvas.pixelColor(rect.right(), rect.center().y()).getRgb()[:3]
+        self.assertEqual(top_mid, (60, 60, 60))
+        self.assertEqual(bottom_mid, (60, 60, 60))
+        self.assertEqual(left_mid, (60, 60, 60))
+        self.assertEqual(right_mid, (60, 60, 60))
+
+        corner_points = (
+            (rect.left() + 8, rect.top()),
+            (rect.right() - 8, rect.top()),
+            (rect.left() + 8, rect.bottom()),
+            (rect.right() - 8, rect.bottom()),
+        )
+        for point in corner_points:
+            with self.subTest(point=point):
+                color = canvas.pixelColor(*point)
+                self.assertLess(color.red(), 120)
+                self.assertLess(color.green(), 120)
+                self.assertGreater(color.blue(), 180)
 
     def test_select_mode_masks_horizontal_desktop_lines_at_dim_edges(self) -> None:
         overlay = _make_select_overlay_with_horizontal_desktop_lines()

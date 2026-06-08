@@ -45,23 +45,10 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             return
         accent = qc("accent.base")
 
-        pen_glow = QPen(qc("accent.base", 60), 3)
-        pen_glow.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
-        self._pen_selection_glow = pen_glow
-
-        pen_outer = QPen(qc("accent.base", 95), 1)
-        pen_outer.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
-        self._pen_selection_outer = pen_outer
-
-        pen_border = QPen(accent, 1.5)
-        pen_border.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
-        self._pen_selection_border = pen_border
-
         pen_handle = QPen(accent, 4)
         pen_handle.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen_handle.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         self._pen_handle = pen_handle
-        self._color_handle_dot = qc("accent.base", 225)
 
         self._color_drag_active_bg = overlay_toolbar_primary_bg()
         self._color_drag_active_border = overlay_toolbar_primary_border()
@@ -433,20 +420,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         )
 
     def draw_selection_border(self, painter: QPainter, rect: QRect) -> None:
-        self._ensure_paint_cache()
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        painter.setPen(Qt.PenStyle.NoPen)
-        color = qc("accent.base")
-        painter.setBrush(color)
-
-        crisp = rect.normalized().intersected(self.rect())
-        if crisp.width() > 0 and crisp.height() > 0:
-            painter.fillRect(QRect(crisp.left(), crisp.top(), crisp.width(), 1), color)
-            painter.fillRect(QRect(crisp.left(), crisp.bottom(), crisp.width(), 1), color)
-            painter.fillRect(QRect(crisp.left(), crisp.top(), 1, crisp.height()), color)
-            painter.fillRect(QRect(crisp.right(), crisp.top(), 1, crisp.height()), color)
-        painter.restore()
+        return
 
     def draw_handles(self, painter: QPainter, rect: QRect) -> None:
         self._ensure_paint_cache()
@@ -463,19 +437,6 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         painter.drawLine(QPoint(l, b), QPoint(l, b - length))
         painter.drawLine(QPoint(r, b), QPoint(r - length, b))
         painter.drawLine(QPoint(r, b), QPoint(r, b - length))
-
-        if rect.width() > 120 and rect.height() > 90:
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(self._color_handle_dot)
-            size = 6
-            half = size // 2
-            for p in [
-                QPoint(rect.center().x(), rect.top()),
-                QPoint(rect.center().x(), rect.bottom()),
-                QPoint(rect.left(), rect.center().y()),
-                QPoint(rect.right(), rect.center().y()),
-            ]:
-                painter.drawRoundedRect(p.x() - half, p.y() - half, size, size, 3, 3)
         painter.restore()
 
     def draw_size_label(self, painter: QPainter, rect: QRect, width: int, height: int) -> None:

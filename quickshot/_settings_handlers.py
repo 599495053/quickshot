@@ -87,9 +87,9 @@ class SettingsHandlers:
     @staticmethod
     def _screenshot_dim_preset_values(style: str) -> tuple[int, int]:
         presets = {
-            "system": (56, 12),
-            "clear": (36, 8),
-            "deep": (96, 16),
+            "system": (56, 1),
+            "clear": (36, 1),
+            "deep": (96, 1),
         }
         return presets.get(style, presets["system"])
 
@@ -104,7 +104,7 @@ class SettingsHandlers:
             alpha, blur = self._screenshot_dim_preset_values(style)
         else:
             alpha = int(getattr(self.config, "screenshot_dim_alpha", 56))
-            blur = int(getattr(self.config, "screenshot_dim_blur", 12))
+            blur = int(getattr(self.config, "screenshot_dim_blur", 1))
 
         combo.blockSignals(True)
         alpha_spin.blockSignals(True)

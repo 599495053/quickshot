@@ -313,7 +313,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
                     color = canvas.pixelColor(x, y)
                     self.assertNotEqual((color.red(), color.green(), color.blue()), (245, 245, 245))
 
-    def test_select_mode_wechat_dim_keeps_outside_visible_and_softens_lines(self) -> None:
+    def test_select_mode_light_dim_keeps_outside_sharp(self) -> None:
         _ensure_app()
         cfg = Config()
         cfg.snap_to_windows = False
@@ -348,16 +348,13 @@ class OverlayToolSmokeTest(unittest.TestCase):
         for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
             with self.subTest(outside_x=x):
                 color = canvas.pixelColor(x, 250)
-                self.assertGreater(color.red(), 35)
-                self.assertLess(color.red(), 95)
+                self.assertGreater(color.red(), 160)
                 for adjacent_y in (249, 251):
                     adjacent = canvas.pixelColor(x, adjacent_y)
-                    self.assertLessEqual(abs(color.red() - adjacent.red()), 2)
-                    self.assertLessEqual(abs(color.green() - adjacent.green()), 2)
-                    self.assertLessEqual(abs(color.blue() - adjacent.blue()), 2)
+                    self.assertLess(adjacent.red(), 70)
         self.assertEqual(canvas.pixelColor(rect.center().x(), 250).getRgb()[:3], (245, 245, 245))
 
-    def test_edit_mode_wechat_dim_keeps_outside_visible_and_softens_lines(self) -> None:
+    def test_edit_mode_light_dim_keeps_outside_sharp(self) -> None:
         _ensure_app()
         cfg = Config()
         cfg.snap_to_windows = False
@@ -393,13 +390,10 @@ class OverlayToolSmokeTest(unittest.TestCase):
         for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
             with self.subTest(outside_x=x):
                 color = canvas.pixelColor(x, 250)
-                self.assertGreater(color.red(), 35)
-                self.assertLess(color.red(), 95)
+                self.assertGreater(color.red(), 160)
                 for adjacent_y in (249, 251):
                     adjacent = canvas.pixelColor(x, adjacent_y)
-                    self.assertLessEqual(abs(color.red() - adjacent.red()), 2)
-                    self.assertLessEqual(abs(color.green() - adjacent.green()), 2)
-                    self.assertLessEqual(abs(color.blue() - adjacent.blue()), 2)
+                    self.assertLess(adjacent.red(), 70)
         self.assertEqual(canvas.pixelColor(rect.center().x(), 250).getRgb()[:3], (245, 245, 245))
 
     def test_dim_style_controls_outside_brightness(self) -> None:
@@ -597,7 +591,8 @@ class OverlayToolSmokeTest(unittest.TestCase):
                 for x in outside_xs:
                     cleaned_color = cleaned.pixelColor(x, y)
                     baseline_color = baseline.pixelColor(x, y)
-                    self.assertEqual(cleaned_color.getRgb()[:3], baseline_color.getRgb()[:3])
+                    self.assertNotEqual(cleaned_color.getRgb()[:3], baseline_color.getRgb()[:3])
+                    self.assertLess(cleaned_color.red(), baseline_color.red())
                 self.assertEqual(cleaned.pixelColor(rect.center().x(), y).getRgb()[:3], (245, 245, 245))
 
     def test_snap_guides_are_hidden_by_default(self) -> None:

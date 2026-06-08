@@ -119,7 +119,7 @@ class ConfigTest(unittest.TestCase):
         })
         self.assertEqual(cfg.screenshot_dim_style, "system")
         self.assertEqual(cfg.screenshot_dim_alpha, 220)
-        self.assertEqual(cfg.screenshot_dim_blur, 4)
+        self.assertEqual(cfg.screenshot_dim_blur, 1)
 
     def test_ocr_cleanup_level_roundtrip(self) -> None:
         cfg = Config()

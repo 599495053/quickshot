@@ -38,9 +38,9 @@ from ..theme import (
 
 class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
     _DIM_BACKDROP_PRESETS = {
-        "system": (56, 12),
-        "clear": (36, 8),
-        "deep": (96, 16),
+        "system": (56, 1),
+        "clear": (36, 1),
+        "deep": (96, 1),
     }
     _ACTIVE_DIM_ALPHA = _DIM_BACKDROP_PRESETS["system"][0]
     _DIM_BACKDROP_DOWNSCALE = _DIM_BACKDROP_PRESETS["system"][1]
@@ -168,7 +168,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             blur = int(getattr(cfg, "screenshot_dim_blur", self._DIM_BACKDROP_DOWNSCALE))
         else:
             alpha, blur = self._DIM_BACKDROP_PRESETS.get(style, self._DIM_BACKDROP_PRESETS["system"])
-        return max(24, min(220, alpha)), max(4, min(32, blur))
+        return max(24, min(220, alpha)), max(1, min(32, blur))
 
     def dim_backdrop_alpha(self) -> int:
         return self.dim_backdrop_settings()[0]
@@ -212,8 +212,8 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         outside = QRegion(self.rect()).subtracted(QRegion(rect))
         painter.setClipRegion(outside)
-        softened = self.soft_dim_backdrop_enabled()
-        if softened:
+        blurred = self.soft_dim_backdrop_enabled() and self.dim_backdrop_downscale() > 1
+        if blurred:
             backdrop = self.dim_backdrop_pixmap(self.rect())
             if not backdrop.isNull():
                 painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
@@ -223,7 +223,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
                 painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
         painter.fillRect(self.rect(), shade)
         painter.restore()
-        if not softened:
+        if not blurred:
             self.draw_dim_edge_cleanup(painter, rect, shade)
 
     def draw_dim_edge_cleanup(self, painter: QPainter, rect: QRect, shade: QColor) -> None:

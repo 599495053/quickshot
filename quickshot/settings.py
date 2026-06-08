@@ -353,9 +353,9 @@ class SettingsWindow(SettingsHandlers, QWidget):
 
         self.screenshot_dim_blur_spin = QSpinBox()
         _disable_wheel(self.screenshot_dim_blur_spin)
-        self.screenshot_dim_blur_spin.setRange(4, 32)
-        self.screenshot_dim_blur_spin.setSingleStep(2)
-        self.screenshot_dim_blur_spin.setValue(getattr(self.config, "screenshot_dim_blur", 12))
+        self.screenshot_dim_blur_spin.setRange(1, 32)
+        self.screenshot_dim_blur_spin.setSingleStep(1)
+        self.screenshot_dim_blur_spin.setValue(getattr(self.config, "screenshot_dim_blur", 1))
         self.screenshot_dim_blur_spin.setSuffix(" x")
         self.screenshot_dim_blur_spin.valueChanged.connect(self.on_screenshot_dim_blur_changed)
         self._refresh_screenshot_dim_controls()

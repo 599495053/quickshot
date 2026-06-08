@@ -223,7 +223,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
 
         self.assertEqual(white_pixels, 0)
 
-    def test_select_frame_uses_corner_marks_without_long_edges(self) -> None:
+    def test_select_frame_uses_corner_marks_without_hard_horizontal_edges(self) -> None:
         overlay = _make_overlay()
         overlay.mode = "select"
         overlay.selecting = True
@@ -245,8 +245,10 @@ class OverlayToolSmokeTest(unittest.TestCase):
         bottom_mid = canvas.pixelColor(rect.center().x(), rect.bottom()).getRgb()[:3]
         left_mid = canvas.pixelColor(rect.left(), rect.center().y()).getRgb()[:3]
         right_mid = canvas.pixelColor(rect.right(), rect.center().y()).getRgb()[:3]
-        self.assertEqual(top_mid, (60, 60, 60))
-        self.assertEqual(bottom_mid, (60, 60, 60))
+        self.assertEqual(canvas.pixelColor(rect.center().x(), rect.top() - 1).getRgb()[:3], top_mid)
+        self.assertEqual(canvas.pixelColor(rect.center().x(), rect.bottom() + 1).getRgb()[:3], bottom_mid)
+        self.assertEqual(top_mid, (34, 34, 34))
+        self.assertEqual(bottom_mid, (34, 34, 34))
         self.assertEqual(left_mid, (60, 60, 60))
         self.assertEqual(right_mid, (60, 60, 60))
 

@@ -10,7 +10,7 @@ from typing import Optional
 
 from PyQt6.QtCore import QPoint, QRect, QTimer
 
-from ._window_candidates import WindowCandidate, build_window_candidates, candidate_at, legacy_logical_rects
+from ._window_candidates import WindowCandidate, build_combined_candidates, candidate_at, legacy_logical_rects
 
 
 class SnapMixin:
@@ -56,7 +56,7 @@ class SnapMixin:
     def _refresh_snap_windows(self) -> None:
         """刷新可吸附窗口列表（仅在 select 模式首次拖拽时调用，结果缓存）。"""
         from ..utils import debug_log
-        from ..window_enum import enumerate_visible_windows
+        from ..window_enum import enumerate_visible_ui_elements, enumerate_visible_windows
 
         try:
             raw_windows = enumerate_visible_windows()
@@ -64,8 +64,14 @@ class SnapMixin:
             debug_log(f"snap window enumeration failed: {exc}")
             raw_windows = []
         try:
-            self._window_candidates = build_window_candidates(
+            raw_elements = enumerate_visible_ui_elements(raw_windows)
+        except Exception as exc:
+            debug_log(f"UI element enumeration failed: {exc}")
+            raw_elements = []
+        try:
+            self._window_candidates = build_combined_candidates(
                 raw_windows,
+                raw_elements,
                 self.physical_abs_to_logical_rect,
                 self.rect(),
             )

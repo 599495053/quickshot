@@ -13,6 +13,33 @@ from typing import List, Tuple
 from PyQt6.QtCore import QRect
 
 
+def _get_window_text(user32, hwnd) -> str:
+    length = user32.GetWindowTextLengthW(hwnd)
+    if length <= 0:
+        return ""
+    buf = ctypes.create_unicode_buffer(length + 1)
+    user32.GetWindowTextW(hwnd, buf, length + 1)
+    return buf.value or ""
+
+
+def _get_class_name(user32, hwnd) -> str:
+    buf = ctypes.create_unicode_buffer(256)
+    try:
+        if user32.GetClassNameW(hwnd, buf, len(buf)) <= 0:
+            return ""
+    except Exception:
+        return ""
+    return buf.value or ""
+
+
+def _format_element_title(text: str, class_name: str) -> str:
+    text = " ".join(str(text or "").split())
+    class_name = " ".join(str(class_name or "").split())
+    if text and class_name:
+        return f"{text} · {class_name}"
+    return text or class_name or "控件"
+
+
 def enumerate_visible_windows() -> List[Tuple[int, QRect, str]]:
     """枚举所有可见顶层窗口，返回 [(hwnd, rect, title), ...]。
 
@@ -42,13 +69,7 @@ def enumerate_visible_windows() -> List[Tuple[int, QRect, str]]:
             if user32.IsIconic(hwnd):
                 return True
 
-            # 获取窗口标题
-            length = user32.GetWindowTextLengthW(hwnd)
-            if length <= 0:
-                return True
-            buf = ctypes.create_unicode_buffer(length + 1)
-            user32.GetWindowTextW(hwnd, buf, length + 1)
-            title = buf.value
+            title = _get_window_text(user32, hwnd)
             if not title:
                 return True
 
@@ -97,4 +118,87 @@ def enumerate_visible_windows() -> List[Tuple[int, QRect, str]]:
 
     callback = WNDENUMPROC(_callback)
     user32.EnumWindows(callback, 0)
+    return results
+
+
+def enumerate_visible_ui_elements(
+    top_windows: List[Tuple[int, QRect, str]] | None = None,
+    *,
+    max_per_window: int = 80,
+    max_total: int = 600,
+) -> List[Tuple[int, QRect, str, int]]:
+    """枚举顶层窗口下的可见子控件，返回 [(hwnd, rect, title, parent_hwnd), ...]。
+
+    这是 clean-room 的第一版 UI 元素检测：只使用 Win32 可公开获取的子窗口
+    矩形，后续可以在同一输出格式下接入 UI Automation。
+    """
+    if not sys.platform.startswith("win"):
+        return []
+
+    if top_windows is None:
+        top_windows = enumerate_visible_windows()
+    if not top_windows:
+        return []
+
+    user32 = ctypes.windll.user32
+    from ctypes import wintypes
+
+    results: List[Tuple[int, QRect, str, int]] = []
+    WNDENUMPROC = ctypes.WINFUNCTYPE(
+        ctypes.c_bool, wintypes.HWND, wintypes.LPARAM
+    )
+
+    def _child_rect(hwnd) -> QRect:
+        rect = wintypes.RECT()
+        try:
+            if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                return QRect()
+        except Exception:
+            return QRect()
+        return QRect(int(rect.left), int(rect.top), int(rect.right - rect.left), int(rect.bottom - rect.top))
+
+    for parent_hwnd, parent_rect, parent_title in top_windows:
+        if len(results) >= max_total:
+            break
+        parent_count = 0
+
+        def _callback(hwnd, _lparam):
+            nonlocal parent_count
+            if parent_count >= max_per_window or len(results) >= max_total:
+                return False
+            try:
+                if hwnd == parent_hwnd:
+                    return True
+                if not user32.IsWindowVisible(hwnd):
+                    return True
+
+                rect = _child_rect(hwnd).intersected(parent_rect)
+                if rect.width() < 24 or rect.height() < 16:
+                    return True
+                if (
+                    abs(rect.left() - parent_rect.left()) <= 2
+                    and abs(rect.top() - parent_rect.top()) <= 2
+                    and abs(rect.width() - parent_rect.width()) <= 4
+                    and abs(rect.height() - parent_rect.height()) <= 4
+                ):
+                    return True
+
+                text = _get_window_text(user32, hwnd)
+                class_name = _get_class_name(user32, hwnd)
+                title = _format_element_title(text, class_name)
+                if "QuickShot" in title or title == parent_title:
+                    return True
+
+                results.append((int(hwnd), rect, title, int(parent_hwnd)))
+                parent_count += 1
+            except Exception:
+                pass
+            return True
+
+        callback = WNDENUMPROC(_callback)
+        try:
+            user32.EnumChildWindows(parent_hwnd, callback, 0)
+        except Exception:
+            continue
+
     return results

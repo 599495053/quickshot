@@ -501,12 +501,13 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             shadow_layers=shadow,
         )
 
-    def draw_window_hover_label(self, painter: QPainter, rect: QRect, title: str = "") -> None:
+    def draw_window_hover_label(self, painter: QPainter, rect: QRect, title: str = "", target_label: str = "窗口") -> None:
         if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
             return
         self._ensure_paint_cache()
-        prefix = title.strip() if title else "窗口"
-        text = f"{prefix}   点击截取窗口，拖动框选区域"
+        label = target_label.strip() or "窗口"
+        prefix = title.strip() if title else label
+        text = f"{prefix}   点击截取{label}，拖动框选区域"
         max_w = min(self.width() - 16, 620)
         if self._fm_tip.horizontalAdvance(text) + 28 > max_w:
             text = self._fm_tip.elidedText(text, Qt.TextElideMode.ElideMiddle, max_w - 28)

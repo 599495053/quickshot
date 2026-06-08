@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import QApplication  # noqa: E402
 from quickshot.config import Config  # noqa: E402
 from quickshot.history import CaptureHistoryStore  # noqa: E402
 from quickshot.overlay._events import build_tool_key_map  # noqa: E402
+from quickshot.overlay._window_candidates import WindowCandidate  # noqa: E402
 from quickshot.overlay.widget import FloatingSnipOverlay  # noqa: E402
 
 
@@ -374,12 +375,62 @@ class SelectModeWindowHoverTest(unittest.TestCase):
         self.assertEqual(ov.selection_rect, QRect(100, 100, 300, 200))
         self.assertEqual(ov.selection_physical_rect, QRect(100, 100, 300, 200))
 
+    def test_click_hover_ui_element_enters_edit_mode_with_element_rect(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov.selecting = False
+        ov._snap_windows_loaded = True
+        ov._window_candidates = [
+            WindowCandidate(
+                2,
+                QRect(120, 130, 90, 40),
+                QRect(240, 260, 180, 80),
+                "Button",
+                0,
+                kind="element",
+                parent_hwnd=1,
+            ),
+            WindowCandidate(1, QRect(100, 100, 300, 200), QRect(200, 200, 600, 400), "App", 0),
+        ]
+
+        event = _make_mouse_event(QPoint(150, 150))
+        ov._handle_mouse_press(event)
+        ov._handle_mouse_release(event)
+
+        self.assertEqual(ov.mode, "edit")
+        self.assertEqual(ov.selection_rect, QRect(120, 130, 90, 40))
+        self.assertEqual(ov.selection_physical_rect, QRect(240, 260, 180, 80))
+
     def test_drag_from_hover_window_keeps_manual_selection(self):
         ov = _make_overlay()
         ov.mode = "select"
         ov.selecting = False
         ov._snap_windows_loaded = True
         ov._snap_window_logical_rects = [(1, QRect(100, 100, 300, 200), "App")]
+
+        ov._handle_mouse_press(_make_mouse_event(QPoint(150, 150)))
+        ov._handle_mouse_move(_make_mouse_event(QPoint(260, 240)))
+        ov._handle_mouse_release(_make_mouse_event(QPoint(260, 240)))
+
+        self.assertEqual(ov.mode, "edit")
+        self.assertEqual(ov.selection_rect, QRect(150, 150, 111, 91))
+
+    def test_drag_from_hover_ui_element_keeps_manual_selection(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov.selecting = False
+        ov._snap_windows_loaded = True
+        ov._window_candidates = [
+            WindowCandidate(
+                2,
+                QRect(120, 130, 90, 40),
+                QRect(240, 260, 180, 80),
+                "Button",
+                0,
+                kind="element",
+                parent_hwnd=1,
+            )
+        ]
 
         ov._handle_mouse_press(_make_mouse_event(QPoint(150, 150)))
         ov._handle_mouse_move(_make_mouse_event(QPoint(260, 240)))

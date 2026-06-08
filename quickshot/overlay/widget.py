@@ -577,6 +577,7 @@ class FloatingSnipOverlay(
                     painter,
                     hover_rect,
                     getattr(self, "_hover_window_title", ""),
+                    "控件" if getattr(getattr(self, "_hover_window_candidate", None), "kind", "window") == "element" else "窗口",
                 )
                 self.draw_select_magnifier(painter)
                 return

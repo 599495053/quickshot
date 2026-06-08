@@ -64,9 +64,12 @@ class MockOverlay:
 # 导入 mixin 方法
 from quickshot.overlay._snap import SnapMixin  # noqa: E402
 from quickshot.overlay._window_candidates import (  # noqa: E402
+    WindowCandidate,
+    build_combined_candidates,
     build_window_candidates,
     candidate_at,
     legacy_logical_rects,
+    sort_candidates_for_hit_testing,
 )
 
 
@@ -223,19 +226,37 @@ class ApplySnapTest(unittest.TestCase):
         self.overlay.physical_abs_to_logical_rect = MagicMock(
             return_value=(QRect(10, 20, 200, 120), QRect(20, 40, 400, 240))
         )
+        raw_windows = [(7, QRect(20, 40, 400, 240), "  App  Window  ")]
         with patch(
             "quickshot.window_enum.enumerate_visible_windows",
-            return_value=[(7, QRect(20, 40, 400, 240), "  App  Window  ")],
-        ):
+            return_value=raw_windows,
+        ), patch("quickshot.window_enum.enumerate_visible_ui_elements", return_value=[]) as element_enum:
             self.overlay._refresh_snap_windows()
 
         self.assertTrue(self.overlay._snap_windows_loaded)
         self.assertEqual(len(self.overlay._window_candidates), 1)
         self.assertEqual(self.overlay._snap_window_logical_rects, [(7, QRect(10, 20, 200, 120), "App Window")])
+        element_enum.assert_called_once_with(raw_windows)
 
         changed = self.overlay._update_hover_window(QPoint(30, 40))
         self.assertTrue(changed)
         self.assertEqual(self.overlay._hover_window_physical_rect(), QRect(20, 40, 400, 240))
+
+    def test_refresh_snap_windows_builds_ui_element_candidates(self):
+        raw_windows = [(7, QRect(100, 100, 400, 260), "App")]
+        raw_elements = [(8, QRect(140, 150, 120, 36), "Button", 7)]
+        with patch("quickshot.window_enum.enumerate_visible_windows", return_value=raw_windows), patch(
+            "quickshot.window_enum.enumerate_visible_ui_elements",
+            return_value=raw_elements,
+        ) as element_enum:
+            self.overlay._refresh_snap_windows()
+
+        element_enum.assert_called_once_with(raw_windows)
+        self.assertEqual([candidate.kind for candidate in self.overlay._window_candidates], ["element", "window"])
+        hit = self.overlay._hover_window_candidate_at(QPoint(150, 160))
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit.hwnd, 8)
+        self.assertEqual(hit.kind, "element")
 
     def test_update_hover_window_clears_when_snap_disabled(self):
         """关闭窗口吸附时，悬停候选也应同步清空。"""
@@ -309,6 +330,53 @@ class WindowCandidateTest(unittest.TestCase):
         candidates = build_window_candidates(raw_windows, convert, QRect(0, 0, 200, 160))
 
         self.assertEqual([candidate.hwnd for candidate in candidates], [2])
+
+    def test_combined_candidates_prefer_child_element_over_parent_window(self):
+        candidates = build_combined_candidates(
+            [(10, QRect(0, 0, 500, 360), "App")],
+            [(11, QRect(120, 80, 140, 44), "OK", 10)],
+            lambda rect: (QRect(*rect), QRect(*rect)),
+            QRect(0, 0, 600, 420),
+        )
+
+        self.assertEqual([candidate.kind for candidate in candidates], ["element", "window"])
+        self.assertEqual(candidate_at(candidates, QPoint(130, 90)).hwnd, 11)
+        self.assertEqual(candidate_at(candidates, QPoint(20, 20)).hwnd, 10)
+
+    def test_combined_candidates_filter_elements_with_missing_parent(self):
+        candidates = build_combined_candidates(
+            [(10, QRect(0, 0, 500, 360), "App")],
+            [(11, QRect(120, 80, 140, 44), "OK", 99)],
+            lambda rect: (QRect(*rect), QRect(*rect)),
+            QRect(0, 0, 600, 420),
+        )
+
+        self.assertEqual([(candidate.hwnd, candidate.kind) for candidate in candidates], [(10, "window")])
+
+    def test_hit_testing_prefers_smaller_element_inside_same_window_layer(self):
+        window = WindowCandidate(10, QRect(0, 0, 500, 360), QRect(0, 0, 500, 360), "App", 0)
+        large = WindowCandidate(
+            11,
+            QRect(100, 100, 300, 180),
+            QRect(100, 100, 300, 180),
+            "Panel",
+            0,
+            kind="element",
+            parent_hwnd=10,
+        )
+        small = WindowCandidate(
+            12,
+            QRect(140, 120, 80, 36),
+            QRect(140, 120, 80, 36),
+            "Button",
+            0,
+            kind="element",
+            parent_hwnd=10,
+        )
+
+        candidates = sort_candidates_for_hit_testing([window, large, small])
+
+        self.assertEqual(candidate_at(candidates, QPoint(150, 130)).hwnd, 12)
 
 
 if __name__ == "__main__":

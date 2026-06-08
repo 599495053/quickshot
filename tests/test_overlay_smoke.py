@@ -312,6 +312,83 @@ class OverlayToolSmokeTest(unittest.TestCase):
                     color = canvas.pixelColor(x, y)
                     self.assertNotEqual((color.red(), color.green(), color.blue()), (245, 245, 245))
 
+    def test_select_mode_strong_dim_suppresses_side_desktop_lines(self) -> None:
+        _ensure_app()
+        cfg = Config()
+        cfg.snap_to_windows = False
+        raw = QPixmap(800, 600)
+        raw.fill(QColor(60, 60, 60))
+        raw_painter = QPainter(raw)
+        try:
+            raw_painter.fillRect(QRect(0, 250, 800, 1), QColor(245, 245, 245))
+        finally:
+            raw_painter.end()
+        display = raw.copy()
+        overlay = FloatingSnipOverlay(
+            raw, display, QRect(0, 0, 800, 600), 1.0, 1.0, 0, 0, cfg, None
+        )
+        overlay.mode = "select"
+        overlay.selecting = True
+        overlay.start = QPoint(240, 100)
+        overlay.end = QPoint(639, 399)
+        overlay.resize(800, 600)
+        rect = overlay.current_select_rect()
+
+        canvas = QImage(overlay.width(), overlay.height(), QImage.Format.Format_ARGB32)
+        canvas.fill(QColor(0, 0, 0))
+        painter = QPainter(canvas)
+        try:
+            overlay.clear_canvas(painter)
+            overlay.draw_frozen_desktop(painter)
+            overlay.paint_select_mode(painter)
+        finally:
+            painter.end()
+
+        for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
+            with self.subTest(outside_x=x):
+                color = canvas.pixelColor(x, 250)
+                self.assertEqual(color.getRgb()[:3], (0, 0, 0))
+        self.assertEqual(canvas.pixelColor(rect.center().x(), 250).getRgb()[:3], (245, 245, 245))
+
+    def test_edit_mode_strong_dim_suppresses_side_desktop_lines(self) -> None:
+        _ensure_app()
+        cfg = Config()
+        cfg.snap_to_windows = False
+        raw = QPixmap(800, 600)
+        raw.fill(QColor(60, 60, 60))
+        raw_painter = QPainter(raw)
+        try:
+            raw_painter.fillRect(QRect(0, 250, 800, 1), QColor(245, 245, 245))
+        finally:
+            raw_painter.end()
+        display = raw.copy()
+        overlay = FloatingSnipOverlay(
+            raw, display, QRect(0, 0, 800, 600), 1.0, 1.0, 0, 0, cfg, None
+        )
+        overlay.mode = "edit"
+        overlay.selection_rect = QRect(240, 100, 400, 300)
+        overlay.selection_physical_rect = QRect(240, 100, 400, 300)
+        overlay.base_edit_pixmap = raw.copy(overlay.selection_physical_rect)
+        overlay.edit_pixmap = overlay.base_edit_pixmap.copy()
+        overlay.resize(800, 600)
+        rect = overlay.selection_rect
+
+        canvas = QImage(overlay.width(), overlay.height(), QImage.Format.Format_ARGB32)
+        canvas.fill(QColor(0, 0, 0))
+        painter = QPainter(canvas)
+        try:
+            overlay.clear_canvas(painter)
+            overlay.draw_frozen_desktop(painter)
+            overlay.paint_edit_mode(painter)
+        finally:
+            painter.end()
+
+        for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
+            with self.subTest(outside_x=x):
+                color = canvas.pixelColor(x, 250)
+                self.assertEqual(color.getRgb()[:3], (0, 0, 0))
+        self.assertEqual(canvas.pixelColor(rect.center().x(), 250).getRgb()[:3], (245, 245, 245))
+
     def test_select_mode_masks_edge_scanlines_on_fractional_scale(self) -> None:
         _ensure_app()
         scale = 1.5
@@ -453,9 +530,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
                 for x in outside_xs:
                     cleaned_color = cleaned.pixelColor(x, y)
                     baseline_color = baseline.pixelColor(x, y)
-                    self.assertLess(cleaned_color.red(), baseline_color.red())
-                    self.assertLess(cleaned_color.green(), baseline_color.green())
-                    self.assertLess(cleaned_color.blue(), baseline_color.blue())
+                    self.assertEqual(cleaned_color.getRgb()[:3], baseline_color.getRgb()[:3])
                 self.assertEqual(cleaned.pixelColor(rect.center().x(), y).getRgb()[:3], (245, 245, 245))
 
     def test_snap_guides_are_hidden_by_default(self) -> None:

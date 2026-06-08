@@ -143,8 +143,15 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
         painter.restore()
 
+    def dim_shade(self) -> QColor:
+        shade = QColor(overlay_dim())
+        mode = getattr(self, "mode", "")
+        if mode in {"select", "edit"} or getattr(self, "selecting", False) or getattr(self, "adjusting_selection", False):
+            shade.setAlpha(255)
+        return shade
+
     def draw_dim_outside(self, painter: QPainter, clear_rect: QRect) -> None:
-        shade = overlay_dim()
+        shade = self.dim_shade()
         rect = clear_rect.normalized().intersected(self.rect())
         if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
             painter.fillRect(self.rect(), shade)

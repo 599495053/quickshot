@@ -137,12 +137,32 @@ class EventMixin:
 
     def _handle_mouse_press_select_mode(self, pos: QPoint) -> None:
         """处理选择模式下的鼠标点击。"""
+        if self._snap_windows_loaded and self._update_hover_window(pos):
+            self.request_frame_update(
+                self.selection_frame_dirty_rect(None, self._hover_window_logical_rect)
+            )
+        hover_rect = QRect(getattr(self, "_hover_window_logical_rect", QRect()))
+        if (
+            not hover_rect.isNull()
+            and hover_rect.width() > 0
+            and hover_rect.height() > 0
+            and hover_rect.contains(pos)
+        ):
+            self._press_hover_window_logical_rect = QRect(hover_rect)
+            self._press_hover_window_physical_rect = self._hover_window_physical_rect(hover_rect)
+        else:
+            self._press_hover_window_logical_rect = QRect()
+            self._press_hover_window_physical_rect = QRect()
         self.start = pos
         self.end = pos
         self.selecting = True
         self._snap_edges = []
         # 吸附窗口列表由覆盖层空闲预热；鼠标按下保持轻量，避免第一帧拖动卡顿。
-        if getattr(self.config, 'snap_to_windows', True) and not self._snap_windows_loaded:
+        if (
+            getattr(self.config, 'snap_to_windows', True)
+            and not self._snap_windows_loaded
+            and not getattr(self, "_snap_refresh_pending", False)
+        ):
             self._schedule_snap_prewarm(80)
         self.request_frame_update()
 
@@ -325,6 +345,14 @@ class EventMixin:
             self.request_frame_update(dirty)
             return
 
+        if self.mode == "select":
+            old_rect = QRect(getattr(self, "_hover_window_logical_rect", QRect()))
+            if self._update_hover_window(pos):
+                new_rect = QRect(getattr(self, "_hover_window_logical_rect", QRect()))
+                dirty = self.selection_frame_dirty_rect(old_rect, new_rect)
+                self.request_frame_update(dirty if not dirty.isNull() else None)
+            return
+
         if self.mode == "edit":
             if self.ocr_running():
                 self.setCursor(Qt.CursorShape.BusyCursor)
@@ -413,8 +441,27 @@ class EventMixin:
             self._snap_window_logical_rects = []
             physical_rect = self.logical_to_physical_rect(logical_rect)
             if physical_rect.width() < 8 or physical_rect.height() < 8:
+                hover_logical = QRect(getattr(self, "_press_hover_window_logical_rect", QRect()))
+                hover_physical = QRect(getattr(self, "_press_hover_window_physical_rect", QRect()))
+                if (
+                    not hover_logical.isNull()
+                    and not hover_physical.isNull()
+                    and hover_logical.width() >= 8
+                    and hover_logical.height() >= 8
+                    and hover_physical.width() >= 8
+                    and hover_physical.height() >= 8
+                ):
+                    self._snap_edges = []
+                    self.selecting = False
+                    self._snap_windows_loaded = False
+                    self._snap_refresh_pending = False
+                    self._snap_window_logical_rects = []
+                    self._clear_hover_window()
+                    self.enter_edit_mode(hover_logical, hover_physical)
+                    return
                 self.close()
                 return
+            self._clear_hover_window()
             self.enter_edit_mode(logical_rect, physical_rect)
             return
 
@@ -586,6 +633,9 @@ class EventMixin:
             if physical_rect.width() >= 8 and physical_rect.height() >= 8:
                 self.enter_edit_mode(logical_rect, physical_rect)
             return True
+        if key == Qt.Key.Key_R:
+            self.reuse_last_selection()
+            return True
         return False
 
     def _handle_text_panel_key(self, key, ctrl: bool) -> bool:
@@ -668,8 +718,7 @@ class EventMixin:
 
         # select 模式: Enter 进入编辑
         if self.mode == "select":
-            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                self._handle_select_mode_key(key)
+            self._handle_select_mode_key(key)
             return
 
         if self.mode != "edit":
@@ -797,17 +846,27 @@ class EventMixin:
     def reuse_last_selection(self) -> None:
         """复用上次选区区域。"""
         cls = self.__class__
-        if cls._last_selection_rect is None or cls._last_selection_rect.isNull():
+        if (
+            cls._last_selection_rect is None
+            or cls._last_selection_rect.isNull()
+            or cls._last_selection_physical_rect is None
+            or cls._last_selection_physical_rect.isNull()
+        ):
             self.message = "没有可复用的历史选区"
             self.update()
             return
         logical_rect = QRect(cls._last_selection_rect)
-        physical_rect = QRect(cls._last_selection_physical_rect)
         logical_rect = logical_rect.intersected(self.rect())
         if logical_rect.width() < 8 or logical_rect.height() < 8:
             self.message = "历史选区超出当前屏幕范围"
             self.update()
             return
+        physical_rect = self.logical_to_physical_rect(logical_rect)
+        if physical_rect.width() < 8 or physical_rect.height() < 8:
+            self.message = "历史选区超出当前截图范围"
+            self.update()
+            return
+        self._clear_hover_window()
         self.enter_edit_mode(logical_rect, physical_rect)
 
     def apply_mosaic_to_selection(self) -> None:

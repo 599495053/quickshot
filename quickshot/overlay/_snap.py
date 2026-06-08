@@ -6,7 +6,9 @@
 
 from __future__ import annotations
 
-from PyQt6.QtCore import QRect, QTimer
+from typing import Optional
+
+from PyQt6.QtCore import QPoint, QRect, QTimer
 
 
 class SnapMixin:
@@ -18,6 +20,10 @@ class SnapMixin:
         self._snap_edges: list[tuple[str, QRect]] = []
         self._snap_windows_loaded = False
         self._snap_refresh_pending = False
+        self._hover_window_logical_rect = QRect()
+        self._hover_window_title = ""
+        self._press_hover_window_logical_rect = QRect()
+        self._press_hover_window_physical_rect = QRect()
 
     def _schedule_snap_prewarm(self, delay_ms: int = 120) -> None:
         """在覆盖层空闲时预热窗口吸附数据，避免首次按下鼠标时卡顿。"""
@@ -124,3 +130,43 @@ class SnapMixin:
             snap_edges.append(("bottom", best_bottom[1]))
 
         return snapped, snap_edges
+
+    def _hover_window_at(self, pos: QPoint) -> tuple[QRect, str]:
+        """Return the topmost cached window containing pos."""
+        if not self._snap_window_logical_rects:
+            return QRect(), ""
+        for _hwnd, rect, title in self._snap_window_logical_rects:
+            if rect.contains(pos):
+                return QRect(rect), title
+        return QRect(), ""
+
+    def _hover_window_physical_rect(self, logical_rect: Optional[QRect] = None) -> QRect:
+        rect = logical_rect if logical_rect is not None else self._hover_window_logical_rect
+        if rect is None or rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
+            return QRect()
+        return self.logical_to_physical_rect(rect)
+
+    def _clear_hover_window(self) -> None:
+        self._hover_window_logical_rect = QRect()
+        self._hover_window_title = ""
+        self._press_hover_window_logical_rect = QRect()
+        self._press_hover_window_physical_rect = QRect()
+
+    def _update_hover_window(self, pos: QPoint) -> bool:
+        """Update select-mode hover window and return True if it changed."""
+        if not getattr(self.config, 'snap_to_windows', True):
+            if not self._hover_window_logical_rect.isNull() or self._hover_window_title:
+                self._clear_hover_window()
+                return True
+            return False
+        if not self._snap_windows_loaded:
+            if not self._snap_refresh_pending:
+                self._schedule_snap_prewarm(40)
+            return False
+
+        rect, title = self._hover_window_at(pos)
+        if rect == self._hover_window_logical_rect and title == self._hover_window_title:
+            return False
+        self._hover_window_logical_rect = rect
+        self._hover_window_title = title
+        return True

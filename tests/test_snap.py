@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from PyQt6.QtCore import QRect  # noqa: E402
+from PyQt6.QtCore import QPoint, QRect  # noqa: E402
 
 
 class MockOverlay:
@@ -42,6 +42,9 @@ class MockOverlay:
         left, top, width, height = abs_rect
         return QRect(left, top, width, height), QRect(left, top, width, height)
 
+    def logical_to_physical_rect(self, rect):
+        return QRect(rect)
+
     def _init_snap_state(self):
         self._snap_window_logical_rects = []
         self._snap_edges = []
@@ -61,6 +64,9 @@ class ApplySnapTest(unittest.TestCase):
         self.overlay._init_snap_state = SnapMixin._init_snap_state.__get__(self.overlay)
         self.overlay._schedule_snap_prewarm = SnapMixin._schedule_snap_prewarm.__get__(self.overlay)
         self.overlay._run_snap_prewarm = SnapMixin._run_snap_prewarm.__get__(self.overlay)
+        self.overlay._hover_window_at = SnapMixin._hover_window_at.__get__(self.overlay)
+        self.overlay._clear_hover_window = SnapMixin._clear_hover_window.__get__(self.overlay)
+        self.overlay._update_hover_window = SnapMixin._update_hover_window.__get__(self.overlay)
         self.overlay._init_snap_state()
 
     def test_no_windows_returns_original(self):
@@ -181,6 +187,30 @@ class ApplySnapTest(unittest.TestCase):
 
         self.assertEqual(calls, [True])
         self.assertTrue(self.overlay._snap_windows_loaded)
+
+    def test_hover_window_at_returns_first_containing_window(self):
+        """窗口悬停命中时返回最靠前的缓存窗口。"""
+        self.overlay._snap_window_logical_rects = [
+            (1, QRect(100, 100, 300, 200), "Front"),
+            (2, QRect(120, 120, 100, 80), "Behind"),
+        ]
+
+        rect, title = self.overlay._hover_window_at(QPoint(130, 130))
+
+        self.assertEqual(rect, QRect(100, 100, 300, 200))
+        self.assertEqual(title, "Front")
+
+    def test_update_hover_window_clears_when_snap_disabled(self):
+        """关闭窗口吸附时，悬停候选也应同步清空。"""
+        self.overlay._hover_window_logical_rect = QRect(100, 100, 300, 200)
+        self.overlay._hover_window_title = "Window"
+        self.overlay.config.snap_to_windows = False
+
+        changed = self.overlay._update_hover_window(QPoint(150, 150))
+
+        self.assertTrue(changed)
+        self.assertTrue(self.overlay._hover_window_logical_rect.isNull())
+        self.assertEqual(self.overlay._hover_window_title, "")
 
     def test_refresh_snap_windows_handles_enumeration_failure(self):
         """窗口枚举失败时应降级为空缓存，不影响截图。"""

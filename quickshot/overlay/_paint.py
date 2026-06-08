@@ -588,6 +588,35 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             shadow_layers=shadow,
         )
 
+    def draw_window_hover_label(self, painter: QPainter, rect: QRect, title: str = "") -> None:
+        if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
+            return
+        self._ensure_paint_cache()
+        prefix = title.strip() if title else "窗口"
+        text = f"{prefix}   点击截取窗口，拖动框选区域"
+        max_w = min(self.width() - 16, 620)
+        if self._fm_tip.horizontalAdvance(text) + 28 > max_w:
+            text = self._fm_tip.elidedText(text, Qt.TextElideMode.ElideMiddle, max_w - 28)
+        label_w = min(max_w, self._fm_tip.horizontalAdvance(text) + 28)
+        label_h = 30
+        x = rect.left()
+        y = rect.bottom() + 10
+        if y + label_h > self.height() - 8:
+            y = rect.top() - label_h - 10
+        x = max(8, min(self.width() - label_w - 8, x))
+        y = max(8, min(self.height() - label_h - 8, y))
+        self.draw_floating_bubble(
+            painter,
+            QRect(x, y, label_w, label_h),
+            text,
+            font=self._font_tip,
+            radius=9,
+            bg=overlay_tip_bg(),
+            border=overlay_tip_border(),
+            text_color=overlay_tip_text(),
+            shadow_layers=((5, 10), (2, 18)),
+        )
+
     def draw_drag_button(self, painter: QPainter) -> None:
         self.update_drag_button_layout()
         if self.drag_button_rect.isNull():

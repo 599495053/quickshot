@@ -133,7 +133,7 @@ class FloatingSnipOverlay(
         self.hover_button = ""
         self.hover_style_option = ""
         self.last_message_rect = QRect()
-        self.message = "拖动鼠标选择截图区域   Esc 取消"
+        self.message = "拖动鼠标选择截图区域   点击窗口可直接截取   R 复用上次   Esc 取消"
         self.text_font_size = TEXT_FONT_SIZE_DEFAULT
         self.text_color_name = "#ffffff"
         self.text_panel_color_name = self.text_color_name
@@ -466,9 +466,34 @@ class FloatingSnipOverlay(
 
     def paint_select_mode(self, painter: QPainter) -> None:
         rect = self.current_select_rect()
+        hover_rect = getattr(self, "_hover_window_logical_rect", QRect())
+        if (
+            not getattr(self, "selecting", False)
+            and not hover_rect.isNull()
+            and hover_rect.width() > 0
+            and hover_rect.height() > 0
+        ):
+            hover_rect = hover_rect.intersected(self.rect())
+            if not hover_rect.isNull() and hover_rect.width() > 0 and hover_rect.height() > 0:
+                self.draw_dim_outside(painter, hover_rect)
+                self.draw_selection_border(painter, hover_rect)
+                self.draw_handles(painter, hover_rect)
+                physical_rect = self.logical_to_physical_rect(hover_rect)
+                self.draw_size_label(
+                    painter,
+                    hover_rect,
+                    max(1, physical_rect.width()),
+                    max(1, physical_rect.height()),
+                )
+                self.draw_window_hover_label(
+                    painter,
+                    hover_rect,
+                    getattr(self, "_hover_window_title", ""),
+                )
+                return
         if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
             painter.fillRect(self.rect(), overlay_dim())
-            self.draw_center_hint(painter, "拖动鼠标选择截图区域   Esc 取消")
+            self.draw_center_hint(painter, self.message)
             return
 
         self.draw_dim_outside(painter, rect)

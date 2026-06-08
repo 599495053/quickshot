@@ -54,6 +54,13 @@ def _make_overlay() -> FloatingSnipOverlay:
     return overlay
 
 
+def _make_mouse_event(pos: QPoint, button=Qt.MouseButton.LeftButton):
+    evt = MagicMock()
+    evt.button.return_value = button
+    evt.position.return_value.toPoint.return_value = pos
+    return evt
+
+
 # ── 命令分发 ──
 
 class ExecuteCommandTest(unittest.TestCase):
@@ -303,6 +310,71 @@ class SelectModeResponsivenessTest(unittest.TestCase):
         ov._handle_mouse_move(self._make_move_event(QPoint(120, 130)))
 
         ov.request_frame_update.assert_not_called()
+
+
+class SelectModeWindowHoverTest(unittest.TestCase):
+    """选择模式窗口候选：单击截窗口，拖拽仍框选。"""
+
+    def test_move_updates_hover_window(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov.selecting = False
+        ov._snap_windows_loaded = True
+        ov._snap_window_logical_rects = [(1, QRect(100, 100, 300, 200), "App")]
+
+        ov._handle_mouse_move(_make_mouse_event(QPoint(150, 150)))
+
+        self.assertEqual(ov._hover_window_logical_rect, QRect(100, 100, 300, 200))
+        self.assertEqual(ov._hover_window_title, "App")
+
+    def test_click_hover_window_enters_edit_mode(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov.selecting = False
+        ov._snap_windows_loaded = True
+        ov._snap_window_logical_rects = [(1, QRect(100, 100, 300, 200), "App")]
+
+        event = _make_mouse_event(QPoint(150, 150))
+        ov._handle_mouse_press(event)
+        ov._handle_mouse_release(event)
+
+        self.assertEqual(ov.mode, "edit")
+        self.assertEqual(ov.selection_rect, QRect(100, 100, 300, 200))
+        self.assertEqual(ov.selection_physical_rect, QRect(100, 100, 300, 200))
+
+    def test_drag_from_hover_window_keeps_manual_selection(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        ov.selecting = False
+        ov._snap_windows_loaded = True
+        ov._snap_window_logical_rects = [(1, QRect(100, 100, 300, 200), "App")]
+
+        ov._handle_mouse_press(_make_mouse_event(QPoint(150, 150)))
+        ov._handle_mouse_move(_make_mouse_event(QPoint(260, 240)))
+        ov._handle_mouse_release(_make_mouse_event(QPoint(260, 240)))
+
+        self.assertEqual(ov.mode, "edit")
+        self.assertEqual(ov.selection_rect, QRect(150, 150, 111, 91))
+
+    def test_select_mode_r_reuses_last_selection(self):
+        ov = _make_overlay()
+        ov.mode = "select"
+        old_logical = FloatingSnipOverlay._last_selection_rect
+        old_physical = FloatingSnipOverlay._last_selection_physical_rect
+        try:
+            FloatingSnipOverlay._last_selection_rect = QRect(220, 180, 120, 90)
+            FloatingSnipOverlay._last_selection_physical_rect = QRect(220, 180, 120, 90)
+            evt = MagicMock()
+            evt.key.return_value = Qt.Key.Key_R
+            evt.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+
+            ov._handle_key_press(evt)
+
+            self.assertEqual(ov.mode, "edit")
+            self.assertEqual(ov.selection_rect, QRect(220, 180, 120, 90))
+        finally:
+            FloatingSnipOverlay._last_selection_rect = old_logical
+            FloatingSnipOverlay._last_selection_physical_rect = old_physical
 
 
 class BuildToolKeyMapTest(unittest.TestCase):

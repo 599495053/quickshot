@@ -1,11 +1,11 @@
-# QuickShot V5.3.5
+# QuickShot V5.3.6
 
 [![CI](https://github.com/599495053/quickshot/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/599495053/quickshot/actions/workflows/ci.yml)
 [![Latest Release](https://img.shields.io/github/v/release/599495053/quickshot?sort=semver)](https://github.com/599495053/quickshot/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/599495053/quickshot/latest/total)](https://github.com/599495053/quickshot/releases/latest)
 [![License](https://img.shields.io/github/license/599495053/quickshot)](LICENSE)
 
-QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截图、标注、贴图、OCR、翻译、历史库、自动上传、复制、保存、托盘和设置管理。v5.3.5 为智能隐私打码加入可调整预览确认流程，同时继续保持默认轻量安装包。
+QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截图、标注、贴图、OCR、翻译、历史库、自动上传、复制、保存、托盘和设置管理。v5.3.6 加入截图后工作流预设，可一键切换快速复制、自动保存、识文、发布和隐私优先流程。
 
 ![QuickShot workflow preview](docs/images/quickshot-workflow-preview.png)
 
@@ -13,20 +13,20 @@ QuickShot 是一款 Windows 截图工具，支持区域截图、当前窗口截�
 
 | 项目 | 链接 |
 | --- | --- |
-| 最新版本 | [QuickShot v5.3.5](https://github.com/599495053/quickshot/releases/tag/v5.3.5) |
-| Windows 安装包 | [QuickShot-5.3.5-Setup.exe](https://github.com/599495053/quickshot/releases/download/v5.3.5/QuickShot-5.3.5-Setup.exe) |
-| 校验清单 | [QuickShot-5.3.5-release.txt](https://github.com/599495053/quickshot/releases/download/v5.3.5/QuickShot-5.3.5-release.txt) |
+| 最新版本 | [QuickShot v5.3.6](https://github.com/599495053/quickshot/releases/tag/v5.3.6) |
+| Windows 安装包 | [QuickShot-5.3.6-Setup.exe](https://github.com/599495053/quickshot/releases/download/v5.3.6/QuickShot-5.3.6-Setup.exe) |
+| 校验清单 | [QuickShot-5.3.6-release.txt](https://github.com/599495053/quickshot/releases/download/v5.3.6/QuickShot-5.3.6-release.txt) |
 
 安装包 SHA256：
 
 ```text
-3F30E0CD67D14F689A29EB497F19273032606742C435B1127C5D7635D19F2BC7
+7D960B5111783F51A5AA2F073B8BED3188502168196D312E25303EDA01B866F1
 ```
 
 下载后可用 PowerShell 校验：
 
 ```powershell
-Get-FileHash .\QuickShot-5.3.5-Setup.exe -Algorithm SHA256
+Get-FileHash .\QuickShot-5.3.6-Setup.exe -Algorithm SHA256
 ```
 
 说明：
@@ -39,7 +39,7 @@ Get-FileHash .\QuickShot-5.3.5-Setup.exe -Algorithm SHA256
 
 ## 快速上手
 
-1. 下载并运行 `QuickShot-5.3.5-Setup.exe`。
+1. 下载并运行 `QuickShot-5.3.6-Setup.exe`。
 2. 启动 QuickShot 后，它会常驻系统托盘。
 3. 按 `Ctrl+Shift+A` 拖拽区域截图。
 4. 按 `Ctrl+Shift+W` 截取当前窗口。
@@ -195,8 +195,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 输出文件：
 
 - `dist\QuickShot.exe`
-- `installer_output\QuickShot-5.3.5-Setup.exe`
-- `installer_output\QuickShot-5.3.5-release.txt`
+- `installer_output\QuickShot-5.3.6-Setup.exe`
+- `installer_output\QuickShot-5.3.6-release.txt`
 
 打包后冒烟测试：
 
@@ -220,16 +220,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 `
-  -PreviousInstallerPath <downloaded-QuickShot-5.3.4-Setup.exe> `
-  -PreviousVersion 5.3.4
+  -PreviousInstallerPath <downloaded-QuickShot-5.3.5-Setup.exe> `
+  -PreviousVersion 5.3.5
 ```
 
 GitHub Release 下载版安装器验证：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 `
-  -Tag v5.3.5 `
-  -ExpectedSha256 3F30E0CD67D14F689A29EB497F19273032606742C435B1127C5D7635D19F2BC7
+  -Tag v5.3.6 `
+  -ExpectedSha256 7D960B5111783F51A5AA2F073B8BED3188502168196D312E25303EDA01B866F1
 ```
 
 本机桌面托盘/全局热键验证：
@@ -249,7 +249,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -S
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 `
   .\dist\QuickShot.exe `
-  .\installer_output\QuickShot-5.3.5-Setup.exe
+  .\installer_output\QuickShot-5.3.6-Setup.exe
 ```
 
 签名发布前强制要求有效签名：
@@ -257,7 +257,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 `
   .\dist\QuickShot.exe `
-  .\installer_output\QuickShot-5.3.5-Setup.exe `
+  .\installer_output\QuickShot-5.3.6-Setup.exe `
   -RequireSigned
 ```
 
@@ -303,12 +303,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 
 ## 发布状态
 
-v5.3.5 已完成以下验证：
+v5.3.6 已完成以下验证：
 
 - 本地 release build 通过。
 - packaged smoke test 通过。
 - 本地安装包验证通过。
-- 5.3.4 -> 5.3.5 升级覆盖和 5.3.5 同版本重装验证通过。
-- 区域截图和当前窗口截图已在发布桌面自动验证。
-- GitHub Release 下载版安装器验证通过。
+- 5.3.5 -> 5.3.6 升级覆盖和 5.3.6 同版本重装验证通过。
+- packaged privacy OCR fallback、overlay edit、capture backend self-test 通过。
+- 安装包签名状态校验为 `NotSigned`。
 - CI 通过。

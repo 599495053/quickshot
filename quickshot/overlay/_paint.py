@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional, Tuple
 
 from PyQt6.QtCore import QPoint, QRect, QRectF, Qt
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen, QRegion
 
 from . import annotation_painter
 from ._paint_toolbar import ToolbarPaintMixin
@@ -150,68 +150,59 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             painter.fillRect(self.rect(), shade)
             return
 
-        w = self.width()
-        h = self.height()
-        top_h = max(0, rect.top())
-        bottom_y = rect.bottom() + 1
-        bottom_h = max(0, h - bottom_y)
-        left_w = max(0, rect.left())
-        right_x = rect.right() + 1
-        right_w = max(0, w - right_x)
-
-        if top_h > 0:
-            painter.fillRect(QRect(0, 0, w, top_h), shade)
-        if bottom_h > 0:
-            painter.fillRect(QRect(0, bottom_y, w, bottom_h), shade)
-        if left_w > 0:
-            painter.fillRect(QRect(0, rect.top(), left_w, rect.height()), shade)
-        if right_w > 0:
-            painter.fillRect(QRect(right_x, rect.top(), right_w, rect.height()), shade)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        outside = QRegion(self.rect()).subtracted(QRegion(rect))
+        painter.setClipRegion(outside)
+        painter.fillRect(self.rect(), shade)
+        painter.restore()
         self.draw_dim_edge_cleanup(painter, rect, shade)
 
     def draw_dim_edge_cleanup(self, painter: QPainter, rect: QRect, shade: QColor) -> None:
-        """Hide desktop scanlines that land exactly on selection top/bottom edges."""
+        """Heal outside-only desktop scanlines near the selection top/bottom edges."""
         if self.raw_pixmap.isNull() or rect.width() <= 0 or rect.height() <= 0:
             return
         bounds = self.rect()
-        ranges = (
-            (bounds.left(), max(0, rect.left() - bounds.left()), True),
-            (rect.left(), rect.width(), False),
-            (rect.right() + 1, max(0, bounds.right() - rect.right()), True),
-        )
-        inside_band = min(5, max(1, rect.height()))
-        outside_band = min(10, max(1, rect.height()))
+        if bounds.isNull() or bounds.width() <= 0 or bounds.height() <= 0:
+            return
+        scale_y = max(0.001, float(getattr(self, "scale_y", 1.0)))
+        edge_band = min(max(6, int(round(18 / scale_y))), max(1, rect.height()))
+        target_h = min(max(1, edge_band * 2), max(1, bounds.height()))
 
-        def clamp_band_start(y: int, top: int, bottom: int, height: int) -> int:
-            return max(top, min(bottom - height + 1, y))
+        def clamped_band(y: int, height: int) -> QRect:
+            if bounds.height() <= height:
+                return QRect(bounds)
+            y = max(bounds.top(), min(bounds.bottom() - height + 1, y))
+            return QRect(bounds.left(), y, bounds.width(), height)
+
+        def clamped_source_y(y: int, height: int) -> int:
+            if bounds.height() <= height:
+                return bounds.top()
+            return max(bounds.top(), min(bounds.bottom() - height + 1, y))
+
+        top_target = clamped_band(rect.top() - edge_band, target_h)
+        bottom_target = clamped_band(rect.bottom() - edge_band + 1, target_h)
+        bands = (
+            (top_target, clamped_source_y(top_target.top() - edge_band * 2, top_target.height())),
+            (bottom_target, clamped_source_y(bottom_target.bottom() + 1 + edge_band * 2, bottom_target.height())),
+        )
 
         painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
-        for x, width, dimmed in ranges:
-            if width <= 0:
+        outside = QRegion(bounds).subtracted(QRegion(rect))
+        painter.setClipRegion(outside)
+        for target, source_y in bands:
+            target = target.intersected(bounds)
+            if target.isNull() or target.width() <= 0 or target.height() <= 0:
                 continue
-            band = outside_band if dimmed else inside_band
-            cleanup_rows = (
-                (rect.top(), rect.top() - band if dimmed else rect.top() + band),
-                (
-                    rect.bottom() - band + 1,
-                    rect.bottom() + 1 if dimmed else rect.bottom() - band * 2 + 1,
-                ),
-            )
-            for target_y, source_y in cleanup_rows:
-                target_y = clamp_band_start(target_y, bounds.top(), bounds.bottom(), band)
-                source_top = bounds.top() if dimmed else rect.top()
-                source_bottom = bounds.bottom() if dimmed else rect.bottom()
-                source_y = clamp_band_start(source_y, source_top, source_bottom, band)
-                target = QRect(x, target_y, width, band).intersected(bounds)
-                if target.isNull():
-                    continue
-                source = self.logical_to_physical_rect(QRect(target.x(), source_y, target.width(), target.height()))
-                if source.width() <= 0 or source.height() <= 0:
-                    continue
-                painter.drawPixmap(target, self.raw_pixmap, source)
-                if dimmed:
-                    painter.fillRect(target, shade)
+            source = self.logical_to_physical_rect(QRect(target.x(), source_y, target.width(), target.height()))
+            if source.width() <= 0 or source.height() <= 0:
+                continue
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+            painter.drawPixmap(target, self.raw_pixmap, source)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+            painter.fillRect(target, shade)
         painter.restore()
 
     def draw_interaction_blocker(self, painter: QPainter, rect: QRect) -> None:

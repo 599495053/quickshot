@@ -279,13 +279,20 @@ class OverlayToolSmokeTest(unittest.TestCase):
         finally:
             painter.end()
 
-        for y in (rect.top(), rect.bottom()):
-            with self.subTest(y=y):
-                for x in (40, rect.left() - 10, rect.center().x(), rect.right() + 10, overlay.width() - 40):
+        outside_xs = (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40)
+        line_rows = (rect.top(), rect.top() + 8, rect.bottom() - 8, rect.bottom())
+        for y in line_rows:
+            with self.subTest(outside_y=y):
+                for x in outside_xs:
                     color = canvas.pixelColor(x, y)
                     self.assertLess(color.red(), 90)
                     self.assertLess(color.green(), 90)
                     self.assertLess(color.blue(), 90)
+
+        for y in line_rows:
+            with self.subTest(interior_content_y=y):
+                color = canvas.pixelColor(rect.center().x(), y)
+                self.assertEqual(color.getRgb()[:3], (245, 245, 245))
 
         seam_checks = (
             (rect.top(), rect.top() - 1),
@@ -293,26 +300,15 @@ class OverlayToolSmokeTest(unittest.TestCase):
         )
         for edge_y, adjacent_y in seam_checks:
             with self.subTest(edge_y=edge_y):
-                for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
+                for x in outside_xs:
                     self.assertEqual(
                         canvas.pixelColor(x, edge_y).getRgb()[:3],
                         canvas.pixelColor(x, adjacent_y).getRgb()[:3],
                     )
 
-        interior_checks = (
-            (rect.top(), rect.top() + 1),
-            (rect.bottom(), rect.bottom() - 1),
-        )
-        for edge_y, adjacent_y in interior_checks:
-            with self.subTest(interior_edge_y=edge_y):
-                self.assertEqual(
-                    canvas.pixelColor(rect.center().x(), edge_y).getRgb()[:3],
-                    canvas.pixelColor(rect.center().x(), adjacent_y).getRgb()[:3],
-                )
-
         for y in (rect.top() - 2, rect.top() - 1, rect.bottom() + 1, rect.bottom() + 2):
             with self.subTest(adjacent_y=y):
-                for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
+                for x in outside_xs:
                     color = canvas.pixelColor(x, y)
                     self.assertNotEqual((color.red(), color.green(), color.blue()), (245, 245, 245))
 
@@ -329,11 +325,15 @@ class OverlayToolSmokeTest(unittest.TestCase):
         end = QPoint(639, 399)
         top_physical = int(round(start.y() * scale))
         bottom_physical = int(round(end.y() * scale))
+        inside_top_physical = top_physical + 9
+        inside_bottom_physical = bottom_physical - 12
         outside_only_physical = bottom_physical - 6
         raw_painter = QPainter(raw)
         try:
             for physical_y in (
                 top_physical,
+                inside_top_physical,
+                inside_bottom_physical,
                 outside_only_physical,
                 bottom_physical - 3,
                 bottom_physical - 1,
@@ -365,21 +365,37 @@ class OverlayToolSmokeTest(unittest.TestCase):
         finally:
             painter.end()
 
-        for physical_y in (top_physical, bottom_physical - 3, bottom_physical - 1, bottom_physical):
+        for physical_y in (
+            top_physical,
+            inside_top_physical,
+            inside_bottom_physical,
+            outside_only_physical,
+            bottom_physical - 3,
+            bottom_physical - 1,
+            bottom_physical,
+        ):
             with self.subTest(physical_y=physical_y):
-                for logical_x in (rect.left() - 10, rect.center().x(), rect.right() + 10):
+                for logical_x in (rect.left() - 10, rect.right() + 10):
                     physical_x = int(round(logical_x * scale))
                     color = canvas.pixelColor(physical_x, physical_y)
                     self.assertLess(color.red(), 90)
                     self.assertLess(color.green(), 90)
                     self.assertLess(color.blue(), 90)
-        with self.subTest(physical_y=outside_only_physical):
-            for logical_x in (rect.left() - 10, rect.right() + 10):
+
+        for physical_y in (
+            top_physical,
+            inside_top_physical,
+            inside_bottom_physical,
+            outside_only_physical,
+            bottom_physical - 3,
+            bottom_physical - 1,
+            bottom_physical,
+        ):
+            with self.subTest(interior_physical_y=physical_y):
+                logical_x = rect.center().x()
                 physical_x = int(round(logical_x * scale))
-                color = canvas.pixelColor(physical_x, outside_only_physical)
-                self.assertLess(color.red(), 90)
-                self.assertLess(color.green(), 90)
-                self.assertLess(color.blue(), 90)
+                color = canvas.pixelColor(physical_x, physical_y)
+                self.assertEqual(color.getRgb()[:3], (245, 245, 245))
 
     def test_snap_guides_are_hidden_by_default(self) -> None:
         overlay = _make_overlay()

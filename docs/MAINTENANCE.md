@@ -9,6 +9,19 @@ This document tracks the next maintenance cycle after the v5.3.3 release.
 - Release status: published and verified
 - Signing status: unsigned, because no code signing certificate is configured
 
+## Post-Release Local Build Verification
+
+These artifacts are local verification outputs from the current `master` branch after the published v5.3.3 release. They are not the GitHub Release assets for `v5.3.3`.
+
+- Build command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- Installer verification: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
+- Signature status: `NotSigned` for both `dist\QuickShot.exe` and `installer_output\QuickShot-5.3.3-Setup.exe`
+- `dist\QuickShot.exe`: `31,633,905` bytes / `30.17 MiB`, SHA256 `3E66A84AC607DE85E49D4F1F362635B2AD84F634C6574E61A879E9778E4EF077`
+- `installer_output\QuickShot-5.3.3-Setup.exe`: `33,414,211` bytes / `31.87 MiB`, SHA256 `1740B2CE02A8419DD109F85F76FB3C072000D7193392F32B88C6DA7F959E1242`
+- `installer_output\QuickShot-5.3.3-release.txt`: `488` bytes, SHA256 `3CC253FB4573C2FACC145CE1E9E40CAFC65EAB873AC4BB724821F21698CB409B`
+- Installed executable restored to `%LOCALAPPDATA%\Programs\QuickShot\QuickShot.exe`; its SHA256 matches `dist\QuickShot.exe`.
+- Default package dependency check passed: no `numpy`, `numpy.libs`, `openblas`, `dxcam`, `winrt`, `rapidocr`, `onnxruntime`, `cv2`, `opencv`, `Qt6Pdf`, `opengl32sw`, or `_avif` entries in `pyi-archive_viewer`.
+
 ## Next Maintenance Priorities
 
 ### Release Trust

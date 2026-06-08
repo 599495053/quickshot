@@ -27,6 +27,10 @@ All notable changes to QuickShot are tracked here.
 - Markdown local link and image reference check.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 .\dist\QuickShot.exe .\installer_output\QuickShot-5.3.3-Setup.exe -ExpectedStatus NotSigned`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller`: `497 passed, 37 subtests passed`, manifest signature fields written.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`: post-release local rebuild passed; generated unsigned `dist\QuickShot.exe` SHA256 `3E66A84AC607DE85E49D4F1F362635B2AD84F634C6574E61A879E9778E4EF077` and unsigned `installer_output\QuickShot-5.3.3-Setup.exe` SHA256 `1740B2CE02A8419DD109F85F76FB3C072000D7193392F32B88C6DA7F959E1242`.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`: post-release local installer install, launch, self-test, and uninstall passed.
+- Reinstalled the locally rebuilt `QuickShot-5.3.3-Setup.exe` to the current user default install directory and confirmed the installed executable hash matches `dist\QuickShot.exe`.
+- `pyi-archive_viewer -l dist\QuickShot.exe`: no `numpy`, `numpy.libs`, `openblas`, `dxcam`, `winrt`, `rapidocr`, `onnxruntime`, `cv2`, `opencv`, `Qt6Pdf`, `opengl32sw`, or `_avif` entries.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.3 -CheckOnly`
 - `python -m pyflakes quickshot launcher.py build_config.py tests\test_build_config.py tests\test_selftest.py`
 - `python -m compileall -q quickshot launcher.py build_config.py tests\test_build_config.py tests\test_selftest.py`

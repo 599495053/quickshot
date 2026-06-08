@@ -193,8 +193,8 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         )
         sample_offset = max(2, min(8, rect.height() // 30))
         cleanup_rows = (
-            (rect.top(), rect.top() + sample_offset),
-            (rect.bottom(), rect.bottom() - sample_offset),
+            (rect.top(), rect.top() - sample_offset),
+            (rect.bottom(), rect.bottom() + sample_offset),
         )
 
         painter.save()

@@ -67,6 +67,8 @@ def _make_select_overlay_with_horizontal_desktop_lines() -> FloatingSnipOverlay:
     try:
         painter.fillRect(QRect(0, 0, 800, 600), QColor(60, 60, 60))
         painter.fillRect(QRect(0, 100, 800, 1), QColor(245, 245, 245))
+        painter.fillRect(QRect(0, 108, 800, 1), QColor(245, 245, 245))
+        painter.fillRect(QRect(0, 391, 800, 1), QColor(245, 245, 245))
         painter.fillRect(QRect(0, 399, 800, 1), QColor(245, 245, 245))
     finally:
         painter.end()

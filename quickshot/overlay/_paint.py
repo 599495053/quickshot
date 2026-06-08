@@ -168,7 +168,6 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         if right_w > 0:
             painter.fillRect(QRect(right_x, rect.top(), right_w, rect.height()), shade)
         self.draw_dim_edge_cleanup(painter, rect, shade)
-        self.draw_selection_horizontal_edge_blend(painter, rect, shade)
 
     def draw_dim_edge_cleanup(self, painter: QPainter, rect: QRect, shade: QColor) -> None:
         """Hide bright desktop lines that align with selection top/bottom edges."""
@@ -201,33 +200,6 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
                     continue
                 painter.drawPixmap(target, self.raw_pixmap, source)
                 painter.fillRect(target, shade)
-        painter.restore()
-
-    def draw_selection_horizontal_edge_blend(self, painter: QPainter, rect: QRect, shade: QColor) -> None:
-        """Blend the selection's top/bottom edge so it does not form a 1px horizontal seam."""
-        bounds = self.rect()
-        target = rect.normalized().intersected(bounds)
-        if target.isNull() or target.width() <= 0 or target.height() <= 0:
-            return
-        rows = min(12, max(6, target.height() // 90))
-        base_alpha = shade.alpha()
-
-        painter.save()
-        painter.setPen(Qt.PenStyle.NoPen)
-        for offset in range(rows):
-            t = offset / max(1, rows - 1)
-            smooth = t * t * (3.0 - 2.0 * t)
-            alpha = int(round(base_alpha * (1.0 - smooth)))
-            if alpha <= 0:
-                continue
-            color = QColor(shade)
-            color.setAlpha(alpha)
-            top = QRect(target.left(), target.top() + offset, target.width(), 1).intersected(bounds)
-            bottom = QRect(target.left(), target.bottom() - offset, target.width(), 1).intersected(bounds)
-            if not top.isNull():
-                painter.fillRect(top, color)
-            if bottom != top and not bottom.isNull():
-                painter.fillRect(bottom, color)
         painter.restore()
 
     def draw_interaction_blocker(self, painter: QPainter, rect: QRect) -> None:

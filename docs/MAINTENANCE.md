@@ -6,7 +6,8 @@ This document tracks the next maintenance cycle after the v5.3.8 release.
 
 - Version: `v5.3.8`
 - Release URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.8`
-- Release status: local artifacts verified; GitHub Release verification pending publication
+- Release status: local artifacts verified; GitHub Release installer verification passed
+- Release published: `2026-06-08T09:57:44Z`
 - Signing status: unsigned, because no code signing certificate is configured
 
 ## Current Release Verification
@@ -16,8 +17,10 @@ These artifacts are the v5.3.8 release outputs from the current `master` branch.
 - Build command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
 - Packaged smoke/self-test command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
 - Installer verification: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
+- GitHub Release verification: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 -Tag v5.3.8 -ExpectedSha256 5269AD772B55FA6029CD90B3BC83AEE676A4782DC38AD56059D2095EC9CDDFF4 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
 - Upgrade verification: local `v5.3.7` installer -> local `v5.3.8` installer, plus v5.3.8 same-version reinstall
 - Desktop hotkey verification: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -ExePath .\dist\QuickShot.exe -StopExisting`
+- GitHub Actions CI: `https://github.com/599495053/quickshot/actions/runs/27129930818`, result `success`
 - Signature status: `NotSigned` for both `dist\QuickShot.exe` and `installer_output\QuickShot-5.3.8-Setup.exe`
 - `dist\QuickShot.exe`: `31,657,788` bytes / `30.19 MiB`, SHA256 `B23857233A2929F6A32722ABB40803086A3F629348F3C7D265FF154EBE35DA5A`
 - `installer_output\QuickShot-5.3.8-Setup.exe`: `33,438,608` bytes / `31.89 MiB`, SHA256 `5269AD772B55FA6029CD90B3BC83AEE676A4782DC38AD56059D2095EC9CDDFF4`

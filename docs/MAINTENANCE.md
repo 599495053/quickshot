@@ -1,27 +1,27 @@
 # QuickShot Maintenance Plan
 
-This document tracks the next maintenance cycle after the v5.3.4 release.
+This document tracks the next maintenance cycle after the v5.3.5 release.
 
 ## Current Stable Release
 
-- Version: `v5.3.4`
-- Release URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.4`
+- Version: `v5.3.5`
+- Release URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.5`
 - Release status: published and verified
 - Signing status: unsigned, because no code signing certificate is configured
 
 ## Current Release Verification
 
-These artifacts are the v5.3.4 release outputs from the current `master` branch.
+These artifacts are the v5.3.5 release outputs from the current `master` branch.
 
 - Build command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
 - Packaged smoke/self-test command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
 - Installer verification: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
-- Upgrade verification: published `v5.3.3` installer -> local `v5.3.4` installer, plus v5.3.4 same-version reinstall
+- Upgrade verification: published `v5.3.4` installer -> local `v5.3.5` installer, plus v5.3.5 same-version reinstall
 - Desktop hotkey verification: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -ExePath .\dist\QuickShot.exe -StopExisting`
-- Signature status: `NotSigned` for both `dist\QuickShot.exe` and `installer_output\QuickShot-5.3.4-Setup.exe`
-- `dist\QuickShot.exe`: `31,633,183` bytes / `30.17 MiB`, SHA256 `1BFA72CA4DA2F91961190F78DF05C509C2404D2314E0B5D56275AC8BC7766663`
-- `installer_output\QuickShot-5.3.4-Setup.exe`: `33,414,015` bytes / `31.87 MiB`, SHA256 `65693568E293608FD39096241362A95A6DB1722B74CE282BDC4C7CCCA3FA4685`
-- `installer_output\QuickShot-5.3.4-release.txt`: `488` bytes, SHA256 `57808CA6E2A18D930357ED9AE854A69C1ED8245E80D5FFC882FDF9DB3AB0D30F`
+- Signature status: `NotSigned` for both `dist\QuickShot.exe` and `installer_output\QuickShot-5.3.5-Setup.exe`
+- `dist\QuickShot.exe`: `31,644,753` bytes / `30.18 MiB`, SHA256 `1FAE3BB843F542E47FE7CD338FD8BE91EA03526A2B22214FB9BBBAA44D43CB7E`
+- `installer_output\QuickShot-5.3.5-Setup.exe`: `33,425,937` bytes / `31.88 MiB`, SHA256 `3F30E0CD67D14F689A29EB497F19273032606742C435B1127C5D7635D19F2BC7`
+- `installer_output\QuickShot-5.3.5-release.txt`: `488` bytes, SHA256 `7D6EE4FB4830283D5456DDA8DB12BF2F1A694D6477A473DCC78400DE38B32E8E`
 - Default package dependency check passed: no `numpy`, `numpy.libs`, `openblas`, `dxcam`, `winrt`, `rapidocr`, `onnxruntime`, `cv2`, `opencv`, `Qt6Pdf`, `opengl32sw`, or `_avif` entries in `pyi-archive_viewer`.
 
 ## Next Maintenance Priorities
@@ -39,7 +39,7 @@ Current unsigned release artifacts can be checked with:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 `
   .\dist\QuickShot.exe `
-  .\installer_output\QuickShot-5.3.4-Setup.exe `
+  .\installer_output\QuickShot-5.3.5-Setup.exe `
   -ExpectedStatus NotSigned
 ```
 
@@ -64,8 +64,8 @@ Run the current release verification with:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 `
-  -Tag v5.3.4 `
-  -ExpectedSha256 65693568E293608FD39096241362A95A6DB1722B74CE282BDC4C7CCCA3FA4685
+  -Tag v5.3.5 `
+  -ExpectedSha256 3F30E0CD67D14F689A29EB497F19273032606742C435B1127C5D7635D19F2BC7
 ```
 
 If an existing QuickShot install is present and should be removed for a clean verification run, add `-RemoveExisting`.
@@ -74,8 +74,8 @@ Run upgrade/reinstall verification with a downloaded previous installer:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 `
-  -PreviousInstallerPath <downloaded-QuickShot-5.3.3-Setup.exe> `
-  -PreviousVersion 5.3.3
+  -PreviousInstallerPath <downloaded-QuickShot-5.3.4-Setup.exe> `
+  -PreviousVersion 5.3.4
 ```
 
 ### Package Size
@@ -96,10 +96,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 
 
 ### User-Facing Polish
 
-- Release notes published in `docs\RELEASE_NOTES_v5.3.4.md`.
+- Release notes published in `docs\RELEASE_NOTES_v5.3.5.md`.
 - Improve README screenshots or short usage visuals.
 - Add clearer in-app feedback for upload token and permission failures.
-- Gather early user feedback from v5.3.4 before changing UI behavior.
+- Gather early user feedback from v5.3.5 before changing UI behavior.
 
 ### Quality Gates
 

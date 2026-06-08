@@ -4,9 +4,14 @@ All notable changes to QuickShot are tracked here.
 
 ## Unreleased
 
+- No changes yet.
+
+## v5.3.5 - 2026-06-08
+
 ### Added
 
 - Added a smart privacy masking review step: detected privacy regions are shown as editable preview boxes and are only mosaicked after confirmation.
+- Added `docs/RELEASE_NOTES_v5.3.5.md` as the GitHub Release body.
 
 ### Changed
 
@@ -17,6 +22,19 @@ All notable changes to QuickShot are tracked here.
 - `python -m pyflakes quickshot launcher.py build_config.py tests\test_overlay_events.py tests\test_selftest.py`
 - `python -m compileall -q quickshot launcher.py build_config.py tests\test_overlay_events.py`
 - `python -m pytest -q`: `505 passed, 37 subtests passed`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 .\dist\QuickShot.exe .\installer_output\QuickShot-5.3.5-Setup.exe -ExpectedStatus NotSigned`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`: v5.3.5 release build passed; generated unsigned `dist\QuickShot.exe` SHA256 `1FAE3BB843F542E47FE7CD338FD8BE91EA03526A2B22214FB9BBBAA44D43CB7E` and unsigned `installer_output\QuickShot-5.3.5-Setup.exe` SHA256 `3F30E0CD67D14F689A29EB497F19273032606742C435B1127C5D7635D19F2BC7`.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`: packaged smoke, privacy OCR fallback, overlay edit, and capture backend self-tests passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`: local installer install, launch, self-test, and uninstall passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath <downloaded v5.3.4 installer> -PreviousVersion 5.3.4 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`: published v5.3.4 to v5.3.5 upgrade and v5.3.5 same-version reinstall passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -ExePath .\dist\QuickShot.exe -StopExisting`: region and current-window hotkey capture passed.
+- `pyi-archive_viewer -l dist\QuickShot.exe`: no `numpy`, `numpy.libs`, `openblas`, `dxcam`, `winrt`, `rapidocr`, `onnxruntime`, `cv2`, `opencv`, `Qt6Pdf`, `opengl32sw`, or `_avif` entries.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.5 -CheckOnly`
+
+### Package Size
+
+- `dist\QuickShot.exe`: `31,644,753` bytes / `30.18 MiB`.
+- `installer_output\QuickShot-5.3.5-Setup.exe`: `33,425,937` bytes / `31.88 MiB`.
 
 ## v5.3.4 - 2026-06-08
 

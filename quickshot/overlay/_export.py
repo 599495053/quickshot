@@ -9,6 +9,7 @@ from typing import Dict, Optional
 
 from PyQt6.QtWidgets import QFileDialog
 
+from ..feedback import compact_error_message
 from ..pin import show_pin_window
 from ..pipeline import run_post_capture_pipeline, should_run_post_capture
 from ..utils import copy_pixmap_to_clipboard, copy_text_to_clipboard, debug_log
@@ -38,7 +39,7 @@ class ExportMixin:
                 self.start_silent_auto_ocr()
         except Exception as exc:
             debug_log(f"copy_current failed: {exc}")
-            self.message = f"复制失败：{exc}"
+            self.message = compact_error_message("复制失败", exc)
         self.update()
 
     def finish(self) -> None:
@@ -141,7 +142,7 @@ class ExportMixin:
                 self._maybe_run_post_capture_pipeline(saved_path=filepath)
             except Exception as exc:
                 debug_log(f"save_current failed: {exc}")
-                self.message = f"保存失败：{exc}"
+                self.message = compact_error_message("保存失败", exc)
             self.update()
 
     def pin_current(self) -> None:
@@ -156,7 +157,7 @@ class ExportMixin:
             self.maybe_notify("已贴到桌面")
         except Exception as exc:
             debug_log(f"pin_current failed: {exc}")
-            self.message = f"贴图失败：{exc}"
+            self.message = compact_error_message("贴图失败", exc)
         self.close()
 
     def _maybe_run_post_capture_pipeline(self, saved_path: str = "") -> None:
@@ -196,8 +197,12 @@ class ExportMixin:
                             notify.emit(msg)
                     if ctx.errors:
                         debug_log(f"post-capture pipeline errors: {ctx.errors}")
+                        if show_notifications:
+                            notify.emit(compact_error_message("截图后工作流失败", ctx.errors[0], max_length=100))
             except Exception as exc:
                 debug_log(f"post-capture pipeline failed: {exc}")
+                if show_notifications:
+                    notify.emit(compact_error_message("截图后工作流异常", exc, max_length=100))
             finally:
                 if tmp_path:
                     try:

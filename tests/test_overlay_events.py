@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QPoint, QRect, Qt  # noqa: E402
+from PyQt6.QtCore import QRect, Qt  # noqa: E402
 from PyQt6.QtGui import QColor, QPixmap  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
@@ -297,9 +297,24 @@ class ToolbarActionTest(unittest.TestCase):
         ov = _make_overlay()
         ov._ocr_running = True
         ov.ocr_running = lambda: True
-        msg_before = ov.message
         ov.handle_toolbar_action("copy")
         self.assertIn("请稍候", ov.message)
+
+
+class FailureFeedbackTest(unittest.TestCase):
+
+    def test_ocr_failure_message_points_to_diagnostics(self):
+        ov = _make_overlay()
+        ov.on_ocr_job_failed(r"PowerShell failed at D:\private\ocr.png")
+        self.assertIn("文字识别失败", ov.message)
+        self.assertIn("可复制诊断信息后反馈", ov.message)
+        self.assertNotIn(r"D:\private", ov.message)
+
+    def test_privacy_blur_failure_message_points_to_diagnostics(self):
+        ov = _make_overlay()
+        ov._on_privacy_blur_failed("RapidOCR down")
+        self.assertIn("智能隐私打码失败", ov.message)
+        self.assertIn("可复制诊断信息后反馈", ov.message)
 
 
 # ── 选区微调 ──

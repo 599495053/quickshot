@@ -6,6 +6,7 @@ from PyQt6.QtCore import QRect, Qt
 from PyQt6.QtWidgets import QApplication
 
 from ..dialogs import OcrResultDialog
+from ..feedback import compact_error_message
 from ..ocr import OcrResult, create_ocr_job
 from ..utils import copy_text_to_clipboard, debug_log
 
@@ -88,10 +89,8 @@ class OcrMixin:
 
     def on_ocr_job_failed(self, error_text: str) -> None:
         debug_log(f"OCR failed: {error_text}")
-        self.message = "文字识别失败，请稍后重试"
-        self.maybe_notify("文字识别失败")
-        if "语言包" in error_text or "PowerShell" in error_text:
-            self.message = f"文字识别失败：{error_text}"
+        self.message = compact_error_message("文字识别失败", error_text, max_length=180)
+        self.maybe_notify(compact_error_message("文字识别失败", error_text, max_length=90))
         self.update()
 
     def on_ocr_job_finished(self) -> None:
@@ -150,7 +149,7 @@ class OcrMixin:
 
         def on_failure(error_text: str) -> None:
             debug_log(f"silent OCR failed: {error_text}")
-            emit_notify("OCR 失败")
+            emit_notify(compact_error_message("OCR 失败", error_text, max_length=90))
             if on_done is not None:
                 try:
                     on_done(False)
@@ -171,7 +170,7 @@ class OcrMixin:
             import traceback
             debug_log(f'apply_ocr_result CRASH: {exc}')
             debug_log(traceback.format_exc())
-            self.message = f'识文失败: {exc}'
+            self.message = compact_error_message("识文结果处理失败", exc, max_length=180)
             self.update()
 
     def _apply_ocr_result_impl(self, result: OcrResult) -> None:

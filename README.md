@@ -152,7 +152,7 @@ python -m quickshot
 
 - Bug 报告：[创建 Bug issue](https://github.com/599495053/quickshot/issues/new?template=bug_report.yml)
 - 功能建议：[创建 Feature issue](https://github.com/599495053/quickshot/issues/new?template=feature_request.yml)
-- 反馈问题时可从托盘菜单或设置页点击“复制诊断信息”，检查后再粘贴到 issue 中。
+- 截图、OCR、智能隐私打码、保存、贴图或上传失败时，提示会引导复制诊断信息；也可从托盘菜单或设置页点击“复制诊断信息”，检查后再粘贴到 issue 中。
 - 安全问题：请先阅读 [SECURITY.md](SECURITY.md)，不要在公开 issue 中贴敏感截图、token 或个人信息。
 
 ## 测试
@@ -167,7 +167,7 @@ python -m pytest -q
 
 当前验证规模：
 
-- `491 passed`
+- `497 passed`
 - `37 subtests passed`
 
 ## 打包与发布

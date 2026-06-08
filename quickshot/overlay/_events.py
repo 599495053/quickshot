@@ -795,7 +795,9 @@ class EventMixin:
         self.update()
 
     def _on_privacy_blur_failed(self, error: str) -> None:
-        self.message = f"隐私识别失败：{error}"
+        from ..feedback import compact_error_message
+
+        self.message = compact_error_message("智能隐私打码失败", error, max_length=180)
         self.update()
 
     def _on_privacy_blur_finished(self) -> None:

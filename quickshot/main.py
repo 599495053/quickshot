@@ -56,6 +56,7 @@ from PyQt6.QtWidgets import (
 
 from .config import Config
 from .constants import HOTKEY_DEBOUNCE_SECONDS, HOTKEY_POLL_INTERVAL_MS, TRAY_MESSAGE_DURATION_MS, WINDOW_CAPTURE_DELAY_MS
+from .feedback import detailed_error_message
 from .history import CaptureHistoryStore
 from .hotkey import NativeHotkeyWindow
 from .ocr import schedule_rapidocr_prewarm, shutdown_ocr_executor
@@ -388,7 +389,8 @@ class QuickShotApp(QObject):
         try:
             raw_snapshot, display_snapshot, logical_geometry, scale_x, scale_y, physical_left, physical_top = grab_virtual_screen(self.config.hdr_color_accurate)
         except Exception as exc:
-            QMessageBox.warning(None, "截图失败", f"无法获取屏幕截图：{exc}")
+            debug_log(f"create overlay capture failed: {exc}")
+            QMessageBox.warning(None, "截图失败", detailed_error_message("无法获取屏幕截图。", exc))
             return None
 
         if self.overlay is not None:
@@ -484,12 +486,13 @@ class QuickShotApp(QObject):
     def reedit_from_history(self, pixmap) -> None:
         from PyQt6.QtCore import QRect
         if pixmap is None or pixmap.isNull():
-            QMessageBox.warning(None, "编辑失败", "无法加载截图，图片为空。")
+            QMessageBox.warning(None, "编辑失败", detailed_error_message("无法加载截图，图片为空。", include_hint=False))
             return
         try:
             raw_snapshot, display_snapshot, logical_geometry, scale_x, scale_y, physical_left, physical_top = grab_virtual_screen(self.config.hdr_color_accurate)
         except Exception as exc:
-            QMessageBox.warning(None, "编辑失败", f"无法获取屏幕截图：{exc}")
+            debug_log(f"reedit capture failed: {exc}")
+            QMessageBox.warning(None, "编辑失败", detailed_error_message("无法获取屏幕截图，暂时不能重新编辑。", exc))
             return
         if self.overlay is not None:
             try:

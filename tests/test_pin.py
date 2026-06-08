@@ -23,6 +23,7 @@ if str(ROOT) not in sys.path:
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PyQt6.QtCore import Qt  # noqa: E402
 from PyQt6.QtGui import QImage, QPixmap  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
@@ -135,6 +136,7 @@ class PinStateTest(unittest.TestCase):
     def test_default_state(self) -> None:
         self.assertTrue(self.pin.always_on_top)
         self.assertFalse(self.pin.locked)
+        self.assertFalse(self.pin.mouse_passthrough)
         self.assertEqual(self.pin.opacity_percent, 100)
 
     def test_toggle_locked(self) -> None:
@@ -148,6 +150,23 @@ class PinStateTest(unittest.TestCase):
         before = self.pin.always_on_top
         self.pin.toggle_always_on_top()
         self.assertNotEqual(self.pin.always_on_top, before)
+
+    def test_toggle_mouse_passthrough_updates_window_input_state(self) -> None:
+        self.pin.set_mouse_passthrough(True)
+        self.assertTrue(self.pin.mouse_passthrough)
+        self.assertTrue(self.pin.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents))
+        self.assertTrue(bool(self.pin.windowFlags() & Qt.WindowType.WindowTransparentForInput))
+
+        self.pin.set_mouse_passthrough(False)
+        self.assertFalse(self.pin.mouse_passthrough)
+        self.assertFalse(self.pin.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents))
+        self.assertFalse(bool(self.pin.windowFlags() & Qt.WindowType.WindowTransparentForInput))
+
+    def test_enter_edit_mode_restores_clickable_window(self) -> None:
+        self.pin.set_mouse_passthrough(True)
+        self.pin.enter_edit_mode()
+        self.assertTrue(self.pin.edit_mode)
+        self.assertFalse(self.pin.mouse_passthrough)
 
     def test_opacity_clamped(self) -> None:
         self.pin.set_opacity_percent(5)
@@ -215,6 +234,8 @@ class PinMatchKeywordTest(unittest.TestCase):
         self.assertTrue(self.pin.match_keyword("置顶"))
         self.pin.set_locked(True)
         self.assertTrue(self.pin.match_keyword("锁定"))
+        self.pin.set_mouse_passthrough(True)
+        self.assertTrue(self.pin.match_keyword("穿透"))
 
 
 if __name__ == "__main__":

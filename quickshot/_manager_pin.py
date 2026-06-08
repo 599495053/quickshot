@@ -50,7 +50,7 @@ class PinManagerWindow(QWidget):
 
         header_card = build_header_card(
             "贴图管理",
-            "集中查看当前贴图，支持搜索、排序、锁定、置顶和批量透明度调整。",
+            "集中查看当前贴图，支持搜索、排序、锁定、置顶、鼠标穿透和批量透明度调整。",
         )
 
         self.search_edit = QLineEdit()
@@ -131,6 +131,8 @@ class PinManagerWindow(QWidget):
         rename_btn.clicked.connect(self.rename_current)
         toggle_top_btn = set_button_role(QPushButton("置顶"))
         toggle_top_btn.clicked.connect(self.toggle_current_top)
+        through_btn = set_button_role(QPushButton("穿透"))
+        through_btn.clicked.connect(self.toggle_current_mouse_passthrough)
         lock_btn = set_button_role(QPushButton("锁定"))
         lock_btn.clicked.connect(self.toggle_current_lock)
         opacity_up_btn = set_button_role(QPushButton("加深"))
@@ -155,6 +157,7 @@ class PinManagerWindow(QWidget):
         grid.addWidget(copy_btn,        0, 1)
         grid.addWidget(rename_btn,      0, 2)
         grid.addWidget(toggle_top_btn,  0, 3)
+        grid.addWidget(through_btn,     0, 4)
         grid.addWidget(select_all_btn,  0, 5)
         grid.addWidget(close_btn,       0, 6)
         grid.addWidget(close_sel_btn,   0, 7)
@@ -163,11 +166,6 @@ class PinManagerWindow(QWidget):
         grid.addWidget(opacity_down_btn,1, 1)
         grid.addWidget(lock_btn,        1, 2)
         grid.addWidget(refresh_btn,     1, 3)
-
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setStyleSheet("color: #d7deea; background: #d7deea; max-width: 1px;")
-        grid.addWidget(sep, 0, 4, 2, 1)
 
         actions_layout.addWidget(actions_title)
         actions_layout.addLayout(grid)
@@ -215,6 +213,10 @@ class PinManagerWindow(QWidget):
         top_shortcut = QShortcut(QKeySequence("T"), self)
         top_shortcut.activated.connect(self.toggle_current_top)
 
+        # X - 鼠标穿透/恢复点击
+        through_shortcut = QShortcut(QKeySequence("X"), self)
+        through_shortcut.activated.connect(self.toggle_current_mouse_passthrough)
+
         # Ctrl+C - 复制图片
         copy_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
         copy_shortcut.activated.connect(self.copy_current)
@@ -254,12 +256,11 @@ class PinManagerWindow(QWidget):
         return pins
 
     def pin_title(self, pin: PinWindow) -> str:
-        top_text = "置顶" if pin.always_on_top else "普通"
-        lock_text = "锁定" if pin.locked else "可拖动"
+        top_text, lock_text, through_text = pin.status_labels()
         lines = [
             pin.name,
             f"{pin.pixmap.width()} × {pin.pixmap.height()}    缩放 {pin.scale:.0%}    透明 {pin.opacity_percent}%",
-            f"{top_text}    {lock_text}    {pin.created_at.strftime('%Y-%m-%d %H:%M:%S')}",
+            f"{top_text}    {lock_text}    {through_text}    {pin.created_at.strftime('%Y-%m-%d %H:%M:%S')}",
         ]
         return "\n".join(lines)
 
@@ -280,9 +281,8 @@ class PinManagerWindow(QWidget):
                 item.setData(Qt.ItemDataRole.UserRole + 2, pin.name)
                 size_text = f"{pin.pixmap.width()} × {pin.pixmap.height()}    缩放 {pin.scale:.0%}    透明 {pin.opacity_percent}%"
                 item.setData(Qt.ItemDataRole.UserRole + 3, size_text)
-                top_text = "置顶" if pin.always_on_top else "普通"
-                lock_text = "锁定" if pin.locked else "可拖动"
-                item.setData(Qt.ItemDataRole.UserRole + 4, f"{top_text}    {lock_text}")
+                top_text, lock_text, through_text = pin.status_labels()
+                item.setData(Qt.ItemDataRole.UserRole + 4, f"{top_text}    {lock_text}    {through_text}")
                 item.setData(Qt.ItemDataRole.UserRole + 5, pin.created_at.strftime("%Y-%m-%d %H:%M:%S"))
                 self.list_widget.addItem(item)
                 if current is pin:
@@ -389,6 +389,7 @@ class PinManagerWindow(QWidget):
                 f"透明度：{pin.opacity_percent}%\n"
                 f"置顶：{'是' if pin.always_on_top else '否'}  ·  "
                 f"锁定：{'是' if pin.locked else '否'}  ·  "
+                f"穿透：{'是' if pin.mouse_passthrough else '否'}  ·  "
                 f"创建：{pin.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
             )
             self.pin_meta_label.setText(meta)
@@ -431,6 +432,12 @@ class PinManagerWindow(QWidget):
             pin.toggle_always_on_top()
             self.reload_items()
 
+    def toggle_current_mouse_passthrough(self) -> None:
+        pin = self.current_pin()
+        if pin is not None:
+            pin.toggle_mouse_passthrough()
+            self.reload_items()
+
     def toggle_selected_top(self) -> None:
         pins = self.selected_pins()
         if not pins:
@@ -438,6 +445,15 @@ class PinManagerWindow(QWidget):
         enable_top = any(not pin.always_on_top for pin in pins)
         for pin in pins:
             pin.set_always_on_top(enable_top)
+        self.reload_items()
+
+    def toggle_selected_mouse_passthrough(self) -> None:
+        pins = self.selected_pins()
+        if not pins:
+            return
+        enable_passthrough = any(not pin.mouse_passthrough for pin in pins)
+        for pin in pins:
+            pin.set_mouse_passthrough(enable_passthrough)
         self.reload_items()
 
     def toggle_current_lock(self) -> None:

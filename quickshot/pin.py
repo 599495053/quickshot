@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from PyQt6.QtCore import QPointF, QPoint, QRect, QRectF, Qt
-from PyQt6.QtGui import QAction, QColor, QFont, QKeySequence, QPainter, QPen, QPixmap, QTransform
+from PyQt6.QtGui import QAction, QColor, QFont, QKeySequence, QPainter, QPen, QPixmap, QPolygonF, QTransform
 from PyQt6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMenu, QMessageBox, QWidget
 
 from .config import Config
@@ -37,6 +37,18 @@ def show_pin_window(pixmap: QPixmap, config: Config, pos: Optional[QPoint] = Non
 class PinWindow(QWidget):
     """桌面贴图窗口：截图后钉在桌面最上层，可拖动、缩放、复制、保存、关闭。"""
 
+    QUICKBAR_ITEMS = ("edit", "top", "lock", "through", "zoom_out", "zoom_in", "copy", "close")
+    QUICKBAR_TIPS = {
+        "edit": "编辑标注",
+        "top": "置顶显示",
+        "lock": "锁定位置",
+        "through": "鼠标穿透",
+        "zoom_out": "缩小",
+        "zoom_in": "放大",
+        "copy": "复制贴图",
+        "close": "关闭贴图",
+    }
+
     def __init__(self, pixmap: QPixmap, config: Config, target_size: Optional[Tuple[int, int]] = None) -> None:
         super().__init__()
         self.pixmap = pixmap.copy()
@@ -51,6 +63,10 @@ class PinWindow(QWidget):
         self.drag_offset = QPoint()
         self.hovered = False
         self.always_on_top = True
+        self.mouse_passthrough = False
+        self._quickbar_rect = QRect()
+        self._quickbar_buttons: dict = {}
+        self._quickbar_hover = ""
 
         # ── 编辑模式状态 ──
         self.edit_mode = False
@@ -114,6 +130,8 @@ class PinWindow(QWidget):
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool
         if self.always_on_top:
             flags |= Qt.WindowType.WindowStaysOnTopHint
+        if self.mouse_passthrough:
+            flags |= Qt.WindowType.WindowTransparentForInput
         self.setWindowFlags(flags)
 
     def set_always_on_top(self, enabled: bool) -> None:
@@ -133,6 +151,30 @@ class PinWindow(QWidget):
     def toggle_always_on_top(self) -> None:
         self.set_always_on_top(not self.always_on_top)
 
+    def set_mouse_passthrough(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if self.mouse_passthrough == enabled:
+            return
+        if enabled and self.edit_mode:
+            self.exit_edit_mode(True)
+        geometry = self.geometry()
+        self.mouse_passthrough = enabled
+        self.dragging = False
+        self.hovered = False if enabled else self.underMouse()
+        self._quickbar_hover = ""
+        self.setToolTip("")
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, enabled)
+        self.apply_window_flags()
+        self.setGeometry(geometry)
+        self.show()
+        if not enabled and self.always_on_top:
+            self.raise_()
+            self.activateWindow()
+        self.update()
+
+    def toggle_mouse_passthrough(self) -> None:
+        self.set_mouse_passthrough(not self.mouse_passthrough)
+
     def set_display_name(self, name: str) -> None:
         cleaned = name.strip()
         if cleaned:
@@ -143,18 +185,25 @@ class PinWindow(QWidget):
         keyword = keyword.strip().lower()
         if not keyword:
             return True
+        status_labels = self.status_labels()
         haystack = " ".join(
             [
                 self.name,
                 self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 f"{self.pixmap.width()}x{self.pixmap.height()}",
                 f"{self.scale:.0%}",
-                "置顶" if self.always_on_top else "普通",
-                "锁定" if self.locked else "可拖动",
+                *status_labels,
                 f"{self.opacity_percent}%",
             ]
         ).lower()
         return keyword in haystack
+
+    def status_labels(self) -> List[str]:
+        return [
+            "置顶" if self.always_on_top else "普通",
+            "锁定" if self.locked else "可拖动",
+            "鼠标穿透" if self.mouse_passthrough else "可点击",
+        ]
 
     def prompt_rename(self) -> None:
         name, ok = QInputDialog.getText(self, "重命名贴图", "名称", text=self.name)
@@ -233,6 +282,8 @@ class PinWindow(QWidget):
     def enter_edit_mode(self) -> None:
         if self.edit_mode:
             return
+        if self.mouse_passthrough:
+            self.set_mouse_passthrough(False)
         self._base_pixmap = self.pixmap.copy()
         self._edit_history.clear()
         self._redo_stack.clear()
@@ -461,22 +512,24 @@ class PinWindow(QWidget):
             if self._edit_dragging:
                 self._draw_edit_preview(painter)
         elif self.hovered:
+            self._draw_quickbar(painter)
             self._draw_info_pill(painter)
 
     def _draw_info_pill(self, painter: QPainter) -> None:
         """绘制 hover 信息条：左上角显示当前状态。"""
         painter.setFont(QFont("Microsoft YaHei", 9))
-        top_text = "置顶" if self.always_on_top else "普通"
-        lock_text = "锁定" if self.locked else "可拖动"
-        text = f"{self.name}　{int(self.scale * 100)}%　{top_text}　{lock_text}　透明 {self.opacity_percent}%"
+        status_text = "　".join(self.status_labels())
+        text = f"{self.name}　{int(self.scale * 100)}%　{status_text}　透明 {self.opacity_percent}%"
         metrics = painter.fontMetrics()
+        max_w = self.width() - 16
+        if not self._quickbar_rect.isNull():
+            max_w = max(0, self._quickbar_rect.left() - 16)
+        if max_w < 120:
+            return
+        text = metrics.elidedText(text, Qt.TextElideMode.ElideRight, max_w - 24)
         text_width = metrics.horizontalAdvance(text)
-        # 自适应宽度，最大不超过窗口宽 - 16
-        pill_w = min(self.width() - 16, max(220, text_width + 24))
+        pill_w = min(max_w, max(120, text_width + 24))
         pill_h = 28
-        # 居中或左上角自适应
-        if self.width() < pill_w + 16:
-            return  # 窗口太窄不画
         pill = QRect(8, 8, pill_w, pill_h)
 
         # 阴影
@@ -492,6 +545,159 @@ class PinWindow(QWidget):
         painter.setPen(floating_text())
         painter.drawText(pill, Qt.AlignmentFlag.AlignCenter, text)
 
+    def _quickbar_visible_items(self) -> Tuple[str, ...]:
+        items = list(self.QUICKBAR_ITEMS)
+        button_size = 28
+        pad = 6
+        gap = 4
+
+        def total_width() -> int:
+            return pad * 2 + len(items) * button_size + max(0, len(items) - 1) * gap
+
+        available = self.width() - 16
+        drop_order = ("copy", "edit", "zoom_out", "zoom_in", "through", "lock", "top")
+        while items and total_width() > available:
+            dropped = False
+            for key in drop_order:
+                if key in items:
+                    items.remove(key)
+                    dropped = True
+                    break
+            if not dropped:
+                break
+        return tuple(items)
+
+    def _update_quickbar_layout(self) -> None:
+        self._quickbar_buttons.clear()
+        self._quickbar_rect = QRect()
+        if self.mouse_passthrough or self.width() < 54 or self.height() < 54:
+            return
+        items = self._quickbar_visible_items()
+        if not items:
+            return
+        button_size = 28
+        pad = 6
+        gap = 4
+        total_w = pad * 2 + len(items) * button_size + max(0, len(items) - 1) * gap
+        total_h = button_size + pad * 2
+        x = max(8, self.width() - total_w - 8)
+        y = 8
+        self._quickbar_rect = QRect(x, y, total_w, total_h)
+        bx = x + pad
+        by = y + pad
+        for key in items:
+            self._quickbar_buttons[key] = QRect(bx, by, button_size, button_size)
+            bx += button_size + gap
+
+    def _quickbar_button_at(self, pos: QPoint) -> str:
+        self._update_quickbar_layout()
+        for key, rect in self._quickbar_buttons.items():
+            if rect.contains(pos):
+                return key
+        return ""
+
+    def _draw_quickbar(self, painter: QPainter) -> None:
+        self._update_quickbar_layout()
+        if self._quickbar_rect.isNull():
+            return
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(QPen(QColor(255, 255, 255, 58), 1))
+        painter.setBrush(QColor(17, 24, 39, 160))
+        painter.drawRoundedRect(QRectF(self._quickbar_rect), 10, 10)
+        for key, rect in self._quickbar_buttons.items():
+            active = (
+                (key == "top" and self.always_on_top)
+                or (key == "lock" and self.locked)
+                or (key == "through" and self.mouse_passthrough)
+            )
+            hovered = key == self._quickbar_hover
+            button_rect = QRectF(rect).adjusted(2, 2, -2, -2)
+            if key == "close" and hovered:
+                bg = QColor(220, 38, 38, 210)
+            elif active:
+                bg = QColor(79, 70, 229, 220)
+            elif hovered:
+                bg = QColor(255, 255, 255, 44)
+            else:
+                bg = QColor(255, 255, 255, 0)
+            if bg.alpha() > 0:
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(bg)
+                painter.drawRoundedRect(button_rect, 7, 7)
+            self._draw_quickbar_icon(painter, key, rect.adjusted(6, 6, -6, -6), QColor(255, 255, 255))
+        painter.restore()
+
+    def _draw_quickbar_icon(self, painter: QPainter, key: str, rect: QRect, color: QColor) -> None:
+        icon_map = {
+            "edit": "pen",
+            "top": "pin",
+            "copy": "copy",
+            "close": "cancel",
+        }
+        icon_key = icon_map.get(key)
+        if icon_key:
+            if self._icons is None:
+                from .overlay.icons import IconCache
+                self._icons = IconCache()
+            self._icons.draw(painter, icon_key, rect, color)
+            return
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        pen = QPen(color, 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        r = QRectF(rect)
+        cx = r.center().x()
+        cy = r.center().y()
+        if key == "lock":
+            body = QRectF(r.left() + 2, cy - 1, r.width() - 4, r.height() / 2 + 2)
+            painter.drawRoundedRect(body, 2.5, 2.5)
+            shackle = QRectF(r.left() + 4, r.top() + 1, r.width() - 8, r.height() - 5)
+            painter.drawArc(shackle, 0, 180 * 16)
+            if not self.locked:
+                painter.drawLine(QPointF(r.left() + 1, r.bottom() - 1), QPointF(r.right() - 1, r.top() + 1))
+        elif key == "through":
+            points = QPolygonF(
+                [
+                    QPointF(r.left() + 2, r.top() + 1),
+                    QPointF(r.left() + 2, r.bottom() - 2),
+                    QPointF(cx - 1, cy + 2),
+                    QPointF(cx + 2, r.bottom() - 1),
+                    QPointF(r.right() - 1, r.bottom() - 4),
+                    QPointF(cx + 2, cy),
+                    QPointF(r.right() - 2, cy - 1),
+                ]
+            )
+            painter.drawPolygon(points)
+            painter.drawLine(QPointF(r.left(), r.bottom()), QPointF(r.right(), r.top()))
+        elif key == "zoom_out":
+            painter.drawLine(QPointF(r.left() + 2, cy), QPointF(r.right() - 2, cy))
+        elif key == "zoom_in":
+            painter.drawLine(QPointF(r.left() + 2, cy), QPointF(r.right() - 2, cy))
+            painter.drawLine(QPointF(cx, r.top() + 2), QPointF(cx, r.bottom() - 2))
+        painter.restore()
+
+    def _perform_quickbar_action(self, key: str) -> None:
+        if key == "edit":
+            self.enter_edit_mode()
+        elif key == "top":
+            self.toggle_always_on_top()
+        elif key == "lock":
+            self.toggle_locked()
+        elif key == "through":
+            self.toggle_mouse_passthrough()
+        elif key == "zoom_out":
+            self.zoom_out()
+        elif key == "zoom_in":
+            self.zoom_in()
+        elif key == "copy":
+            copy_pixmap_to_clipboard(self.pixmap)
+        elif key == "close":
+            self.close()
+        self.update()
+
     def enterEvent(self, event) -> None:
         self.hovered = True
         self.update()
@@ -499,6 +705,8 @@ class PinWindow(QWidget):
 
     def leaveEvent(self, event) -> None:
         self.hovered = False
+        self._quickbar_hover = ""
+        self.setToolTip("")
         self.update()
         super().leaveEvent(event)
 
@@ -520,6 +728,12 @@ class PinWindow(QWidget):
                 return
             return
         if event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position().toPoint()
+            quickbar_button = self._quickbar_button_at(pos)
+            if quickbar_button:
+                self._perform_quickbar_action(quickbar_button)
+                event.accept()
+                return
             if self.locked:
                 self.raise_()
                 self.activateWindow()
@@ -546,11 +760,18 @@ class PinWindow(QWidget):
             btn = self._edit_toolbar_button_at(pos)
             if btn != self._edit_hover_btn:
                 self._edit_hover_btn = btn
-                self.update()
+            self.update()
             return
         if self.dragging:
             self.move(event.globalPosition().toPoint() - self.drag_offset)
             event.accept()
+            return
+        pos = event.position().toPoint()
+        btn = self._quickbar_button_at(pos) if self.hovered else ""
+        if btn != self._quickbar_hover:
+            self._quickbar_hover = btn
+            self.setToolTip(self.QUICKBAR_TIPS.get(btn, "") if btn else "")
+            self.update()
             return
         super().mouseMoveEvent(event)
 
@@ -636,12 +857,15 @@ class PinWindow(QWidget):
         rename_action = QAction("重命名 (R)", menu)
         lock_action = QAction("解锁拖动 (L)" if self.locked else "锁定位置 (L)", menu)
         top_action = QAction("取消置顶 (T)" if self.always_on_top else "置顶显示 (T)", menu)
+        through_action = QAction("关闭鼠标穿透 (X)" if self.mouse_passthrough else "开启鼠标穿透 (X)", menu)
         rename_action.triggered.connect(self.prompt_rename)
         lock_action.triggered.connect(self.toggle_locked)
         top_action.triggered.connect(self.toggle_always_on_top)
+        through_action.triggered.connect(self.toggle_mouse_passthrough)
         menu.addAction(rename_action)
         menu.addAction(lock_action)
         menu.addAction(top_action)
+        menu.addAction(through_action)
         menu.addSeparator()
 
         # 缩放预设
@@ -768,6 +992,9 @@ class PinWindow(QWidget):
             return
         if key == Qt.Key.Key_T:
             self.toggle_always_on_top()
+            return
+        if key == Qt.Key.Key_X:
+            self.toggle_mouse_passthrough()
             return
         if key == Qt.Key.Key_R:
             self.prompt_rename()

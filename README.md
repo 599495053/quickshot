@@ -186,6 +186,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 - PyInstaller 打包
 - Inno Setup 安装包构建
 - exe 和安装包 SHA256 计算
+- exe 和安装包 Authenticode 签名状态记录
 - release manifest 生成
 
 输出文件：
@@ -238,6 +239,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-hotkeys.ps1 -S
 
 发布脚本支持使用 Windows SignTool 对 `QuickShot.exe` 和安装包签名。没有证书时不要传 `-Sign`，现有构建流程不受影响。
 
+发布清单会记录 `ExecutableSignatureStatus` 和 `InstallerSignatureStatus`。当前未签名版本应显示 `NotSigned`；签名发布时两项都应为 `Valid`。
+
+单独检查当前产物签名状态：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 `
+  .\dist\QuickShot.exe `
+  .\installer_output\QuickShot-5.3.3-Setup.exe
+```
+
+签名发布前强制要求有效签名：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 `
+  .\dist\QuickShot.exe `
+  .\installer_output\QuickShot-5.3.3-Setup.exe `
+  -RequireSigned
+```
+
 使用证书存储中的代码签名证书：
 
 ```powershell
@@ -275,6 +295,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Cle
 | `scripts/verify-local-installer.ps1` | 本地安装包验证 |
 | `scripts/verify-upgrade-installer.ps1` | 升级和同版本重装验证 |
 | `scripts/verify-release-installer.ps1` | GitHub Release 安装包验证 |
+| `scripts/verify-artifact-signature.ps1` | exe 和安装包 Authenticode 签名状态验证 |
 | `scripts/verify-desktop-hotkeys.ps1` | 本机桌面托盘和全局热键验证 |
 
 ## 发布状态

@@ -180,6 +180,58 @@ function Get-ArtifactInfo {
     }
 }
 
+function Get-AuthenticodeInfo {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Expected artifact not found for signature check: $Path"
+    }
+
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    $signature = Get-AuthenticodeSignature -LiteralPath $resolvedPath
+    $statusMessage = ""
+    $signerSubject = ""
+    $signerThumbprint = ""
+    $timeStamperSubject = ""
+
+    if ($signature.StatusMessage) {
+        $statusMessage = [string]$signature.StatusMessage
+    }
+    if ($signature.SignerCertificate) {
+        $signerSubject = [string]$signature.SignerCertificate.Subject
+        $signerThumbprint = [string]$signature.SignerCertificate.Thumbprint
+    }
+    if ($signature.TimeStamperCertificate) {
+        $timeStamperSubject = [string]$signature.TimeStamperCertificate.Subject
+    }
+
+    [pscustomobject]@{
+        Status = [string]$signature.Status
+        StatusMessage = $statusMessage
+        SignerSubject = $signerSubject
+        SignerThumbprint = $signerThumbprint
+        TimeStamperSubject = $timeStamperSubject
+    }
+}
+
+function Get-SignatureManifestLines {
+    param(
+        [Parameter(Mandatory = $true)][string]$Prefix,
+        [Parameter(Mandatory = $true)]$SignatureInfo
+    )
+
+    $lines = @("$($Prefix)SignatureStatus=$($SignatureInfo.Status)")
+    if ($SignatureInfo.SignerThumbprint) {
+        $lines += "$($Prefix)SignerThumbprint=$($SignatureInfo.SignerThumbprint)"
+    }
+    if ($SignatureInfo.SignerSubject) {
+        $lines += "$($Prefix)SignerSubject=$($SignatureInfo.SignerSubject)"
+    }
+    if ($SignatureInfo.TimeStamperSubject) {
+        $lines += "$($Prefix)TimeStamperSubject=$($SignatureInfo.TimeStamperSubject)"
+    }
+    return $lines
+}
+
 function Test-VersionConsistency {
     $projectVersion = Get-RegexValue "pyproject.toml" '^\s*version\s*=\s*"([^"]+)"' "project version"
     $appVersion = Get-RegexValue "quickshot\utils.py" '^\s*APP_VERSION\s*=\s*"([^"]+)"' "APP_VERSION"
@@ -326,6 +378,8 @@ if ($Sign) {
 }
 
 $installerInfo = Get-ArtifactInfo $installerPath
+$exeSignatureInfo = Get-AuthenticodeInfo $exeInfo.Path
+$installerSignatureInfo = Get-AuthenticodeInfo $installerInfo.Path
 
 if ($SmokeTest) {
     Invoke-Step "Smoke test packaged app" {
@@ -350,12 +404,16 @@ Invoke-Step "Write release manifest" {
         "",
         "Executable=$($exeInfo.Path)",
         "ExecutableSizeBytes=$($exeInfo.SizeBytes)",
-        "ExecutableSHA256=$($exeInfo.SHA256)",
+        "ExecutableSHA256=$($exeInfo.SHA256)"
+    )
+    $lines += Get-SignatureManifestLines "Executable" $exeSignatureInfo
+    $lines += @(
         "",
         "Installer=$($installerInfo.Path)",
         "InstallerSizeBytes=$($installerInfo.SizeBytes)",
         "InstallerSHA256=$($installerInfo.SHA256)"
     )
+    $lines += Get-SignatureManifestLines "Installer" $installerSignatureInfo
     $lines | Set-Content -LiteralPath $manifestPath -Encoding UTF8
     Write-Host "Manifest: $((Resolve-Path -LiteralPath $manifestPath).Path)"
 }
@@ -364,5 +422,7 @@ Write-Host ""
 Write-Host "Release ready: QuickShot $version" -ForegroundColor Green
 Write-Host "EXE:       $($exeInfo.Path)"
 Write-Host "EXE SHA:   $($exeInfo.SHA256)"
+Write-Host "EXE Sig:   $($exeSignatureInfo.Status)"
 Write-Host "Installer: $($installerInfo.Path)"
 Write-Host "Setup SHA: $($installerInfo.SHA256)"
+Write-Host "Setup Sig: $($installerSignatureInfo.Status)"

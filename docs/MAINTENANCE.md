@@ -15,8 +15,18 @@ This document tracks the next maintenance cycle after the v5.3.3 release.
 
 - Connect a code signing certificate when available.
 - Re-run the release script with `-Sign`.
-- Verify both `dist\QuickShot.exe` and `installer_output\QuickShot-*-Setup.exe` return `Valid` from `Get-AuthenticodeSignature`.
-- Update the release checklist with signed artifact hashes.
+- Confirm the generated release manifest records `ExecutableSignatureStatus` and `InstallerSignatureStatus`.
+- Before a signed release, run `scripts\verify-artifact-signature.ps1` with `-RequireSigned` against `dist\QuickShot.exe` and the installer.
+- Update the release checklist with signed artifact hashes and Authenticode status.
+
+Current unsigned release artifacts can be checked with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 `
+  .\dist\QuickShot.exe `
+  .\installer_output\QuickShot-5.3.3-Setup.exe `
+  -ExpectedStatus NotSigned
+```
 
 ### Installer Regression Coverage
 

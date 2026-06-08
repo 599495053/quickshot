@@ -20,6 +20,7 @@ Last verified: 2026-06-08
 - [x] Automated release build:
   - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
   - Manifest: `installer_output\QuickShot-5.3.3-release.txt`
+  - Current release script records executable and installer Authenticode signature status for newly generated manifests.
 - [x] Build executable:
   - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
   - Output: `dist\QuickShot.exe`
@@ -105,6 +106,7 @@ Last verified: 2026-06-08
 - `email` must not be excluded from the PyInstaller build because `requests` and `urllib3` use standard-library `email.*` modules.
 - `ISCC.exe` is installed at `C:\Users\59949\AppData\Local\Programs\Inno Setup 6\ISCC.exe`. It may not be visible in already-running terminals until PATH is refreshed.
 - Code signing is optional. When a certificate is available, run `scripts\release.ps1` with `-Sign` and either `-CertificateThumbprint <thumbprint>` or `-CertificateFile <path>`.
+- Use `scripts\verify-artifact-signature.ps1` to confirm `NotSigned` for unsigned artifacts or `-RequireSigned` for signed artifacts.
 - Keep `.pfx` and `.p12` certificate files out of Git. They are ignored by `.gitignore`.
 - Current release artifacts are unsigned because no code signing certificate is configured.
 
@@ -112,6 +114,8 @@ Last verified: 2026-06-08
 
 - [x] Confirm the current Git diff contains only intended release changes.
 - [x] Decide whether this release should be signed. Current release is unsigned; `Get-AuthenticodeSignature` returns `NotSigned` for both artifacts.
+- [x] Verify artifact signature state:
+  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 .\dist\QuickShot.exe .\installer_output\QuickShot-5.3.3-Setup.exe -ExpectedStatus NotSigned`
 - [x] Decide whether to commit generated installer logs or keep them local only. Generated build output remains local and ignored.
 - [x] Run one final local installer smoke test if the installer script changes again.
 - [x] Verify region screenshot and current-window screenshot with `scripts\verify-desktop-hotkeys.ps1`.

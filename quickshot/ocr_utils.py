@@ -9,6 +9,9 @@ import re
 from typing import List
 
 
+OCR_TEXT_CONTENT_RE = re.compile(r"[A-Za-z0-9\u4e00-\u9fff]")
+OCR_COMMON_PUNCTUATION = set(".,;:!?)]}([{'\"<>%-+/#@&\\$¥€=~")
+
 
 OCR_SYMBOL_TRANSLATION = str.maketrans({
     "，": ",", "。": ".", "：": ":", "；": ";",
@@ -27,6 +30,34 @@ OCR_SYMBOL_TRANSLATION = str.maketrans({
 def normalize_ocr_symbols(text: str) -> str:
     return text.translate(OCR_SYMBOL_TRANSLATION).replace(" ", " ")
 
+def has_meaningful_ocr_text(text: str) -> bool:
+    return OCR_TEXT_CONTENT_RE.search(text) is not None
+
+def _compact_ocr_text(text: str) -> str:
+    return re.sub(r"\s+", "", normalize_ocr_symbols(text or ""))
+
+def is_likely_icon_symbol_artifact(text: str) -> bool:
+    compact = _compact_ocr_text(text)
+    if not compact or has_meaningful_ocr_text(compact):
+        return False
+    if len(compact) <= 3:
+        return True
+    return len(compact) <= 8 and len(set(compact)) <= 2
+
+def filter_icon_symbol_artifacts(text: str) -> str:
+    if not text:
+        return ""
+    lines = []
+    for raw_line in normalize_ocr_symbols(text).splitlines():
+        line = " ".join(raw_line.split())
+        if not line:
+            lines.append("")
+            continue
+        if is_likely_icon_symbol_artifact(line):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()
+
 def has_cjk(text: str) -> bool:
     return any("一" <= ch <= "鿿" for ch in text)
 
@@ -40,6 +71,40 @@ def should_join_with_space(previous: str, current: str, gap: float, avg_height: 
     if current[0] in ",.;:!?)]}>" or previous[-1] in "([{<":
         return False
     return True
+
+def _nearest_meaningful_block_gap(blocks: list[dict], index: int) -> float | None:
+    block = blocks[index]
+    gaps = []
+    for previous in reversed(blocks[:index]):
+        if has_meaningful_ocr_text(previous["text"]):
+            gaps.append(max(0.0, block["left"] - previous["right"]))
+            break
+    for following in blocks[index + 1:]:
+        if has_meaningful_ocr_text(following["text"]):
+            gaps.append(max(0.0, following["left"] - block["right"]))
+            break
+    return min(gaps) if gaps else None
+
+def _should_drop_icon_symbol_block(blocks: list[dict], index: int, line_height: float) -> bool:
+    text = str(blocks[index]["text"]).strip()
+    if not is_likely_icon_symbol_artifact(text):
+        return False
+    meaningful_count = sum(1 for block in blocks if has_meaningful_ocr_text(block["text"]))
+    if meaningful_count == 0:
+        return True
+
+    gap = _nearest_meaningful_block_gap(blocks, index)
+    if gap is None:
+        return True
+    if set(text).issubset(OCR_COMMON_PUNCTUATION) and gap <= max(3.0, line_height * 0.35):
+        return False
+    return True
+
+def _filter_icon_symbol_blocks(blocks: list[dict], line_height: float) -> list[dict]:
+    return [
+        block for index, block in enumerate(blocks)
+        if not _should_drop_icon_symbol_block(blocks, index, line_height)
+    ]
 
 def format_rapidocr_result(result) -> str:
     if not result:
@@ -96,6 +161,9 @@ def format_rapidocr_result(result) -> str:
     text_lines = []
     for line in lines:
         line_blocks = sorted(line["blocks"], key=lambda item: item["left"])
+        line_blocks = _filter_icon_symbol_blocks(line_blocks, line["height"])
+        if not line_blocks:
+            continue
         parts: List[str] = []
         previous = None
         for block in line_blocks:
@@ -108,7 +176,7 @@ def format_rapidocr_result(result) -> str:
             previous = block
         text_lines.append("".join(parts).strip())
 
-    return normalize_ocr_symbols("\n".join(line for line in text_lines if line)).strip()
+    return filter_icon_symbol_artifacts("\n".join(line for line in text_lines if line))
 
 def clean_ocr_text(text: str) -> str:
     """对 OCR 结果做轻量自动清洗：去首尾空格、合并连续空行、规范内部空格。"""

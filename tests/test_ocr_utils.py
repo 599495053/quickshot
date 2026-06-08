@@ -24,8 +24,11 @@ from quickshot.ocr import (
     deep_clean_ocr_text,
     extract_numbers,
     extract_chinese,
+    filter_icon_symbol_artifacts,
     format_rapidocr_result,
     has_cjk,
+    has_meaningful_ocr_text,
+    is_likely_icon_symbol_artifact,
     normalize_ocr_symbols,
     should_join_with_space,
 )
@@ -73,6 +76,26 @@ class HasCjkTest(unittest.TestCase):
 
     def test_mixed(self) -> None:
         self.assertTrue(has_cjk("hello中world"))
+
+
+class IconSymbolArtifactFilterTest(unittest.TestCase):
+
+    def test_meaningful_text_detects_letters_digits_and_cjk(self) -> None:
+        self.assertTrue(has_meaningful_ocr_text("A"))
+        self.assertTrue(has_meaningful_ocr_text("9"))
+        self.assertTrue(has_meaningful_ocr_text("中"))
+        self.assertFalse(has_meaningful_ocr_text("□"))
+
+    def test_symbol_only_tokens_are_icon_artifacts(self) -> None:
+        self.assertTrue(is_likely_icon_symbol_artifact("□"))
+        self.assertTrue(is_likely_icon_symbol_artifact("|||"))
+        self.assertTrue(is_likely_icon_symbol_artifact("---"))
+        self.assertFalse(is_likely_icon_symbol_artifact("C++"))
+        self.assertFalse(is_likely_icon_symbol_artifact("100%"))
+
+    def test_filter_removes_symbol_only_lines(self) -> None:
+        text = "Settings\n□\n---\n100%\nDone"
+        self.assertEqual(filter_icon_symbol_artifacts(text), "Settings\n100%\nDone")
 
 
 class ShouldJoinWithSpaceTest(unittest.TestCase):
@@ -143,6 +166,22 @@ class FormatRapidocrResultTest(unittest.TestCase):
         ]
         text = format_rapidocr_result(result)
         self.assertEqual(text, "OK")
+
+    def test_isolated_symbol_blocks_are_skipped(self) -> None:
+        result = [
+            [[[8, 10], [22, 10], [22, 30], [8, 30]], "□"],
+            [[[90, 10], [160, 10], [160, 30], [90, 30]], "Settings"],
+            [[[8, 60], [22, 60], [22, 80], [8, 80]], "|||"],
+        ]
+        self.assertEqual(format_rapidocr_result(result), "Settings")
+
+    def test_close_text_punctuation_is_preserved(self) -> None:
+        result = [
+            [[[10, 10], [70, 10], [70, 30], [10, 30]], "v5"],
+            [[[72, 10], [76, 10], [76, 30], [72, 30]], "."],
+            [[[78, 10], [90, 10], [90, 30], [78, 30]], "3"],
+        ]
+        self.assertEqual(format_rapidocr_result(result), "v5.3")
 
 
 class CleanOcrTextTest(unittest.TestCase):
@@ -332,6 +371,24 @@ class RapidOcrOptionalTest(unittest.TestCase):
         self.assertEqual(converted, [
             [[[5.0, 7.0], [105.0, 7.0], [105.0, 27.0], [5.0, 27.0]], "邮箱 test@example.com"],
         ])
+
+    def test_windows_ocr_can_prefer_word_boxes_for_text_ocr(self):
+        from quickshot.ocr import _windows_ocr_lines_to_rapidocr_result
+
+        converted = _windows_ocr_lines_to_rapidocr_result({
+            "Text": "□ Settings",
+            "BoundingBox": [5, 7, 105, 27],
+            "Words": [
+                {"Text": "□", "BoundingBox": [5, 7, 15, 27]},
+                {"Text": "Settings", "BoundingBox": [60, 7, 105, 27]},
+            ],
+        }, prefer_words=True)
+
+        self.assertEqual(converted, [
+            [[[5.0, 7.0], [15.0, 7.0], [15.0, 27.0], [5.0, 27.0]], "□"],
+            [[[60.0, 7.0], [105.0, 7.0], [105.0, 27.0], [60.0, 27.0]], "Settings"],
+        ])
+        self.assertEqual(format_rapidocr_result(converted), "Settings")
 
     def test_prewarm_skips_when_optional_component_is_missing(self):
         import quickshot.ocr as ocr

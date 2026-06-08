@@ -29,8 +29,11 @@ from .ocr_utils import (
     deep_clean_ocr_text,
     extract_chinese,
     extract_numbers,
+    filter_icon_symbol_artifacts,
     format_rapidocr_result,
     has_cjk,
+    has_meaningful_ocr_text,
+    is_likely_icon_symbol_artifact,
     normalize_ocr_symbols,
     should_join_with_space,
 )
@@ -45,8 +48,11 @@ __all__ = [
     "deep_clean_ocr_text",
     "extract_chinese",
     "extract_numbers",
+    "filter_icon_symbol_artifacts",
     "format_rapidocr_result",
     "has_cjk",
+    "has_meaningful_ocr_text",
+    "is_likely_icon_symbol_artifact",
     "normalize_ocr_symbols",
     "should_join_with_space",
     "OcrResult",
@@ -495,30 +501,59 @@ def _get_windows_ocr_script_path() -> Path:
     return script_path
 
 
-def _windows_ocr_lines_to_rapidocr_result(lines) -> list:
-    """Convert Windows OCR line JSON into RapidOCR-like text box entries."""
+def _windows_ocr_box_to_rapidocr_item(text: str, box) -> list | None:
+    text = normalize_ocr_symbols(str(text)).strip()
+    if not text or not isinstance(box, list) or len(box) != 4:
+        return None
+    try:
+        left, top, right, bottom = [float(value) for value in box]
+    except (TypeError, ValueError):
+        return None
+    if right <= left or bottom <= top:
+        return None
+    return [
+        [[left, top], [right, top], [right, bottom], [left, bottom]],
+        text,
+    ]
+
+
+def _windows_ocr_lines_to_rapidocr_result(lines, *, prefer_words: bool = False) -> list:
+    """Convert Windows OCR JSON into RapidOCR-like text box entries."""
     result = []
-    if not isinstance(lines, list):
+    if isinstance(lines, dict):
+        lines = [lines]
+    elif not isinstance(lines, list):
         return result
 
     for line in lines:
         if not isinstance(line, dict):
             continue
-        text = normalize_ocr_symbols(str(line.get("Text", ""))).strip()
-        box = line.get("BoundingBox")
-        if not text or not isinstance(box, list) or len(box) != 4:
-            continue
-        try:
-            left, top, right, bottom = [float(value) for value in box]
-        except (TypeError, ValueError):
-            continue
-        if right <= left or bottom <= top:
-            continue
+        if prefer_words:
+            words = line.get("Words")
+            if isinstance(words, dict):
+                words = [words]
+            if isinstance(words, list):
+                added_words = 0
+                for word in words:
+                    if not isinstance(word, dict):
+                        continue
+                    item = _windows_ocr_box_to_rapidocr_item(
+                        str(word.get("Text", "")),
+                        word.get("BoundingBox"),
+                    )
+                    if item is not None:
+                        result.append(item)
+                        added_words += 1
+                if added_words:
+                    continue
 
-        result.append([
-            [[left, top], [right, top], [right, bottom], [left, bottom]],
-            text,
-        ])
+        item = _windows_ocr_box_to_rapidocr_item(
+            str(line.get("Text", "")),
+            line.get("BoundingBox"),
+        )
+        if item is None:
+            continue
+        result.append(item)
     return result
 
 
@@ -587,6 +622,7 @@ def _recognize_privacy_lines_with_windows_ocr(prepared_image: QImage) -> list:
 
 def recognize_text_with_windows_ocr(source_image: Union[QPixmap, QImage]) -> str:
     import base64
+    import json
     import shutil
     import subprocess
     import tempfile
@@ -634,6 +670,8 @@ def recognize_text_with_windows_ocr(source_image: Union[QPixmap, QImage]) -> str
                     str(script_path),
                     "-ImagePath",
                     str(image_path),
+                    "-Output",
+                    "Json",
                 ],
                 capture_output=True,
                 text=True,
@@ -664,7 +702,9 @@ def recognize_text_with_windows_ocr(source_image: Union[QPixmap, QImage]) -> str
     if not encoded_text:
         return ""
     try:
-        return normalize_ocr_symbols(base64.b64decode(encoded_text).decode("utf-8")).strip()
+        lines = json.loads(base64.b64decode(encoded_text).decode("utf-8"))
+        result = _windows_ocr_lines_to_rapidocr_result(lines, prefer_words=True)
+        return clean_ocr_text(format_rapidocr_result(result))
     except Exception as exc:
         raise RuntimeError(
             "文字识别结果解析失败。\n\n"

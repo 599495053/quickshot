@@ -64,12 +64,22 @@ try {
             $top = [double]::PositiveInfinity
             $right = [double]::NegativeInfinity
             $bottom = [double]::NegativeInfinity
+            $wordItems = @()
             foreach ($word in $words) {
                 $rect = $word.BoundingRect
                 $left = [Math]::Min($left, [double]$rect.X)
                 $top = [Math]::Min($top, [double]$rect.Y)
                 $right = [Math]::Max($right, [double]($rect.X + $rect.Width))
                 $bottom = [Math]::Max($bottom, [double]($rect.Y + $rect.Height))
+                $wordItems += [pscustomobject]@{
+                    Text = $word.Text
+                    BoundingBox = @(
+                        [double]$rect.X,
+                        [double]$rect.Y,
+                        [double]($rect.X + $rect.Width),
+                        [double]($rect.Y + $rect.Height)
+                    )
+                }
             }
 
             if ([double]::IsInfinity($left) -or [double]::IsInfinity($top) -or [double]::IsInfinity($right) -or [double]::IsInfinity($bottom)) {
@@ -79,6 +89,7 @@ try {
             $lines += [pscustomobject]@{
                 Text = $line.Text
                 BoundingBox = @($left, $top, $right, $bottom)
+                Words = $wordItems
             }
         }
         $json = ConvertTo-Json -InputObject $lines -Compress -Depth 4

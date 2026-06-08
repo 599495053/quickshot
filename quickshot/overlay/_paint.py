@@ -196,22 +196,14 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
 
         line_cache: dict[int, bool] = {}
 
-        def pixel_luma(x: int, y: int) -> int:
-            c = raw_image.pixelColor(x, y)
-            return int(c.red() * 0.299 + c.green() * 0.587 + c.blue() * 0.114)
-
-        def row_delta(x: int, physical_y: int) -> int:
-            center = pixel_luma(x, physical_y)
-            neighbors = [
-                pixel_luma(x, physical_y + offset)
-                for offset in (-4, -3, -2, -1, 1, 2, 3, 4)
-                if 0 <= physical_y + offset < raw_image.height()
-            ]
-            if not neighbors:
-                return 0
-            neighbors.sort()
-            median = neighbors[len(neighbors) // 2]
-            return abs(center - median)
+        def pixel_diff(x: int, y1: int, y2: int) -> int:
+            c1 = raw_image.pixelColor(x, y1)
+            c2 = raw_image.pixelColor(x, y2)
+            return (
+                abs(c1.red() - c2.red())
+                + abs(c1.green() - c2.green())
+                + abs(c1.blue() - c2.blue())
+            )
 
         def is_horizontal_scanline(physical_y: int) -> bool:
             if physical_y in line_cache:
@@ -221,55 +213,49 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
                 return False
             hits = 0
             for px in sample_xs:
-                if row_delta(px, physical_y) >= 18:
+                contrast = max(
+                    pixel_diff(px, physical_y, physical_y - 1),
+                    pixel_diff(px, physical_y, physical_y + 1),
+                )
+                if contrast >= 45:
                     hits += 1
-            line_cache[physical_y] = hits >= 1
+            line_cache[physical_y] = hits >= max(1, len(sample_xs) // 2)
             return line_cache[physical_y]
 
-        def replacement_y(physical_y: int, directions: tuple[int, ...]) -> int:
+        def replacement_y(physical_y: int, direction: int) -> int:
             max_offset = max(edge_radius * 4, 8)
-            for offset in range(1, max_offset + 1):
-                for direction in directions:
-                    candidate = physical_y + direction * offset
-                    if 0 <= candidate < raw_image.height() and not is_horizontal_scanline(candidate):
-                        return candidate
-            fallback = physical_y - directions[0]
+            for offset in range(edge_radius + 1, max_offset + 1):
+                candidate = physical_y + direction * offset
+                if 0 <= candidate < raw_image.height() and not is_horizontal_scanline(candidate):
+                    return candidate
+            fallback = physical_y - direction
             return max(0, min(raw_image.height() - 1, fallback))
 
-        candidate_rows = set(range(
-            max(0, physical_rect.top()),
-            min(raw_image.height() - 1, physical_rect.bottom()) + 1,
-        ))
-        candidate_rows.update(range(
+        top_rows = range(
             max(0, physical_rect.top() - edge_radius),
             min(raw_image.height() - 1, physical_rect.top() + edge_radius) + 1,
-        ))
-        candidate_rows.update(range(
+        )
+        bottom_rows = range(
             max(0, physical_rect.bottom() - edge_radius),
             min(raw_image.height() - 1, physical_rect.bottom() + edge_radius) + 1,
-        ))
+        )
 
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
         outside = QRegion(bounds).subtracted(QRegion(rect))
         painter.setClipRegion(outside)
-        for physical_y in sorted(candidate_rows):
+        for physical_y in tuple(top_rows) + tuple(bottom_rows):
             if not is_horizontal_scanline(physical_y):
                 continue
+            direction = -1 if abs(physical_y - physical_rect.top()) <= abs(physical_y - physical_rect.bottom()) else 1
             target = QRectF(
                 float(bounds.left()),
                 physical_y / scale_y,
                 float(bounds.width()),
                 1.0 / scale_y,
             )
-            if physical_y < physical_rect.top():
-                directions = (-1, 1)
-            elif physical_y > physical_rect.bottom():
-                directions = (1, -1)
-            else:
-                directions = (-1, 1)
-            source_y = replacement_y(physical_y, directions)
+            source_y = replacement_y(physical_y, direction)
             source = QRectF(0.0, float(source_y), float(raw_image.width()), 1.0)
             painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
             painter.drawPixmap(target, self.raw_pixmap, source)

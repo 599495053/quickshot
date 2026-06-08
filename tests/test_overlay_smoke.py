@@ -329,9 +329,16 @@ class OverlayToolSmokeTest(unittest.TestCase):
         end = QPoint(639, 399)
         top_physical = int(round(start.y() * scale))
         bottom_physical = int(round(end.y() * scale))
+        outside_only_physical = bottom_physical - 6
         raw_painter = QPainter(raw)
         try:
-            for physical_y in (top_physical, bottom_physical - 1, bottom_physical):
+            for physical_y in (
+                top_physical,
+                outside_only_physical,
+                bottom_physical - 3,
+                bottom_physical - 1,
+                bottom_physical,
+            ):
                 raw_painter.fillRect(QRect(0, physical_y, raw_w, 1), QColor(245, 245, 245))
         finally:
             raw_painter.end()
@@ -358,7 +365,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
         finally:
             painter.end()
 
-        for physical_y in (top_physical, bottom_physical - 1, bottom_physical):
+        for physical_y in (top_physical, bottom_physical - 3, bottom_physical - 1, bottom_physical):
             with self.subTest(physical_y=physical_y):
                 for logical_x in (rect.left() - 10, rect.center().x(), rect.right() + 10):
                     physical_x = int(round(logical_x * scale))
@@ -366,6 +373,13 @@ class OverlayToolSmokeTest(unittest.TestCase):
                     self.assertLess(color.red(), 90)
                     self.assertLess(color.green(), 90)
                     self.assertLess(color.blue(), 90)
+        with self.subTest(physical_y=outside_only_physical):
+            for logical_x in (rect.left() - 10, rect.right() + 10):
+                physical_x = int(round(logical_x * scale))
+                color = canvas.pixelColor(physical_x, outside_only_physical)
+                self.assertLess(color.red(), 90)
+                self.assertLess(color.green(), 90)
+                self.assertLess(color.blue(), 90)
 
     def test_snap_guides_are_hidden_by_default(self) -> None:
         overlay = _make_overlay()

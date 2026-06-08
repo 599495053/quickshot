@@ -179,28 +179,33 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
             (rect.left(), rect.width(), False),
             (rect.right() + 1, max(0, bounds.right() - rect.right()), True),
         )
-        edge_band = min(3, max(1, rect.height()))
-        cleanup_rows = (
-            (rect.top(), rect.top() - edge_band, rect.top() + edge_band),
-            (rect.bottom() - edge_band + 1, rect.bottom() + 1, rect.bottom() - edge_band * 2 + 1),
-        )
+        inside_band = min(5, max(1, rect.height()))
+        outside_band = min(10, max(1, rect.height()))
 
         def clamp_band_start(y: int, top: int, bottom: int, height: int) -> int:
             return max(top, min(bottom - height + 1, y))
 
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
-        for target_y, outside_source_y, inside_source_y in cleanup_rows:
-            target_y = clamp_band_start(target_y, bounds.top(), bounds.bottom(), edge_band)
-            outside_source_y = clamp_band_start(outside_source_y, bounds.top(), bounds.bottom(), edge_band)
-            inside_source_y = clamp_band_start(inside_source_y, rect.top(), rect.bottom(), edge_band)
-            for x, width, dimmed in ranges:
-                if width <= 0:
-                    continue
-                target = QRect(x, target_y, width, edge_band).intersected(bounds)
+        for x, width, dimmed in ranges:
+            if width <= 0:
+                continue
+            band = outside_band if dimmed else inside_band
+            cleanup_rows = (
+                (rect.top(), rect.top() - band if dimmed else rect.top() + band),
+                (
+                    rect.bottom() - band + 1,
+                    rect.bottom() + 1 if dimmed else rect.bottom() - band * 2 + 1,
+                ),
+            )
+            for target_y, source_y in cleanup_rows:
+                target_y = clamp_band_start(target_y, bounds.top(), bounds.bottom(), band)
+                source_top = bounds.top() if dimmed else rect.top()
+                source_bottom = bounds.bottom() if dimmed else rect.bottom()
+                source_y = clamp_band_start(source_y, source_top, source_bottom, band)
+                target = QRect(x, target_y, width, band).intersected(bounds)
                 if target.isNull():
                     continue
-                source_y = outside_source_y if dimmed else inside_source_y
                 source = self.logical_to_physical_rect(QRect(target.x(), source_y, target.width(), target.height()))
                 if source.width() <= 0 or source.height() <= 0:
                     continue

@@ -301,10 +301,11 @@ class OverlayToolSmokeTest(unittest.TestCase):
         for edge_y, adjacent_y in seam_checks:
             with self.subTest(edge_y=edge_y):
                 for x in outside_xs:
-                    self.assertEqual(
-                        canvas.pixelColor(x, edge_y).getRgb()[:3],
-                        canvas.pixelColor(x, adjacent_y).getRgb()[:3],
-                    )
+                    edge_color = canvas.pixelColor(x, edge_y)
+                    adjacent_color = canvas.pixelColor(x, adjacent_y)
+                    self.assertLessEqual(abs(edge_color.red() - adjacent_color.red()), 2)
+                    self.assertLessEqual(abs(edge_color.green() - adjacent_color.green()), 2)
+                    self.assertLessEqual(abs(edge_color.blue() - adjacent_color.blue()), 2)
 
         for y in (rect.top() - 2, rect.top() - 1, rect.bottom() + 1, rect.bottom() + 2):
             with self.subTest(adjacent_y=y):
@@ -347,7 +348,13 @@ class OverlayToolSmokeTest(unittest.TestCase):
         for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
             with self.subTest(outside_x=x):
                 color = canvas.pixelColor(x, 250)
-                self.assertEqual(color.getRgb()[:3], (0, 0, 0))
+                self.assertGreater(color.red(), 10)
+                self.assertLess(color.red(), 45)
+                for adjacent_y in (249, 251):
+                    adjacent = canvas.pixelColor(x, adjacent_y)
+                    self.assertLessEqual(abs(color.red() - adjacent.red()), 2)
+                    self.assertLessEqual(abs(color.green() - adjacent.green()), 2)
+                    self.assertLessEqual(abs(color.blue() - adjacent.blue()), 2)
         self.assertEqual(canvas.pixelColor(rect.center().x(), 250).getRgb()[:3], (245, 245, 245))
 
     def test_edit_mode_strong_dim_suppresses_side_desktop_lines(self) -> None:
@@ -386,7 +393,13 @@ class OverlayToolSmokeTest(unittest.TestCase):
         for x in (40, rect.left() - 10, rect.right() + 10, overlay.width() - 40):
             with self.subTest(outside_x=x):
                 color = canvas.pixelColor(x, 250)
-                self.assertEqual(color.getRgb()[:3], (0, 0, 0))
+                self.assertGreater(color.red(), 10)
+                self.assertLess(color.red(), 45)
+                for adjacent_y in (249, 251):
+                    adjacent = canvas.pixelColor(x, adjacent_y)
+                    self.assertLessEqual(abs(color.red() - adjacent.red()), 2)
+                    self.assertLessEqual(abs(color.green() - adjacent.green()), 2)
+                    self.assertLessEqual(abs(color.blue() - adjacent.blue()), 2)
         self.assertEqual(canvas.pixelColor(rect.center().x(), 250).getRgb()[:3], (245, 245, 245))
 
     def test_select_mode_masks_edge_scanlines_on_fractional_scale(self) -> None:

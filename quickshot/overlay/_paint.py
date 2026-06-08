@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional, Tuple
 
 from PyQt6.QtCore import QPoint, QRect, QRectF, Qt
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen, QRegion
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen, QPixmap, QRegion
 
 from . import annotation_painter
 from ._paint_toolbar import ToolbarPaintMixin
@@ -37,6 +37,8 @@ from ..theme import (
 
 
 class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
+    _ACTIVE_DIM_ALPHA = 132
+    _DIM_BACKDROP_DOWNSCALE = 16
 
     # ── pen / 颜色缓存（懒初始化；主题切换时调 invalidate_paint_cache）──
 
@@ -145,10 +147,37 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
 
     def dim_shade(self) -> QColor:
         shade = QColor(overlay_dim())
-        mode = getattr(self, "mode", "")
-        if mode in {"select", "edit"} or getattr(self, "selecting", False) or getattr(self, "adjusting_selection", False):
-            shade.setAlpha(255)
+        if self.soft_dim_backdrop_enabled():
+            shade.setAlpha(max(shade.alpha(), self._ACTIVE_DIM_ALPHA))
         return shade
+
+    def soft_dim_backdrop_enabled(self) -> bool:
+        mode = getattr(self, "mode", "")
+        return mode in {"select", "edit"} or getattr(self, "selecting", False) or getattr(self, "adjusting_selection", False)
+
+    def dim_backdrop_pixmap(self, bounds: QRect) -> QPixmap:
+        if self.raw_pixmap.isNull() or bounds.isNull() or bounds.width() <= 0 or bounds.height() <= 0:
+            return QPixmap()
+        key = (self.raw_pixmap.cacheKey(), bounds.width(), bounds.height())
+        cached = getattr(self, "_dim_backdrop_cache", None)
+        if cached is not None and cached[0] == key:
+            return cached[1]
+
+        small_w = max(1, bounds.width() // self._DIM_BACKDROP_DOWNSCALE)
+        small_h = max(1, bounds.height() // self._DIM_BACKDROP_DOWNSCALE)
+        small = self.raw_pixmap.scaled(
+            small_w,
+            small_h,
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        backdrop = small.scaled(
+            bounds.size(),
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self._dim_backdrop_cache = (key, backdrop)
+        return backdrop
 
     def draw_dim_outside(self, painter: QPainter, clear_rect: QRect) -> None:
         shade = self.dim_shade()
@@ -161,9 +190,19 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         outside = QRegion(self.rect()).subtracted(QRegion(rect))
         painter.setClipRegion(outside)
+        softened = self.soft_dim_backdrop_enabled()
+        if softened:
+            backdrop = self.dim_backdrop_pixmap(self.rect())
+            if not backdrop.isNull():
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+                painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+                painter.drawPixmap(self.rect(), backdrop)
+                painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
         painter.fillRect(self.rect(), shade)
         painter.restore()
-        self.draw_dim_edge_cleanup(painter, rect, shade)
+        if not softened:
+            self.draw_dim_edge_cleanup(painter, rect, shade)
 
     def draw_dim_edge_cleanup(self, painter: QPainter, rect: QRect, shade: QColor) -> None:
         """Heal outside-only 1px desktop scanlines near selection top/bottom edges."""

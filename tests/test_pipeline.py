@@ -101,6 +101,23 @@ class UploadStepTest(unittest.TestCase):
         step.run(ctx, self.config)
         self.assertIsNone(ctx.upload_result)
         self.assertTrue(any("nonexistent" in e for e in ctx.errors))
+        self.assertTrue(any("重新选择上传器" in e for e in ctx.errors))
+
+    def test_unconfigured_github_logs_specific_missing_items(self) -> None:
+        self.config.workflow_auto_upload = True
+        self.config.workflow_uploader = "github"
+        registry = build_default_registry(
+            archive_dir=str(self.tmp_path / "uploads"),
+            config=self.config,
+            github_token_provider=lambda: "",
+        )
+        step = UploadStep(registry)
+        ctx = PipelineContext(image_path=str(self.image))
+
+        step.run(ctx, self.config)
+
+        self.assertIsNone(ctx.upload_result)
+        self.assertTrue(any("Personal Access Token" in e for e in ctx.errors))
 
     def test_missing_image_logs_error(self) -> None:
         self.config.workflow_auto_upload = True

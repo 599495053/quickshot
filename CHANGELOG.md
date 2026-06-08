@@ -8,10 +8,12 @@ All notable changes to QuickShot are tracked here.
 
 - Added a settings-page workflow summary showing the current preset and Enter behavior.
 - Added a settings-page action to restore the default workflow.
+- Added a GitHub uploader status hint in settings so missing owner, repo, or token is visible before capture.
 
 ### Changed
 
 - Workflow changes made from settings now refresh the tray tooltip and workflow menu.
+- Upload workflow failures now include more actionable configuration, permission, token, and network guidance.
 
 ## v5.3.7 - 2026-06-08
 

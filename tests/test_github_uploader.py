@@ -74,6 +74,22 @@ class GitHubUploaderConfigTest(unittest.TestCase):
         u = GitHubUploader(owner="o", repo="r", token_provider=boom)
         self.assertFalse(u.is_configured())
 
+    def test_configuration_hint_lists_missing_items(self) -> None:
+        u = GitHubUploader(owner="", repo="", token_provider=lambda: "")
+
+        hint = u.configuration_hint()
+
+        self.assertIn("GitHub 用户名或组织", hint)
+        self.assertIn("仓库名", hint)
+        self.assertIn("Personal Access Token", hint)
+
+    def test_configuration_hint_ready_mentions_destination(self) -> None:
+        u = GitHubUploader(owner="alice", repo="screenshots", branch="main", token_provider=lambda: "t")
+
+        hint = u.configuration_hint()
+
+        self.assertIn("alice/screenshots@main", hint)
+
 
 class GitHubUploaderPathTest(unittest.TestCase):
     def test_build_remote_path_format(self) -> None:
@@ -150,6 +166,7 @@ class GitHubUploaderUploadTest(unittest.TestCase):
             with self.assertRaises(UploadError) as ctx:
                 u.upload(str(self.src))
         self.assertIn("401", str(ctx.exception))
+        self.assertIn("重新保存", str(ctx.exception))
 
     def test_403_forbidden(self) -> None:
         u = self._uploader()
@@ -157,6 +174,7 @@ class GitHubUploaderUploadTest(unittest.TestCase):
             with self.assertRaises(UploadError) as ctx:
                 u.upload(str(self.src))
         self.assertIn("403", str(ctx.exception))
+        self.assertIn("repo", str(ctx.exception))
 
     def test_404_not_found(self) -> None:
         u = self._uploader()
@@ -178,6 +196,7 @@ class GitHubUploaderUploadTest(unittest.TestCase):
             with self.assertRaises(UploadError) as ctx:
                 u.upload(str(self.src))
         self.assertIn("网络", str(ctx.exception))
+        self.assertIn("代理", str(ctx.exception))
 
 
 if __name__ == "__main__":

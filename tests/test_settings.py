@@ -176,6 +176,35 @@ class SettingsWindowInitTest(_IsolatedConfigMixin, unittest.TestCase):
         self.assertIn("自动复制图片", win.workflow_summary_label.text())
         self.assertEqual(events, ["changed"])
 
+    def test_github_status_warns_when_selected_uploader_missing_config(self):
+        _ensure_app()
+        cfg = Config()
+        cfg.workflow_uploader = "github"
+
+        with patch("quickshot.secrets.get_github_token", return_value=""):
+            win = SettingsWindow(cfg)
+
+        text = win.github_status_label.text()
+        self.assertIn("GitHub 上传器未就绪", text)
+        self.assertIn("GitHub 用户名或组织", text)
+        self.assertIn("仓库名", text)
+        self.assertIn("Personal Access Token", text)
+
+    def test_github_status_shows_ready_destination(self):
+        _ensure_app()
+        cfg = Config()
+        cfg.workflow_uploader = "github"
+        cfg.github_owner = "alice"
+        cfg.github_repo = "screenshots"
+        cfg.github_branch = "dev"
+        cfg.github_path_prefix = "shots"
+
+        with patch("quickshot.secrets.get_github_token", return_value="ghp_test"):
+            win = SettingsWindow(cfg)
+
+        self.assertIn("GitHub 上传器已就绪", win.github_status_label.text())
+        self.assertIn("alice/screenshots@dev/shots", win.github_status_label.text())
+
 
 class SettingsGridWatermarkColorTest(_IsolatedConfigMixin, unittest.TestCase):
 

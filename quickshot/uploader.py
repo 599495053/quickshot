@@ -57,6 +57,12 @@ class Uploader(ABC):
         """返回 True 表示该上传器已具备工作所需的配置。"""
         return True
 
+    def configuration_hint(self) -> str:
+        """Return a user-facing configuration status or missing-configuration hint."""
+        if self.is_configured():
+            return f"{self.display_name()} 已配置。"
+        return f"{self.display_name()} 未完成配置。"
+
     @abstractmethod
     def upload(self, image_path: str) -> UploadResult:
         """上传一张图片并返回结果。失败请抛 UploadError。"""
@@ -155,6 +161,25 @@ class GitHubUploader(Uploader):
     def is_configured(self) -> bool:
         return bool(self.owner and self.repo and self._token())
 
+    def missing_config_items(self) -> List[str]:
+        missing: List[str] = []
+        if not self.owner:
+            missing.append("GitHub 用户名或组织")
+        if not self.repo:
+            missing.append("仓库名")
+        if not self._token():
+            missing.append("Personal Access Token")
+        return missing
+
+    def configuration_hint(self) -> str:
+        missing = self.missing_config_items()
+        if not missing:
+            return f"GitHub 仓库已配置：{self.owner}/{self.repo}@{self.branch}。"
+        return (
+            f"GitHub 仓库未完成配置：缺少{'、'.join(missing)}。"
+            "请在设置页填写 owner/repo，并保存具有 repo 或 contents 写入权限的 Personal Access Token。"
+        )
+
     def build_remote_path(self, source_name: str) -> str:
         """生成仓库内的目标路径。按日期分目录，文件名加 uuid 前缀避免冲突。"""
         now = datetime.datetime.now()
@@ -166,10 +191,10 @@ class GitHubUploader(Uploader):
 
     def upload(self, image_path: str) -> UploadResult:
         if not self.owner or not self.repo:
-            raise UploadError("GitHub 上传器未配置：缺少 owner 或 repo")
+            raise UploadError(self.configuration_hint())
         token = self._token()
         if not token:
-            raise UploadError("GitHub 上传器未配置：缺少 Personal Access Token")
+            raise UploadError(self.configuration_hint())
         src = Path(image_path)
         if not src.exists():
             raise UploadError(f"源文件不存在：{image_path}")
@@ -213,7 +238,7 @@ class GitHubUploader(Uploader):
             try:
                 resp = requests.put(api_url, json=body, headers=headers, timeout=self.request_timeout)
             except Exception as exc:  # noqa: BLE001
-                raise UploadError(f"网络请求失败：{exc}") from exc
+                raise UploadError(f"网络请求失败：{exc}；请检查网络或代理后重试。") from exc
 
             if resp.status_code in (200, 201):
                 raw_url = f"{self.RAW_BASE}/{self.owner}/{self.repo}/{self.branch}/{remote_path}"
@@ -239,13 +264,16 @@ class GitHubUploader(Uploader):
         except Exception:  # noqa: BLE001
             detail = ""
         if code == 401:
-            return "GitHub 上传失败：Token 无效或已过期（401）"
+            return "GitHub 上传失败：Token 无效或已过期（401），请在设置中重新保存 Personal Access Token。"
         if code == 403:
-            return f"GitHub 上传失败：权限不足或被限流（403）{(' ' + detail) if detail else ''}"
+            return (
+                "GitHub 上传失败：权限不足或被限流（403），请确认 Token 具有 repo 或 contents 写入权限，"
+                f"或稍后重试{('：' + detail) if detail else '。'}"
+            )
         if code == 404:
-            return "GitHub 上传失败：仓库不存在或 Token 无权访问（404）"
+            return "GitHub 上传失败：仓库、分支不存在或 Token 无权访问（404），请检查 owner/repo/branch。"
         if code == 422:
-            return f"GitHub 上传失败：文件已存在或参数错误（422）{(' ' + detail) if detail else ''}"
+            return f"GitHub 上传失败：文件已存在或参数错误（422），请检查分支和路径前缀{('：' + detail) if detail else '。'}"
         if 500 <= code < 600:
             return f"GitHub 服务暂时不可用（{code}），请稍后重试{('：' + detail) if detail else ''}"
         return f"GitHub 上传失败：HTTP {code} {detail}".rstrip()

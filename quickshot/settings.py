@@ -266,6 +266,11 @@ class SettingsWindow(SettingsHandlers, QWidget):
         self.github_token_clear_btn = set_button_role(QPushButton("清除 Token"), "secondary")
         self.github_token_clear_btn.clicked.connect(self.on_github_token_clear)
 
+        self.github_status_label = QLabel()
+        self.github_status_label.setObjectName("status")
+        self.github_status_label.setWordWrap(True)
+        self._refresh_github_status()
+
     def _create_appearance_controls(self) -> None:
         """创建外观相关控件（水印、网格、HDR）。"""
         self.watermark_edit = QLineEdit(self.config.watermark_text)
@@ -597,6 +602,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
         token_row.addWidget(self.github_token_clear_btn)
         token_row.addStretch(1)
         github_layout.addLayout(token_row)
+        github_layout.addWidget(self.github_status_label)
         github_layout.addWidget(self._helper("Token 需要 repo 权限，保存在 Windows 凭据管理器，不会写入设置文件。"))
         page.addWidget(github_card)
         page.addStretch(1)

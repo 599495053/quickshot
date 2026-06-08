@@ -130,10 +130,10 @@ class UploadStep(PipelineStep):
         identifier = getattr(config, "workflow_uploader", "local")
         uploader = self.registry.get(identifier)
         if uploader is None:
-            ctx.log_error(f"上传跳过：找不到上传器 {identifier}")
+            ctx.log_error(f"上传跳过：找不到上传器 {identifier}，请在设置页重新选择上传器。")
             return
         if not uploader.is_configured():
-            ctx.log_error(f"上传跳过：{uploader.display_name()} 未完成配置")
+            ctx.log_error(f"上传跳过：{uploader.configuration_hint()}")
             return
         try:
             ctx.upload_result = uploader.upload(ctx.image_path)

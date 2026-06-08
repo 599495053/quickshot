@@ -213,6 +213,7 @@ class SettingsHandlers:
         value = self.uploader_combo.itemData(index)
         if value:
             self.config.workflow_uploader = str(value)
+            self._refresh_github_status()
             self._schedule_save()
             self.workflow_changed.emit()
 
@@ -226,22 +227,28 @@ class SettingsHandlers:
 
     def on_github_owner_changed(self) -> None:
         self.config.github_owner = self.github_owner_edit.text().strip()
+        self._refresh_github_token_placeholder()
+        self._refresh_github_status()
         self._schedule_save()
 
     def on_github_repo_changed(self) -> None:
         self.config.github_repo = self.github_repo_edit.text().strip()
+        self._refresh_github_token_placeholder()
+        self._refresh_github_status()
         self._schedule_save()
 
     def on_github_branch_changed(self) -> None:
         branch = self.github_branch_edit.text().strip() or "main"
         self.config.github_branch = branch
         self.github_branch_edit.setText(branch)
+        self._refresh_github_status()
         self._schedule_save()
 
     def on_github_prefix_changed(self) -> None:
         prefix = self.github_prefix_edit.text().strip().strip("/") or "screenshots"
         self.config.github_path_prefix = prefix
         self.github_prefix_edit.setText(prefix)
+        self._refresh_github_status()
         self._schedule_save()
 
     def _github_account_key(self) -> str:
@@ -249,14 +256,55 @@ class SettingsHandlers:
         repo = self.config.github_repo.strip()
         return f"{owner}/{repo}" if owner and repo else "default"
 
-    def _load_github_token_into_field(self) -> bool:
-        """检测 keyring 中是否已有 token，仅用占位符提示，不回显明文。"""
+    def _github_token_present(self) -> bool:
         from .secrets import get_github_token
-        existing = get_github_token(self._github_account_key())
+        return bool(get_github_token(self._github_account_key()))
+
+    def _refresh_github_token_placeholder(self) -> bool:
+        """检测 keyring 中是否已有 token，仅用占位符提示，不回显明文。"""
+        existing = self._github_token_present()
         if existing:
             self.github_token_edit.setPlaceholderText("Token 已保存（输入新值可覆盖）")
-            return True
-        return False
+        else:
+            self.github_token_edit.setPlaceholderText("Personal Access Token（保存到系统凭据，不存配置文件）")
+        self._github_token_loaded = existing
+        return existing
+
+    def _load_github_token_into_field(self) -> bool:
+        return self._refresh_github_token_placeholder()
+
+    def _github_status_text(self) -> str:
+        from .uploader import GitHubUploader
+        token_present = self._github_token_present()
+        uploader = GitHubUploader(
+            owner=getattr(self.config, "github_owner", ""),
+            repo=getattr(self.config, "github_repo", ""),
+            branch=getattr(self.config, "github_branch", "main"),
+            path_prefix=getattr(self.config, "github_path_prefix", "screenshots"),
+            token_provider=lambda: "configured-token" if token_present else "",
+        )
+        selected = getattr(self.config, "workflow_uploader", "local") == "github"
+        if uploader.is_configured():
+            destination = (
+                f"{uploader.owner}/{uploader.repo}@{uploader.branch}/"
+                f"{uploader.path_prefix}"
+            )
+            if selected:
+                return f"GitHub 上传器已就绪：截图会上传到 {destination}。"
+            return "GitHub 上传器已配置；当前上传器不是 GitHub，发布模式会使用当前选择的上传器。"
+
+        missing = "、".join(uploader.missing_config_items())
+        if selected:
+            return (
+                f"GitHub 上传器未就绪：缺少{missing}。"
+                "发布模式会先完成本地保存，但上传和 Markdown 链接会失败。"
+            )
+        return f"当前未选择 GitHub；若要上传到 GitHub，还需补齐：{missing}。"
+
+    def _refresh_github_status(self) -> None:
+        label = getattr(self, "github_status_label", None)
+        if label is not None:
+            label.setText(self._github_status_text())
 
     def on_github_token_save(self) -> None:
         from .secrets import set_github_token
@@ -267,7 +315,8 @@ class SettingsHandlers:
         ok = set_github_token(token, self._github_account_key())
         if ok:
             self.github_token_edit.clear()
-            self.github_token_edit.setPlaceholderText("Token 已保存（输入新值可覆盖）")
+            self._refresh_github_token_placeholder()
+            self._refresh_github_status()
             QMessageBox.information(self, "保存成功", "Token 已保存到 Windows 凭据管理器。")
         else:
             QMessageBox.warning(self, "保存失败", "无法写入系统凭据存储，请检查 keyring 后端。")
@@ -276,7 +325,8 @@ class SettingsHandlers:
         from .secrets import delete_github_token
         delete_github_token(self._github_account_key())
         self.github_token_edit.clear()
-        self.github_token_edit.setPlaceholderText("Personal Access Token（保存到系统凭据，不存配置文件）")
+        self._refresh_github_token_placeholder()
+        self._refresh_github_status()
         QMessageBox.information(self, "已清除", "Token 已从系统凭据中删除。")
 
     # ── 帮助文本 ──
@@ -501,6 +551,8 @@ class SettingsHandlers:
         self.github_repo_edit.setText(self.config.github_repo)
         self.github_branch_edit.setText(self.config.github_branch)
         self.github_prefix_edit.setText(self.config.github_path_prefix)
+        self._refresh_github_token_placeholder()
+        self._refresh_github_status()
         self.notification_check.setChecked(self.config.show_notifications)
         self.hdr_accurate_check.setChecked(self.config.hdr_color_accurate)
         self.snap_check.setChecked(self.config.snap_to_windows)

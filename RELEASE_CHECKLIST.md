@@ -5,9 +5,9 @@ Last verified: 2026-06-09
 
 ## Current Verified Baseline
 
-- Test suite: `619 passed, 110 subtests passed`
-- Executable SHA256: `35AB5AFBAD6D95F527E0F2DFFFB378242EC534FD9960E4D6E234B69D87661194`
-- Installer SHA256: `92D3C6E8A566C7C4E035997CBD451D1CD9FB8F8E17DB5AF4983862192DB2B281`
+- Test suite: `625 passed, 112 subtests passed`
+- Executable SHA256: `99AFB57BDBA3B6CEA9191F92CD318115B983EA05B7F89B0FAF5000071E8F1656`
+- Installer SHA256: `D35DFAC28E91909E0A841A0485711ED5865A3DD7DE06B5D401662337E539EEFC`
 - Executable signature status: `NotSigned`
 - Installer signature status: `NotSigned`
 
@@ -33,10 +33,10 @@ Last verified: 2026-06-09
   - desktop overlay workflow test
 - [ ] Build executable:
   - Output: `dist\QuickShot.exe`
-  - Expected SHA256 after the latest verification: `35AB5AFBAD6D95F527E0F2DFFFB378242EC534FD9960E4D6E234B69D87661194`
+  - Expected SHA256 after the latest verification: `99AFB57BDBA3B6CEA9191F92CD318115B983EA05B7F89B0FAF5000071E8F1656`
 - [ ] Build installer:
   - Output: `installer_output\QuickShot-5.3.9-Setup.exe`
-  - Expected SHA256 after the latest verification: `92D3C6E8A566C7C4E035997CBD451D1CD9FB8F8E17DB5AF4983862192DB2B281`
+  - Expected SHA256 after the latest verification: `D35DFAC28E91909E0A841A0485711ED5865A3DD7DE06B5D401662337E539EEFC`
 - [ ] Release manifest:
   - Manifest: `installer_output\QuickShot-5.3.9-release.txt`
   - Confirm `ExecutableSHA256` matches `dist\QuickShot.exe`.
@@ -90,7 +90,7 @@ Last verified: 2026-06-09
 - [ ] Downloaded `QuickShot-5.3.9-Setup.exe` from the GitHub Release.
 - [ ] Downloaded `QuickShot-5.3.9-release.txt` from the GitHub Release.
 - [ ] Verify the downloaded installer:
-  - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 -Tag v5.3.9 -ExpectedSha256 92D3C6E8A566C7C4E035997CBD451D1CD9FB8F8E17DB5AF4983862192DB2B281 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 -Tag v5.3.9 -ExpectedSha256 D35DFAC28E91909E0A841A0485711ED5865A3DD7DE06B5D401662337E539EEFC -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
 - [ ] Confirm:
   - release assets are present
   - downloaded installer SHA256 matches the expected release hash

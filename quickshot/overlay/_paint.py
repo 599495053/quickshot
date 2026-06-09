@@ -340,6 +340,8 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
                 if kind == "highlight":
                     color.setAlpha(96)
                 annotation_painter.draw_polyline(painter, points, color, self.scaled_stroke_width(float(item.get("width", 5))))
+            elif kind == "eraser":
+                self.draw_eraser_overlay(painter, item)
             elif kind == "text":
                 if index == self.dragging_text_index:
                     continue  # 正在拖动的文字由 draw_dragging_text_overlay 绘制
@@ -384,6 +386,25 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
                 annotation_painter.draw_number_badge(painter, center, int(item.get("num", 1)), color)
             elif kind == "blur":
                 self.draw_mosaic_overlay(painter, item)
+        painter.restore()
+
+    def draw_eraser_overlay(self, painter: QPainter, item: dict) -> None:
+        if self.base_edit_pixmap.isNull():
+            return
+        points = self.annotation_points_to_widget(item)
+        if len(points) < 2:
+            return
+        path = annotation_painter.eraser_path(points, self.scaled_stroke_width(float(item.get("width", 5))))
+        if path.isEmpty():
+            return
+        painter.save()
+        painter.setClipPath(path)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        painter.drawPixmap(
+            QRectF(self.selection_rect),
+            self.base_edit_pixmap,
+            QRectF(0, 0, self.base_edit_pixmap.width(), self.base_edit_pixmap.height()),
+        )
         painter.restore()
 
     def draw_mosaic_overlay(self, painter: QPainter, item: dict) -> None:

@@ -164,6 +164,26 @@ class DrawingMixin:
         })
         self.update_selection_display_cache()
 
+    def erase_stroke(self, points: List) -> None:
+        if len(points) < 2 or self.edit_pixmap.isNull() or self.base_edit_pixmap.isNull():
+            return
+        painter = QPainter(self.edit_pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        annotation_painter.restore_source_along_path(
+            painter,
+            [QPointF(point.x(), point.y()) for point in points],
+            float(self.stroke_width),
+            self.base_edit_pixmap,
+        )
+        painter.end()
+        self.invalidate_image_cache()
+        self.annotations.append({
+            "type": "eraser",
+            "points": [(int(point.x()), int(point.y())) for point in points],
+            "width": int(self.stroke_width),
+        })
+        self.update_selection_display_cache()
+
     def apply_mosaic(self, rect: QRect) -> None:
         rect = rect.intersected(QRect(0, 0, self.edit_pixmap.width(), self.edit_pixmap.height()))
         if rect.width() <= 0 or rect.height() <= 0:
@@ -276,6 +296,14 @@ class DrawingMixin:
             color.setAlpha(HIGHLIGHT_ALPHA)
             width = max(12.0, width * HIGHLIGHT_WIDTH_MULTIPLIER)
         annotation_painter.draw_polyline(painter, points, color, self.scaled_stroke_width(width))
+
+    def draw_eraser_preview(self, painter: QPainter) -> None:
+        points = [self.image_to_widget(point) for point in getattr(self, "drag_path", [])]
+        if len(points) < 2:
+            return
+        width = self.scaled_stroke_width(annotation_painter.eraser_width_from_stroke(float(self.stroke_width)))
+        annotation_painter.draw_polyline(painter, points, QColor(17, 24, 39, 110), width + 2.0)
+        annotation_painter.draw_polyline(painter, points, QColor(255, 255, 255, 190), width)
 
     def draw_mosaic_preview(self, painter: QPainter, start, end) -> None:
         s = self.image_to_widget(start)

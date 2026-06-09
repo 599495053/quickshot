@@ -177,9 +177,14 @@ def _changed_pixels(before: QImage, after: QImage) -> int:
 
 def _drag_tool(overlay: FloatingSnipOverlay, tool: str, start: QPoint, end: QPoint) -> None:
     overlay.select_tool(tool)
-    overlay.mousePressEvent(_MouseEvent(start))
-    overlay.mouseMoveEvent(_MouseEvent(end))
-    overlay.mouseReleaseEvent(_MouseEvent(end))
+    original_button_at = overlay.button_at
+    overlay.button_at = lambda _pos: ""  # type: ignore[method-assign]
+    try:
+        overlay.mousePressEvent(_MouseEvent(start))
+        overlay.mouseMoveEvent(_MouseEvent(end))
+        overlay.mouseReleaseEvent(_MouseEvent(end))
+    finally:
+        overlay.button_at = original_button_at  # type: ignore[method-assign]
 
 
 @pytest.mark.parametrize("scale", [1.0, 1.5, 2.0])
@@ -288,8 +293,6 @@ def test_all_toolbar_buttons_hit_expected_commands(
     overlay.clear_annotations = lambda: calls.append(("clear_annotations", ""))  # type: ignore[method-assign]
     overlay.finish = lambda: calls.append(("finish", ""))  # type: ignore[method-assign]
     overlay.close = lambda: calls.append(("close", ""))  # type: ignore[method-assign]
-    overlay.apply_shadow = lambda: calls.append(("apply_shadow", ""))  # type: ignore[method-assign]
-    overlay.apply_border = lambda: calls.append(("apply_border", ""))  # type: ignore[method-assign]
     overlay.apply_watermark = lambda: calls.append(("apply_watermark", ""))  # type: ignore[method-assign]
     overlay.toggle_style_panel = lambda kind: calls.append(("toggle_style_panel", kind))  # type: ignore[method-assign]
     overlay.cycle_fill_mode = lambda: calls.append(("cycle_fill_mode", ""))  # type: ignore[method-assign]
@@ -315,11 +318,11 @@ def test_all_toolbar_buttons_hit_expected_commands(
         "dashed_rect",
         "pen",
         "highlight",
+        "eraser",
         "text",
         "number",
         "mosaic",
         "blur",
-        "picker",
     ):
         assert key in called_tools
 

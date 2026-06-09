@@ -699,7 +699,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
         from .overlay._events import TOOL_DEFAULT_KEYS
         tool_names = {
             "arrow": "箭头", "rect": "矩形", "ellipse": "椭圆", "dashed_rect": "虚线框",
-            "pen": "画笔", "highlight": "高亮", "text": "文字", "number": "序号",
+            "pen": "画笔", "highlight": "高亮", "eraser": "橡皮擦", "text": "文字", "number": "序号",
             "mosaic": "马赛克", "blur": "模糊", "picker": "取色器",
         }
         custom = getattr(self.config, "edit_tool_hotkeys", None) or {}
@@ -707,7 +707,7 @@ class SettingsWindow(SettingsHandlers, QWidget):
         for tool_id, default_key in TOOL_DEFAULT_KEYS.items():
             current_keys[tool_id] = custom.get(tool_id, chr(default_key) if 0x41 <= default_key <= 0x5A else "")
         summary_parts = []
-        for tool_id in ["arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight", "text", "number", "mosaic", "blur", "picker"]:
+        for tool_id in ["arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight", "eraser", "text", "number", "mosaic", "blur", "picker"]:
             display = tool_names.get(tool_id, tool_id)
             key = current_keys.get(tool_id, "")
             summary_parts.append(f"{display}={key}" if key else f"{display}=?")

@@ -25,6 +25,7 @@ class ToolContext:
     draw_dashed_rect_on_pixmap: Callable
     draw_freehand_on_pixmap: Callable
     draw_highlight_on_pixmap: Callable
+    erase_stroke: Callable
     apply_mosaic: Callable
     apply_blur: Callable
     draw_arrow_preview: Callable
@@ -32,6 +33,7 @@ class ToolContext:
     draw_ellipse_preview: Callable
     draw_dashed_rect_preview: Callable
     draw_freehand_preview: Callable
+    draw_eraser_preview: Callable
     draw_mosaic_preview: Callable
     draw_blur_preview: Callable
 
@@ -140,6 +142,18 @@ class HighlightStrategy(ToolStrategy):
         ctx.draw_freehand_preview(painter)
 
 
+class EraserStrategy(ToolStrategy):
+    tool_name = "eraser"
+
+    def commit(self, ctx: ToolContext) -> None:
+        if len(ctx.path) >= 2:
+            ctx.push_history()
+            ctx.erase_stroke(ctx.path)
+
+    def preview(self, ctx: ToolContext, painter: QPainter) -> None:
+        ctx.draw_eraser_preview(painter)
+
+
 class MosaicStrategy(ToolStrategy):
     tool_name = "mosaic"
 
@@ -179,6 +193,7 @@ TOOL_STRATEGIES = {
     "dashed_rect": DashedRectStrategy(),
     "pen": PenStrategy(),
     "highlight": HighlightStrategy(),
+    "eraser": EraserStrategy(),
     "mosaic": MosaicStrategy(),
     "blur": BlurStrategy(),
 }

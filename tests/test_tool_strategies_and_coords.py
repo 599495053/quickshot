@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
-from PyQt6.QtCore import QPoint, QPointF, QRect, QSize
+from PyQt6.QtCore import QPoint, QRect, QSize
 
 from quickshot.overlay._tool_strategies import (
     ArrowStrategy,
     BlurStrategy,
     DashedRectStrategy,
     EllipseStrategy,
+    EraserStrategy,
     HighlightStrategy,
     MosaicStrategy,
     PenStrategy,
@@ -39,6 +40,7 @@ def _make_ctx(**overrides) -> ToolContext:
         draw_dashed_rect_on_pixmap=MagicMock(),
         draw_freehand_on_pixmap=MagicMock(),
         draw_highlight_on_pixmap=MagicMock(),
+        erase_stroke=MagicMock(),
         apply_mosaic=MagicMock(),
         apply_blur=MagicMock(),
         draw_arrow_preview=MagicMock(),
@@ -46,6 +48,7 @@ def _make_ctx(**overrides) -> ToolContext:
         draw_ellipse_preview=MagicMock(),
         draw_dashed_rect_preview=MagicMock(),
         draw_freehand_preview=MagicMock(),
+        draw_eraser_preview=MagicMock(),
         draw_mosaic_preview=MagicMock(),
         draw_blur_preview=MagicMock(),
     )
@@ -128,6 +131,26 @@ class HighlightStrategyTest(unittest.TestCase):
         ctx.draw_highlight_on_pixmap.assert_called_once()
 
 
+class EraserStrategyTest(unittest.TestCase):
+
+    def test_commit_calls_erase_stroke(self):
+        ctx = _make_ctx()
+        EraserStrategy().commit(ctx)
+        ctx.push_history.assert_called_once()
+        ctx.erase_stroke.assert_called_once()
+
+    def test_commit_too_few_points_noop(self):
+        ctx = _make_ctx(path=[QPoint(10, 10)])
+        EraserStrategy().commit(ctx)
+        ctx.push_history.assert_not_called()
+
+    def test_preview_calls_draw_eraser_preview(self):
+        ctx = _make_ctx()
+        painter = MagicMock()
+        EraserStrategy().preview(ctx, painter)
+        ctx.draw_eraser_preview.assert_called_once()
+
+
 class MosaicStrategyTest(unittest.TestCase):
 
     def test_commit_calls_apply_mosaic(self):
@@ -154,7 +177,7 @@ class BlurStrategyTest(unittest.TestCase):
 class ToolStrategiesRegistryTest(unittest.TestCase):
 
     def test_all_tools_registered(self):
-        expected = {"arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight", "mosaic", "blur"}
+        expected = {"arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight", "eraser", "mosaic", "blur"}
         self.assertEqual(set(TOOL_STRATEGIES.keys()), expected)
 
     def test_each_strategy_has_correct_tool_name(self):

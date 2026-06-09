@@ -26,8 +26,6 @@ _COMMAND_METHODS: Dict[str, str] = {
     "clear": "clear_annotations",
     "done": "finish",
     "cancel": "close",
-    "shadow": "apply_shadow",
-    "border": "apply_border",
     "watermark": "apply_watermark",
     "color": "toggle_style_panel",
     "width": "toggle_style_panel",
@@ -38,7 +36,7 @@ _COMMAND_METHODS: Dict[str, str] = {
 
 _TOOL_KEYS = {
     "arrow", "rect", "ellipse", "dashed_rect",
-    "pen", "highlight", "text", "number", "mosaic", "blur",
+    "pen", "highlight", "eraser", "text", "number", "mosaic", "blur",
     "picker",
 }
 
@@ -55,6 +53,7 @@ _DEFAULT_TOOL_KEY_MAP = {
     Qt.Key.Key_A: "arrow",
     Qt.Key.Key_R: "rect",
     Qt.Key.Key_B: "pen",
+    Qt.Key.Key_E: "eraser",
     Qt.Key.Key_H: "highlight",
     Qt.Key.Key_T: "text",
     Qt.Key.Key_M: "mosaic",
@@ -237,7 +236,7 @@ class EventMixin:
         elif self.active_tool in DRAW_TOOLS:
             self.drag_start = image_pos
             self.drag_end = image_pos
-            if self.active_tool in ("pen", "highlight"):
+            if self.active_tool in ("pen", "highlight", "eraser"):
                 self.drag_path = [image_pos]
             self.dragging_annotation = True
             self.update()
@@ -406,7 +405,7 @@ class EventMixin:
                 if image_pos is not None:
                     dirty = self.edit_repaint_rect()
                     self.drag_end = image_pos
-                    if self.active_tool in ("pen", "highlight"):
+                    if self.active_tool in ("pen", "highlight", "eraser"):
                         path = getattr(self, "drag_path", [])
                         if not path or (path[-1] - image_pos).manhattanLength() >= 2:
                             path.append(image_pos)
@@ -539,6 +538,7 @@ class EventMixin:
             draw_dashed_rect_on_pixmap=self.draw_dashed_rect_on_pixmap,
             draw_freehand_on_pixmap=self.draw_freehand_on_pixmap,
             draw_highlight_on_pixmap=self.draw_highlight_on_pixmap,
+            erase_stroke=self.erase_stroke,
             apply_mosaic=self.apply_mosaic,
             apply_blur=self.apply_blur,
             draw_arrow_preview=self.draw_arrow_preview,
@@ -546,6 +546,7 @@ class EventMixin:
             draw_ellipse_preview=self.draw_ellipse_preview,
             draw_dashed_rect_preview=self.draw_dashed_rect_preview,
             draw_freehand_preview=self.draw_freehand_preview,
+            draw_eraser_preview=self.draw_eraser_preview,
             draw_mosaic_preview=self.draw_mosaic_preview,
             draw_blur_preview=self.draw_blur_preview,
         )
@@ -557,6 +558,7 @@ class EventMixin:
         "dashed_rect": "已添加虚线框",
         "pen": "已添加画笔标注",
         "highlight": "已添加高亮",
+        "eraser": "已擦除标注",
         "mosaic": "已添加马赛克",
         "blur": "已添加模糊打码",
     }

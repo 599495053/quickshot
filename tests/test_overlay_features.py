@@ -144,6 +144,10 @@ class ToolbarButtonTest(unittest.TestCase):
         keys = [item[0] for item in FloatingSnipOverlay.toolbar_items()]
         self.assertNotIn("size_lock", keys)
         self.assertNotIn("reuse", keys)
+        self.assertNotIn("shadow", keys)
+        self.assertNotIn("border", keys)
+        self.assertNotIn("picker", keys)
+        self.assertIn("eraser", keys)
 
     def test_button_at_returns_key(self) -> None:
         overlay = _make_overlay()
@@ -285,11 +289,28 @@ class StylePanelTest(unittest.TestCase):
 
     def test_non_style_tools_keep_style_panel_closed(self) -> None:
         overlay = _make_overlay()
-        for tool in ("text", "number", "mosaic", "blur"):
+        for tool in ("text", "number", "eraser", "mosaic", "blur"):
             with self.subTest(tool=tool):
                 overlay.select_tool(tool)
                 self.assertEqual(overlay.style_panel_kind, "")
                 overlay.active_tool = "none"
+
+    def test_color_panel_contains_picker_action(self) -> None:
+        overlay = _make_overlay()
+        overlay.update_toolbar_layout()
+        overlay.toggle_style_panel("color")
+
+        self.assertIn("action:picker", overlay.style_option_rects)
+
+    def test_color_panel_picker_action_selects_picker(self) -> None:
+        overlay = _make_overlay()
+        overlay.update_toolbar_layout()
+        overlay.toggle_style_panel("color")
+
+        overlay.apply_style_panel_option("action:picker")
+
+        self.assertEqual(overlay.active_tool, "picker")
+        self.assertEqual(overlay.style_panel_kind, "")
 
     def test_click_outside_style_panel_closes_it(self) -> None:
         overlay = _make_overlay()

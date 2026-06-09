@@ -8,7 +8,7 @@ from PyQt6.QtCore import QPoint, QRect
 
 
 # 工具分类常量
-DRAW_TOOLS = frozenset({"arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight", "mosaic", "blur"})
+DRAW_TOOLS = frozenset({"arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight", "eraser", "mosaic", "blur"})
 STYLE_TOOLS = frozenset({"arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight"})
 
 
@@ -35,6 +35,7 @@ class ToolbarMixin:
             ("dashed_rect", "虚线框", "", "虚线框 D"),
             ("pen", "画笔", "", "画笔 B"),
             ("highlight", "高亮", "", "高亮 H"),
+            ("eraser", "橡皮擦", "", "橡皮擦 E"),
             ("text", "文字", "", "文字标注 T"),
             ("number", "序号", "", "序号标注 N"),
             ("mosaic", "马赛克", "", "马赛克 M"),
@@ -46,15 +47,12 @@ class ToolbarMixin:
             ("grid", "网格", "", "网格辅助 G"),
             ("sep", "", "", ""),
             ("ocr", "识文", "", "识别文字 O"),
-            ("picker", "取色", "", "取色器 I"),
             ("blur_all", "打码", "", "智能识别隐私信息并打码"),
             ("sep", "", "", ""),
             ("copy", "复制", "", "复制 Ctrl+C"),
             ("save", "保存", "", "保存 Ctrl+S"),
             ("pin", "贴图", "", "贴到桌面"),
             ("sep", "", "", ""),
-            ("shadow", "阴影", "", "添加阴影"),
-            ("border", "边框", "", "添加边框"),
             ("watermark", "水印", "", "添加水印"),
             ("sep", "", "", ""),
             ("undo", "撤销", "", "撤销 Ctrl+Z"),
@@ -123,6 +121,23 @@ class ToolbarMixin:
             return len(group) * button_size + max(0, len(group) - 1) * spacing
 
         max_content_w = max(button_size, compact_width - pad_x * 2)
+        split_groups = []
+        for group in groups:
+            if group_width(group) <= max_content_w:
+                split_groups.append(group)
+                continue
+            chunk = []
+            for item in group:
+                candidate = chunk + [item]
+                if chunk and group_width(candidate) > max_content_w:
+                    split_groups.append(chunk)
+                    chunk = [item]
+                else:
+                    chunk = candidate
+            if chunk:
+                split_groups.append(chunk)
+        groups = split_groups
+
         rows = []
         row = []
         row_w = 0
@@ -238,7 +253,7 @@ class ToolbarMixin:
         if self.style_panel_kind == "color":
             size = self.STYLE_COLOR_OPTION_SIZE
             gap = self.STYLE_GAP_COLOR
-            n = len(color_values)
+            n = len(color_values) + 1
             panel_w = pad_x * 2 + n * size + max(0, n - 1) * gap
             panel_h = pad_y * 2 + size
         elif self.style_panel_kind == "width":
@@ -254,7 +269,8 @@ class ToolbarMixin:
             opt_h = self.STYLE_WIDTH_OPTION_H
             gap = self.STYLE_GAP_COLOR
             row_gap = self.STYLE_ROW_GAP
-            color_row_w = len(color_values) * color_size + max(0, len(color_values) - 1) * gap
+            color_option_count = len(color_values) + 1
+            color_row_w = color_option_count * color_size + max(0, color_option_count - 1) * gap
             width_row_w = len(width_values) * opt_w + max(0, len(width_values) - 1) * gap
             content_w = max(color_row_w, width_row_w)
             panel_w = pad_x * 2 + content_w
@@ -299,7 +315,8 @@ class ToolbarMixin:
             opt_w = self.STYLE_WIDTH_OPTION_W
             gap = self.STYLE_GAP_COLOR
             row_gap = self.STYLE_ROW_GAP
-            color_row_w = len(color_values) * color_size + max(0, len(color_values) - 1) * gap
+            color_option_count = len(color_values) + 1
+            color_row_w = color_option_count * color_size + max(0, color_option_count - 1) * gap
             width_row_w = len(width_values) * opt_w + max(0, len(width_values) - 1) * gap
             content_w = max(color_row_w, width_row_w)
             if presets:
@@ -333,6 +350,7 @@ class ToolbarMixin:
         for value in values:
             self.style_option_rects[self.panel_option_id("color", value)] = QRect(cx, y, size, size)
             cx += size + gap
+        self.style_option_rects[self.panel_option_id("action", "picker")] = QRect(cx, y, size, size)
 
     def _lay_out_width_row(self, values: List[str], x: int, y: int, gap: int) -> None:
         opt_w = self.STYLE_WIDTH_OPTION_W
@@ -373,6 +391,9 @@ class ToolbarMixin:
         self.hover_style_option = ""
         if kind == "color":
             self.set_stroke_color(value)
+        elif kind == "action" and value == "picker":
+            self.select_tool("picker")
+            return
         elif kind == "width":
             try:
                 self.set_stroke_width(int(value))
@@ -447,6 +468,7 @@ class ToolbarMixin:
                 "dashed_rect": "虚线框模式：在选区内拖动画虚线框",
                 "pen": "画笔模式：按住拖动自由标注",
                 "highlight": "高亮模式：按住拖动标出重点",
+                "eraser": "橡皮擦：拖动擦除已添加的标注，可用线宽调整大小",
                 "text": "文字模式：点击选区内的位置输入文字",
                 "number": "序号模式：点击位置放置序号标记",
                 "mosaic": "马赛克模式：拖动选择要打码的区域",

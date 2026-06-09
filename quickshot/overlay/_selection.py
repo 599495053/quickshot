@@ -223,7 +223,10 @@ class SelectionMixin:
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         for item in self.annotations:
-            annotation_painter.paint_annotation_on_pixmap(painter, item)
+            if item.get("type") == "eraser":
+                annotation_painter.paint_eraser_on_pixmap(painter, item, self.base_edit_pixmap)
+            else:
+                annotation_painter.paint_annotation_on_pixmap(painter, item)
         painter.end()
         self.edit_pixmap = pixmap
         self.edit_pixmap.setDevicePixelRatio(1.0)

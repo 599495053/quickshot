@@ -442,5 +442,23 @@ class DrawHighlightTest(unittest.TestCase):
         self.assertEqual(ov.annotations[0]["type"], "highlight")
 
 
+class DrawEraserTest(unittest.TestCase):
+
+    def test_erase_stroke_restores_base_pixels_and_rebuilds(self):
+        ov = _make_overlay()
+        ov.stroke_color_name = "#ff0000"
+        points = [QPoint(50, 50), QPoint(140, 50)]
+        ov.draw_freehand_on_pixmap(points)
+        self.assertEqual(ov.edit_pixmap.toImage().pixelColor(90, 50).name().lower(), "#ff0000")
+
+        ov.stroke_width = 8
+        ov.erase_stroke(points)
+
+        self.assertEqual(ov.annotations[-1]["type"], "eraser")
+        self.assertEqual(ov.edit_pixmap.toImage().pixelColor(90, 50).getRgb()[:3], (60, 60, 60))
+        ov.rebuild_edit_pixmap()
+        self.assertEqual(ov.edit_pixmap.toImage().pixelColor(90, 50).getRgb()[:3], (60, 60, 60))
+
+
 if __name__ == "__main__":
     unittest.main()

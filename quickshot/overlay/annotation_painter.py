@@ -17,6 +17,7 @@ from PyQt6.QtGui import (
     QFontMetrics,
     QPainter,
     QPainterPath,
+    QPainterPathStroker,
     QPen,
     QPixmap,
     QPolygonF,
@@ -200,6 +201,47 @@ def draw_polyline(
         path.lineTo(pt)
     painter.drawPath(path)
     painter.restore()
+
+
+def eraser_width_from_stroke(width: float) -> float:
+    return max(8.0, float(width) * 2.0)
+
+
+def eraser_path(points: List[QPointF], width: float) -> QPainterPath:
+    path = QPainterPath()
+    if not points:
+        return path
+    path.moveTo(points[0])
+    for pt in points[1:]:
+        path.lineTo(pt)
+    stroker = QPainterPathStroker()
+    stroker.setWidth(eraser_width_from_stroke(width))
+    stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+    stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    return stroker.createStroke(path)
+
+
+def restore_source_along_path(
+    painter: QPainter,
+    points: List[QPointF],
+    width: float,
+    source: QPixmap,
+) -> None:
+    if len(points) < 2 or source.isNull():
+        return
+    path = eraser_path(points, width)
+    if path.isEmpty():
+        return
+    painter.save()
+    painter.setClipPath(path)
+    painter.drawPixmap(0, 0, source)
+    painter.restore()
+
+
+def paint_eraser_on_pixmap(painter: QPainter, item: Dict[str, object], source: QPixmap) -> None:
+    raw_points = item.get("points", [])
+    points = [QPointF(int(raw[0]), int(raw[1])) for raw in raw_points if isinstance(raw, (tuple, list)) and len(raw) == 2]
+    restore_source_along_path(painter, points, float(item.get("width", 5)), source)
 
 
 def text_annotation_path(top_left: QPointF, text: str, font: QFont, metrics: QFontMetrics | None = None) -> QPainterPath:

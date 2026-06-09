@@ -97,7 +97,7 @@ def _paint_once(overlay: FloatingSnipOverlay) -> None:
 class OverlayToolSmokeTest(unittest.TestCase):
     """每种工具走一遍 select_tool + paint + 模拟拖拽 paint。"""
 
-    DRAW_TOOLS = ("arrow", "rect", "pen", "highlight", "mosaic")
+    DRAW_TOOLS = ("arrow", "rect", "pen", "highlight", "eraser", "mosaic")
     # 仅这些工具会激活 stroke 颜色/线宽样式面板（mosaic/blur 无 stroke 配置）
     STYLE_TOOLS = ("arrow", "rect", "pen", "highlight")
     ALL_TOOLS = DRAW_TOOLS + ("text",)
@@ -117,7 +117,7 @@ class OverlayToolSmokeTest(unittest.TestCase):
                 overlay.drag_start = QPoint(50, 50)
                 overlay.drag_end = QPoint(200, 150)
                 overlay.dragging_annotation = True
-                if tool in ("pen", "highlight"):
+                if tool in ("pen", "highlight", "eraser"):
                     overlay.drag_path = [QPoint(50, 50), QPoint(120, 100), QPoint(200, 150)]
                 _paint_once(overlay)
 

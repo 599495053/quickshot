@@ -72,6 +72,18 @@ class StylePanelPaintMixin:
                     painter.setPen(self._pen_check_white if color_name.lower() not in ("#ffffff", "#ffcc00") else self._pen_check_dark)
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     painter.drawPath(path)
+            for option_id, rect in self.style_option_rects.items():
+                if not option_id.startswith("action:"):
+                    continue
+                action = option_id.split(":", 1)[1]
+                hovered = option_id == self.hover_style_option
+                bg = self._sp_hover_bg if hovered else self._sp_normal_bg
+                border = self._sp_hover_border if hovered else self._sp_preset_border
+                painter.setPen(QPen(border, 1))
+                painter.setBrush(bg)
+                painter.drawRoundedRect(QRectF(rect), 7, 7)
+                icon_rect = rect.adjusted(6, 6, -6, -6)
+                self.icons.draw(painter, action, icon_rect, qc("accent.base") if hovered else qc("text.primary"))
         if self.style_panel_kind in ("width", "style"):
             for option_id, rect in self.style_option_rects.items():
                 if not option_id.startswith("width:"):

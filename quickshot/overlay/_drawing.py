@@ -268,7 +268,13 @@ class DrawingMixin:
         rect = QRectF(s, e).normalized()
         if rect.width() <= 0 or rect.height() <= 0:
             return
-        annotation_painter.draw_rect_annotation(painter, rect, QColor(self.stroke_color_name), self.scaled_stroke_width(float(self.stroke_width)))
+        annotation_painter.draw_rect_annotation(
+            painter,
+            rect,
+            QColor(self.stroke_color_name),
+            self.scaled_stroke_width(float(self.stroke_width)),
+            getattr(self, "fill_mode", "none"),
+        )
 
     def draw_ellipse_preview(self, painter: QPainter, start, end) -> None:
         s = self.image_to_widget(start)
@@ -276,7 +282,13 @@ class DrawingMixin:
         rect = QRectF(s, e).normalized()
         if rect.width() <= 0 or rect.height() <= 0:
             return
-        annotation_painter.draw_ellipse_annotation(painter, rect, QColor(self.stroke_color_name), self.scaled_stroke_width(float(self.stroke_width)))
+        annotation_painter.draw_ellipse_annotation(
+            painter,
+            rect,
+            QColor(self.stroke_color_name),
+            self.scaled_stroke_width(float(self.stroke_width)),
+            getattr(self, "fill_mode", "none"),
+        )
 
     def draw_dashed_rect_preview(self, painter: QPainter, start, end) -> None:
         s = self.image_to_widget(start)

@@ -364,6 +364,9 @@ class DrawRectTest(unittest.TestCase):
         ov.push_history()
         ov.draw_rect_on_pixmap(QRect(50, 50, 100, 80))
         self.assertEqual(ov.annotations[0].get("fill"), "half")
+        color = ov.edit_pixmap.toImage().pixelColor(100, 90)
+        self.assertGreater(color.red(), 80)
+        self.assertLess(color.green(), 80)
 
     def test_draw_rect_outside_pixmap_noop(self):
         ov = _make_overlay()

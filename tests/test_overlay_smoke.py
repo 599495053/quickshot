@@ -136,6 +136,23 @@ class OverlayToolSmokeTest(unittest.TestCase):
         self.assertEqual(overlay.annotations[-1]["type"], "number")
         _paint_once(overlay)
 
+    def test_rect_fill_visible_in_edit_paint(self) -> None:
+        overlay = _make_overlay()
+        overlay.fill_mode = "half"
+        overlay.stroke_color_name = "#ff0000"
+        overlay.draw_rect_on_pixmap(QRect(50, 50, 120, 90))
+        canvas = QPixmap(overlay.width(), overlay.height())
+        canvas.fill(QColor(0, 0, 0))
+        painter = QPainter(canvas)
+        try:
+            overlay.paint_edit_mode(painter)
+        finally:
+            painter.end()
+
+        sample = canvas.toImage().pixelColor(overlay.image_to_widget(QPoint(105, 95)).toPoint())
+        self.assertGreater(sample.red(), 50)
+        self.assertLess(sample.green(), 30)
+
     def test_style_panel_renders_for_all_draw_tools(self) -> None:
         # 直接覆盖之前 QPainterPath 漏导入触发的崩溃路径
         for tool in self.STYLE_TOOLS:

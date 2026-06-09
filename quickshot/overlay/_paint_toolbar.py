@@ -100,7 +100,10 @@ class ToolbarPaintMixin:
             hovered = key == self.hover_button
             primary = key == 'done'
             danger = key == 'cancel'
-            toggled = key in ("color", "width") and self.style_panel_kind in ("style", key)
+            toggled = (
+                (key in ("color", "width") and self.style_panel_kind in ("style", key))
+                or (key == "fill" and getattr(self, "fill_mode", "none") != "none")
+            )
 
             rr = QRectF(rect).adjusted(2.0, 2.0, -2.0, -2.0)
             icon_rect = QRect(rect.left() + 8, rect.top() + 8, rect.width() - 16, rect.height() - 16)

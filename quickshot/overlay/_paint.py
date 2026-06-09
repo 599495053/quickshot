@@ -333,6 +333,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
                     QRectF(top_left, bottom_right).normalized(),
                     color,
                     self.scaled_stroke_width(float(item.get("width", 5))),
+                    str(item.get("fill", "none")),
                 )
             elif kind in ("pen", "highlight"):
                 points = self.annotation_points_to_widget(item)
@@ -368,6 +369,7 @@ class PaintMixin(ToolbarPaintMixin, StylePanelPaintMixin):
                     QRectF(top_left, bottom_right).normalized(),
                     color,
                     self.scaled_stroke_width(float(item.get("width", 5))),
+                    str(item.get("fill", "none")),
                 )
             elif kind == "dashed_rect":
                 rect = QRect(int(item.get("x", 0)), int(item.get("y", 0)), int(item.get("w", 0)), int(item.get("h", 0)))

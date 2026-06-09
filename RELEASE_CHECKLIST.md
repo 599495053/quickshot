@@ -1,139 +1,115 @@
 # QuickShot Release Checklist
 
 Version: 5.3.9
-Last verified: 2026-06-08
+Last verified: 2026-06-09
 
-## Quality Gates
+## Current Verified Baseline
 
-- [x] `python -m pytest -q`
-  - Result: `530 passed, 37 subtests passed`
-- [x] `python -m pyflakes quickshot launcher.py build_config.py`
-- [x] `python -m compileall -q quickshot launcher.py build_config.py`
-- [x] `python -m pip check`
-  - Result: `No broken requirements found.`
-- [x] GitHub Actions CI for the release commit passed:
-  - Run: `https://github.com/599495053/quickshot/actions/runs/27132246228`
-  - Commit: `ca772764e01c2078890f6c241eecfa90980c80b3`
-  - Result: `success`
+- Test suite: `619 passed, 110 subtests passed`
+- Executable SHA256: `35AB5AFBAD6D95F527E0F2DFFFB378242EC534FD9960E4D6E234B69D87661194`
+- Installer SHA256: `92D3C6E8A566C7C4E035997CBD451D1CD9FB8F8E17DB5AF4983862192DB2B281`
+- Executable signature status: `NotSigned`
+- Installer signature status: `NotSigned`
 
-## Build
+## 1. Version Sync
 
-- [x] Version references synchronized:
-  - Check: `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.9 -CheckOnly`
-  - Update command for a new release: `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version <new-version>`
-- [x] Automated release build:
-  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
-  - Manifest: `installer_output\QuickShot-5.3.9-release.txt`
-  - Current release script records executable and installer Authenticode signature status for newly generated manifests.
-- [x] Build executable:
-  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+- [ ] Update all version references for a new release:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version <new-version>`
+- [ ] Verify version references are synchronized:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 -Version 5.3.9 -CheckOnly`
+
+## 2. Full Local Release Build
+
+- [ ] Run the one-command release gate:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\full-release.ps1 -Clean -DesktopWorkflowTest`
+- [ ] Confirm the release script completed these gates:
+  - version metadata consistency
+  - `python -m pyflakes quickshot launcher.py build_config.py`
+  - `python -m compileall -q quickshot launcher.py build_config.py`
+  - `python -m pytest -q`
+  - PyInstaller build
+  - Inno Setup build
+  - packaged smoke tests
+  - desktop overlay workflow test
+- [ ] Build executable:
   - Output: `dist\QuickShot.exe`
-  - Size: `31657093` bytes
-  - SHA256: `2C1934DE601D1E29A804B65F830D32720B6F13E9ABD6BC6AFBD1DA53637DB4A9`
-- [x] Build installer:
-  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipInstall -Clean`
+  - Expected SHA256 after the latest verification: `35AB5AFBAD6D95F527E0F2DFFFB378242EC534FD9960E4D6E234B69D87661194`
+- [ ] Build installer:
   - Output: `installer_output\QuickShot-5.3.9-Setup.exe`
-  - Size: `33437488` bytes
-  - SHA256: `EB68758488AE638AE8D84B835570BA21A67C10D6A85B371C278DF170E4B3D56F`
+  - Expected SHA256 after the latest verification: `92D3C6E8A566C7C4E035997CBD451D1CD9FB8F8E17DB5AF4983862192DB2B281`
+- [ ] Release manifest:
+  - Manifest: `installer_output\QuickShot-5.3.9-release.txt`
+  - Confirm `ExecutableSHA256` matches `dist\QuickShot.exe`.
+  - Confirm `InstallerSHA256` matches `installer_output\QuickShot-5.3.9-Setup.exe`.
 
-## Installer Behavior
+## 3. Optional Install Verification
 
-- [x] Inno Setup compile completes with no warnings.
-- [x] Simplified Chinese installer language is available via `/LANG=chinesesimp`.
-- [x] Default install does not create a desktop shortcut.
-- [x] Default install does not create a Windows startup entry.
-- [x] Uninstall display name is `QuickShot`.
-- [x] Uninstall removes install directory, Start Menu entries, desktop shortcut if selected, startup registry value, and uninstall registry key.
-- [x] `[UninstallRun]` uses `RunOnceId` so the `taskkill` cleanup runs once on a clean install.
+- [ ] Install the freshly built release and verify the installed EXE hash:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\full-release.ps1 -SkipBuild -SkipInstaller -Install`
+- [ ] Verify the installed desktop overlay workflow:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-desktop-overlay-workflow.ps1 -ExePath "$env:LOCALAPPDATA\Programs\QuickShot\QuickShot.exe" -StopExisting`
+- [ ] Confirm the installed app starts normally and no new crash text appears in `%APPDATA%\QuickShot\debug.log`.
 
-## Runtime Smoke Tests
+## 4. Local Installer Verification
 
-- [x] Automated packaged smoke test:
-  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -SkipBuild -SkipInstaller -SmokeTest`
-- [x] Packaged app starts from `dist\QuickShot.exe`.
-- [x] Installed app starts from the install directory.
-- [x] Tray initializes successfully.
-- [x] Capture imports prewarm successfully.
-- [x] RapidOCR is optional in the default package; Windows system OCR remains available.
-- [x] NumPy/OpenBLAS, dxcam, and WinRT HDR capture modules are optional and absent from the default package.
-- [x] Region hotkey capture verified by `scripts\verify-desktop-hotkeys.ps1`.
-- [x] Window hotkey capture verified by `scripts\verify-desktop-hotkeys.ps1`.
-- [x] Clipboard formats observed during core capture verification:
-  - `application/x-qt-image`
-  - `DeviceIndependentBitmap`
-  - `image/png`
-- [x] Capture history writes new PNG files.
-- [x] Debug log has no new `CRASH`, `Traceback`, `error`, or `failed` entries during the tested launch windows.
+- [ ] Run the local installer verification:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
+- [ ] Confirm:
+  - installer SHA256 matches the local release manifest
+  - silent current-user install succeeds
+  - default install creates no desktop shortcut
+  - default install creates no Windows startup entry
+  - installed app launch smoke passes
+  - silent uninstall removes installed files and uninstall entry
 
-## Local Installer Verification
+## 5. Upgrade And Reinstall Verification
 
-- [x] Local installer verification passed:
-  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-local-installer.ps1 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
-- [x] Installer SHA256 matches the local release manifest.
-- [x] Silent current-user install succeeds.
-- [x] Default install does not create a desktop shortcut.
-- [x] Default install does not create a Windows startup entry.
-- [x] Installed app launch smoke passes.
-- [x] Silent uninstall removes installed files and uninstall entry.
+- [ ] Run upgrade/reinstall verification when a previous installer is available:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-<previous-version>-Setup.exe -PreviousVersion <previous-version> -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
+- [ ] Confirm:
+  - previous-to-current upgrade succeeds
+  - same-version reinstall succeeds
+  - exactly one uninstall entry exists after install
+  - app configuration is preserved
+  - default upgrade/reinstall creates no desktop shortcut
+  - default upgrade/reinstall changes no Windows startup entry
+  - silent uninstall removes installed files and uninstall entry
 
-## Upgrade/Reinstall Verification
+## 6. Publishing
 
-- [x] Upgrade/reinstall verification passed:
-  - Previous installer source: local v5.3.8 release artifact.
-  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-upgrade-installer.ps1 -PreviousInstallerPath .\installer_output\QuickShot-5.3.8-Setup.exe -PreviousVersion 5.3.8 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
-- [x] Previous-to-current upgrade succeeds: `5.3.8` -> `5.3.9`.
-- [x] Same-version reinstall succeeds: `5.3.9` -> `5.3.9`.
-- [x] Upgrade/reinstall keeps exactly one uninstall entry.
-- [x] Upgrade/reinstall preserves app configuration in the test AppData root.
-- [x] Default upgrade/reinstall creates no desktop shortcut and changes no Windows startup entry.
-- [x] Installed app launch smoke passes after upgrade/reinstall.
-- [x] Silent uninstall after upgrade/reinstall removes installed files and uninstall entry.
+- [ ] Confirm the current Git diff contains only intended release changes.
+- [ ] Decide whether the release should be signed.
+- [ ] Verify artifact signature state:
+  - Unsigned release: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 .\dist\QuickShot.exe .\installer_output\QuickShot-5.3.9-Setup.exe -ExpectedStatus NotSigned`
+  - Signed release: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 .\dist\QuickShot.exe .\installer_output\QuickShot-5.3.9-Setup.exe -RequireSigned`
+- [ ] Publish `installer_output\QuickShot-5.3.9-Setup.exe` as release asset.
+- [ ] Publish `installer_output\QuickShot-5.3.9-release.txt` as release asset.
 
-## GitHub Release Verification
+## 7. GitHub Release Verification
 
-- [x] GitHub Release exists:
-  - URL: `https://github.com/599495053/quickshot/releases/tag/v5.3.9`
-  - Published: `2026-06-08T10:43:48Z`
-  - Draft: `false`
-  - Prerelease: `false`
-- [x] Uploaded release assets are present:
-  - `QuickShot-5.3.9-Setup.exe`: `33437488` bytes, digest `sha256:eb68758488ae638ae8d84b835570ba21a67c10d6a85b371c278df170e4b3d56f`
-  - `QuickShot-5.3.9-release.txt`: `488` bytes, digest `sha256:9b2a836662bd3116423602b7bd6fcdbdbca72734bc2f9aabebb473a533ac98c3`
-- [x] Downloaded `QuickShot-5.3.9-Setup.exe` from the GitHub Release.
-- [x] Downloaded `QuickShot-5.3.9-release.txt` from the GitHub Release.
-- [x] Installer SHA256 matches the expected release hash:
-  - `EB68758488AE638AE8D84B835570BA21A67C10D6A85B371C278DF170E4B3D56F`
-- [x] Release manifest contains the same installer SHA256.
-- [x] Silent install from the downloaded installer succeeds.
-- [x] Default silent install does not create a desktop shortcut.
-- [x] Default silent install does not create a Windows startup entry.
-- [x] Installed app launches successfully from the install directory.
-- [x] Packaged privacy OCR fallback self-test passes.
-- [x] Packaged overlay edit smoke self-test passes.
-- [x] Packaged capture backend smoke self-test passes.
-- [x] Launch smoke test writes no new `CRASH`, `Traceback`, or unhandled exception entries.
-- [x] Silent uninstall succeeds and removes the uninstall entry, installed executable, startup entry, and desktop shortcuts.
-- [x] GitHub Release installer verification passed:
-  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 -Tag v5.3.9 -ExpectedSha256 EB68758488AE638AE8D84B835570BA21A67C10D6A85B371C278DF170E4B3D56F -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
+- [ ] Downloaded `QuickShot-5.3.9-Setup.exe` from the GitHub Release.
+- [ ] Downloaded `QuickShot-5.3.9-release.txt` from the GitHub Release.
+- [ ] Verify the downloaded installer:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-release-installer.ps1 -Tag v5.3.9 -ExpectedSha256 92D3C6E8A566C7C4E035997CBD451D1CD9FB8F8E17DB5AF4983862192DB2B281 -RemoveExisting -PrivacySelfTest -OverlaySelfTest -CaptureSelfTest`
+- [ ] Confirm:
+  - release assets are present
+  - downloaded installer SHA256 matches the expected release hash
+  - downloaded release manifest contains the same installer SHA256
+  - silent install from the downloaded installer succeeds
+  - default silent install creates no desktop shortcut
+  - default silent install creates no Windows startup entry
+  - installed app launches successfully from the install directory
+  - packaged privacy OCR fallback self-test passes
+  - packaged overlay edit smoke self-test passes
+  - packaged capture backend smoke self-test passes
+  - launch smoke test writes no new crash text
+  - silent uninstall removes installed files, uninstall entry, startup entry, and desktop shortcuts
 
 ## Known Build Notes
 
+- Inno Setup 6 is expected at `C:\Users\59949\AppData\Local\Programs\Inno Setup 6\ISCC.exe`, or can be passed with `-InnoSetupCompiler`.
 - PyInstaller may report optional missing modules from third-party packages. Current relevant optional entries include `pycparser.lextab`, `pycparser.yacctab`, and `cffi._pycparser`.
 - `email` must not be excluded from the PyInstaller build because `requests` and `urllib3` use standard-library `email.*` modules.
-- `ISCC.exe` is installed at `C:\Users\59949\AppData\Local\Programs\Inno Setup 6\ISCC.exe`. It may not be visible in already-running terminals until PATH is refreshed.
-- Code signing is optional. When a certificate is available, run `scripts\release.ps1` with `-Sign` and either `-CertificateThumbprint <thumbprint>` or `-CertificateFile <path>`.
-- Use `scripts\verify-artifact-signature.ps1` to confirm `NotSigned` for unsigned artifacts or `-RequireSigned` for signed artifacts.
+- RapidOCR, NumPy/OpenBLAS, dxcam, and WinRT HDR capture modules are optional in the default package.
+- Code signing is optional. When a certificate is available, run `scripts\full-release.ps1` with `-Sign` and either `-CertificateThumbprint <thumbprint>` or `-CertificateFile <path>`.
 - Keep `.pfx` and `.p12` certificate files out of Git. They are ignored by `.gitignore`.
-- Current release artifacts are unsigned because no code signing certificate is configured.
-
-## Before Publishing
-
-- [x] Confirm the current Git diff contains only intended release changes.
-- [x] Decide whether this release should be signed. Current release is unsigned; `Get-AuthenticodeSignature` returns `NotSigned` for both artifacts.
-- [x] Verify artifact signature state:
-  - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify-artifact-signature.ps1 .\dist\QuickShot.exe .\installer_output\QuickShot-5.3.9-Setup.exe -ExpectedStatus NotSigned`
-- [x] Decide whether to commit generated installer logs or keep them local only. Generated build output remains local and ignored.
-- [x] Run one final local installer smoke test if the installer script changes again.
-- [x] Verify region screenshot and current-window screenshot with `scripts\verify-desktop-hotkeys.ps1`.
-- [x] Publish `installer_output\QuickShot-5.3.9-Setup.exe` and its SHA256.
-- [x] Run GitHub Release installer verification after publishing.

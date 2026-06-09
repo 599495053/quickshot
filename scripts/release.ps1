@@ -4,6 +4,7 @@ param(
     [switch]$SkipBuild,
     [switch]$SkipInstaller,
     [switch]$SmokeTest,
+    [switch]$DesktopWorkflowTest,
     [string]$InnoSetupCompiler,
     [switch]$Sign,
     [string]$SignToolPath,
@@ -393,6 +394,17 @@ if ($SmokeTest) {
     }
     Invoke-Step "Self-test capture backend smoke" {
         Invoke-PackagedSelfTest $exeInfo.Path "capture-backend-smoke"
+    }
+}
+
+if ($DesktopWorkflowTest) {
+    Invoke-Step "Desktop overlay workflow test" {
+        Invoke-Native "powershell" @(
+            "-ExecutionPolicy", "Bypass",
+            "-File", ".\scripts\verify-desktop-overlay-workflow.ps1",
+            "-ExePath", $exeInfo.Path,
+            "-StopExisting"
+        )
     }
 }
 

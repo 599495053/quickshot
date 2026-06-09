@@ -128,7 +128,7 @@ class EventMixin:
             method = getattr(self, method_name, None)
             if method:
                 if command in ("color", "width"):
-                    method("style")
+                    method(command)
                 else:
                     method()
 

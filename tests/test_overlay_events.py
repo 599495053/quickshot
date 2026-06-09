@@ -98,6 +98,24 @@ class ExecuteCommandTest(unittest.TestCase):
         ov._execute_command("width")
         self.assertEqual(ov.style_panel_kind, "style")
 
+    def test_width_command_opens_eraser_size_panel(self):
+        ov = _make_overlay()
+        ov.select_tool("eraser")
+        ov.close_style_panel()
+
+        ov._execute_command("width")
+
+        self.assertEqual(ov.style_panel_kind, "width")
+
+    def test_color_command_does_not_open_color_panel_for_eraser(self):
+        ov = _make_overlay()
+        ov.select_tool("eraser")
+        ov.close_style_panel()
+
+        ov._execute_command("color")
+
+        self.assertEqual(ov.style_panel_kind, "width")
+
     def test_unknown_command_noop(self):
         ov = _make_overlay()
         msg_before = ov.message

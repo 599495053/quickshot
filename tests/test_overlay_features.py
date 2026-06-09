@@ -289,11 +289,34 @@ class StylePanelTest(unittest.TestCase):
 
     def test_non_style_tools_keep_style_panel_closed(self) -> None:
         overlay = _make_overlay()
-        for tool in ("text", "number", "eraser", "mosaic", "blur"):
+        for tool in ("text", "number", "mosaic", "blur"):
             with self.subTest(tool=tool):
                 overlay.select_tool(tool)
                 self.assertEqual(overlay.style_panel_kind, "")
                 overlay.active_tool = "none"
+
+    def test_eraser_opens_width_only_panel(self) -> None:
+        overlay = _make_overlay()
+        overlay.update_toolbar_layout()
+
+        overlay.select_tool("eraser")
+        overlay.update_style_panel_layout()
+
+        self.assertEqual(overlay.style_panel_kind, "width")
+        self.assertTrue(any(key.startswith("width:") for key in overlay.style_option_rects))
+        self.assertFalse(any(key.startswith("color:") for key in overlay.style_option_rects))
+        self.assertNotIn("action:picker", overlay.style_option_rects)
+
+    def test_eraser_width_option_sets_size_and_closes_panel(self) -> None:
+        overlay = _make_overlay()
+        overlay.update_toolbar_layout()
+        overlay.select_tool("eraser")
+
+        overlay.apply_style_panel_option("width:12")
+
+        self.assertEqual(overlay.stroke_width, 12)
+        self.assertEqual(overlay.style_panel_kind, "")
+        self.assertIn("橡皮擦大小", overlay.message)
 
     def test_color_panel_contains_picker_action(self) -> None:
         overlay = _make_overlay()

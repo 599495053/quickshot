@@ -462,6 +462,28 @@ class DrawEraserTest(unittest.TestCase):
         ov.rebuild_edit_pixmap()
         self.assertEqual(ov.edit_pixmap.toImage().pixelColor(90, 50).getRgb()[:3], (60, 60, 60))
 
+    def test_eraser_size_controls_restored_area(self):
+        def overlay_with_red_stroke() -> FloatingSnipOverlay:
+            ov = _make_overlay()
+            ov.stroke_color_name = "#ff0000"
+            ov.stroke_width = 28
+            ov.draw_freehand_on_pixmap([QPoint(40, 50), QPoint(160, 50)])
+            self.assertGreater(ov.edit_pixmap.toImage().pixelColor(100, 59).red(), 200)
+            return ov
+
+        small = overlay_with_red_stroke()
+        small.stroke_width = 3
+        small.erase_stroke([QPoint(40, 50), QPoint(160, 50)])
+        small_pixel = small.edit_pixmap.toImage().pixelColor(100, 59)
+
+        large = overlay_with_red_stroke()
+        large.stroke_width = 12
+        large.erase_stroke([QPoint(40, 50), QPoint(160, 50)])
+        large_pixel = large.edit_pixmap.toImage().pixelColor(100, 59)
+
+        self.assertGreater(small_pixel.red(), 200)
+        self.assertEqual(large_pixel.getRgb()[:3], (60, 60, 60))
+
 
 if __name__ == "__main__":
     unittest.main()

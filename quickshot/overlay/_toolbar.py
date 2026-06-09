@@ -10,6 +10,7 @@ from PyQt6.QtCore import QPoint, QRect
 # 工具分类常量
 DRAW_TOOLS = frozenset({"arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight", "eraser", "mosaic", "blur"})
 STYLE_TOOLS = frozenset({"arrow", "rect", "ellipse", "dashed_rect", "pen", "highlight"})
+WIDTH_STYLE_TOOLS = frozenset({"eraser"})
 
 
 class ToolbarMixin:
@@ -201,6 +202,13 @@ class ToolbarMixin:
     def style_panel_rects(self):
         return self.style_option_rects.items()
 
+    def _style_panel_kind_for_tool(self, tool: str) -> str:
+        if tool in WIDTH_STYLE_TOOLS:
+            return "width"
+        if tool in STYLE_TOOLS:
+            return "style"
+        return ""
+
     def _style_cache_key(self):
         """样式面板布局缓存 key，仅在相关状态变化时重算。"""
         if self.style_panel_kind not in ("color", "width", "style"):
@@ -363,7 +371,12 @@ class ToolbarMixin:
     # ── 交互 ──
 
     def toggle_style_panel(self, kind: str) -> None:
-        target_kind = "style" if kind in ("color", "width") else kind
+        if kind in ("color", "width", "style") and self.active_tool in WIDTH_STYLE_TOOLS:
+            target_kind = "width"
+        elif kind in ("color", "width"):
+            target_kind = "style"
+        else:
+            target_kind = kind
         if self.style_panel_kind == target_kind:
             self.style_panel_kind = ""
             self.hover_style_option = ""
@@ -373,6 +386,8 @@ class ToolbarMixin:
         self.update_style_panel_layout()
         if self.style_panel_kind:
             self.message = "选择标注样式"
+        if self.style_panel_kind == "width" and self.active_tool in WIDTH_STYLE_TOOLS:
+            self.message = "选择橡皮擦大小"
         self.update()
 
     def close_style_panel(self) -> None:
@@ -438,7 +453,6 @@ class ToolbarMixin:
             self.update()
 
     def select_tool(self, tool: str) -> None:
-        style_tools = STYLE_TOOLS
         if getattr(self, "privacy_preview_active", lambda: False)():
             self.cancel_privacy_preview()
         if self.text_panel_visible():
@@ -455,8 +469,9 @@ class ToolbarMixin:
             if self.active_tool != "none":
                 self.last_tool = self.active_tool
             self.active_tool = tool
-            if tool in style_tools:
-                self.style_panel_kind = "style"
+            style_panel_kind = self._style_panel_kind_for_tool(tool)
+            if style_panel_kind:
+                self.style_panel_kind = style_panel_kind
                 self.hover_style_option = ""
                 self.update_style_panel_layout()
             else:
@@ -515,5 +530,8 @@ class ToolbarMixin:
 
     def set_stroke_width(self, width: int) -> None:
         self.stroke_width = width
-        self.message = f"标注线宽：{width}px"
+        if self.active_tool in WIDTH_STYLE_TOOLS:
+            self.message = f"橡皮擦大小：{width}px"
+        else:
+            self.message = f"标注线宽：{width}px"
         self.update()
